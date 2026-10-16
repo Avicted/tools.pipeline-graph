@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Pipeline map</title>
+<script>
+  // Theme before first paint: saved choice, else the OS preference.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("pg-theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+  /* ---- themes ------------------------------------------------------------ */
+  :root, [data-theme="light"] {
+    --bg: #F1F5F9; --panel: #FFFFFF; --panel-2: #F8FAFC; --ink: #0F172A; --muted: #64748B; --faint: #94A3B8;
+    --line: #E2E8F0; --hover: #F1F5F9; --accent: #2563EB; --accent-ink: #FFFFFF; --accent-soft: #EFF6FF;
+    --lane-a: #F8FAFC; --lane-b: #FFFFFF; --lane-stroke: #CBD5E1; --lane-head: #1E3A8A; --lane-ext: #9A3412; --lane-title: #FFFFFF;
+    --code-bg: #0F172A; --code-ink: #E2E8F0; --halo: #FFFFFF; --edge-label: #475569;
+    --badge-bg: #FFF7ED; --badge-ink: #9A3412; --mono: #334155; --shadow: 0 1px 2px rgba(15,23,42,.08), 0 2px 8px rgba(15,23,42,.06);
+    --hit: rgba(234,179,8,.6); --sel: rgba(37,99,235,.35);
+    --n-build-fill: #FFFFFF; --n-build-stroke: #2563EB; --n-build-ink: #0F172A;
+    --n-composite-fill: #FAF5FF; --n-composite-stroke: #7C3AED; --n-composite-ink: #2E1065;
+    --n-external-fill: #FFF7ED; --n-external-stroke: #EA580C; --n-external-ink: #7C2D12;
+    --n-make-fill: #F1F5F9; --n-make-stroke: #64748B; --n-make-ink: #1E293B;
+    --n-image-fill: #ECFDF5; --n-image-stroke: #059669; --n-image-ink: #064E3B;
+    --e-snapshot: #2563EB; --e-artifact: #2563EB; --e-trigger: #EA580C; --e-runs: #64748B;
+    --e-depends: #94A3B8; --e-calls: #94A3B8; --e-produces: #059669; --e-consumes: #059669;
+  }
+  /* Gruvbox dark (https://github.com/morhetz/gruvbox) */
+  [data-theme="dark"] {
+    --bg: #1d2021; --panel: #282828; --panel-2: #32302f; --ink: #ebdbb2; --muted: #a89984; --faint: #7c6f64;
+    --line: #3c3836; --hover: #3c3836; --accent: #d79921; --accent-ink: #1d2021; --accent-soft: #3c3836;
+    --lane-a: #282828; --lane-b: #32302f; --lane-stroke: #504945; --lane-head: #458588; --lane-ext: #d65d0e; --lane-title: #fbf1c7;
+    --code-bg: #1d2021; --code-ink: #ebdbb2; --halo: #1d2021; --edge-label: #d5c4a1;
+    --badge-bg: #3c3836; --badge-ink: #fabd2f; --mono: #d5c4a1; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 2px 10px rgba(0,0,0,.3);
+    --hit: rgba(250,189,47,.7); --sel: rgba(215,153,33,.55);
+    --n-build-fill: #32302f; --n-build-stroke: #83a598; --n-build-ink: #ebdbb2;
+    --n-composite-fill: #32302f; --n-composite-stroke: #d3869b; --n-composite-ink: #ebdbb2;
+    --n-external-fill: #3c3836; --n-external-stroke: #fe8019; --n-external-ink: #fe8019;
+    --n-make-fill: #3c3836; --n-make-stroke: #928374; --n-make-ink: #d5c4a1;
+    --n-image-fill: #32361a; --n-image-stroke: #b8bb26; --n-image-ink: #ebdbb2;
+    --e-snapshot: #83a598; --e-artifact: #83a598; --e-trigger: #fe8019; --e-runs: #a89984;
+    --e-depends: #7c6f64; --e-calls: #928374; --e-produces: #b8bb26; --e-consumes: #8ec07c;
+  }
+
+  /* ---- chrome ------------------------------------------------------------ */
+  :root { --side: 264px; --top: 56px; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  button { font: inherit; color: inherit; }
+  header {
+    position: fixed; inset: 0 0 auto 0; height: var(--top); display: flex; align-items: center; gap: 14px;
+    padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 20;
+  }
+  header h1 { font-size: 16px; margin: 0; white-space: nowrap; }
+  header .sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .icon-btn, .tools button {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 7px; height: 32px; min-width: 32px;
+    padding: 0 10px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .icon-btn:hover, .tools button:hover { background: var(--hover); }
+  .tools { display: flex; gap: 6px; align-items: center; }
+  .tools input {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 7px;
+    height: 32px; padding: 0 10px; font: inherit; font-size: 12px; width: 240px;
+  }
+  .tools input::placeholder { color: var(--faint); }
+
+  /* ---- sidebar ----------------------------------------------------------- */
+  #sidebar {
+    position: fixed; top: var(--top); left: 0; bottom: 0; width: var(--side); background: var(--panel);
+    border-right: 1px solid var(--line); overflow-y: auto; z-index: 15; padding: 12px 10px 20px;
+    transition: transform .18s ease;
+  }
+  body.collapsed #sidebar { transform: translateX(-100%); }
+  #sidebar h4 {
+    margin: 16px 8px 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); font-weight: 700;
+  }
+  #sidebar h4:first-child { margin-top: 4px; }
+  .nav button {
+    display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: none; text-align: left;
+    padding: 7px 10px; border-radius: 7px; font-size: 13px; cursor: pointer;
+  }
+  .nav button:hover { background: var(--hover); }
+  .nav button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .nav button .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav button .count { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .nav button.on .count { color: inherit; opacity: .8; }
+  .nav .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--lane-head); flex: none; }
+  .edges label {
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    user-select: none; font-size: 12px; white-space: nowrap;
+  }
+  .edges label:hover { background: var(--hover); }
+  .edges label.off { opacity: .4; }
+  .edges input { display: none; }
+  .edges svg { flex: none; }
+  #warn-btn {
+    margin: 18px 6px 0; width: calc(100% - 12px); border: 1px solid var(--line); background: var(--badge-bg); color: var(--badge-ink);
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; text-align: left;
+  }
+  .kbd { margin: 18px 10px 0; font-size: 11px; color: var(--faint); line-height: 18px; }
+  .kbd b { font-family: ui-monospace, monospace; font-weight: 600; color: var(--muted); }
+
+  /* ---- canvas ------------------------------------------------------------ */
+  #canvas { position: fixed; top: var(--top); right: 0; bottom: 0; left: var(--side); overflow: hidden; cursor: grab; transition: left .18s ease; }
+  body.collapsed #canvas { left: 0; }
+  #canvas.drag { cursor: grabbing; }
+  #svg { display: block; width: 100%; height: 100%; }
+  .lane-bg { stroke: var(--lane-stroke); }
+  .lane-bg.a { fill: var(--lane-a); } .lane-bg.b { fill: var(--lane-b); }
+  .lane-head { fill: var(--lane-head); } .lane-head.ext { fill: var(--lane-ext); }
+  .lane-title { fill: var(--lane-title); font-weight: 700; font-size: 14px; }
+  .edge { fill: none; transition: opacity .15s; }
+  .edge-label { font-size: 10px; fill: var(--edge-label); paint-order: stroke; stroke: var(--halo); stroke-width: 4px; stroke-linejoin: round; }
+  .node { cursor: pointer; transition: opacity .15s; }
+  .node .card {
+    width: 100%; height: 100%; border-radius: 9px; padding: 7px 10px; overflow: hidden; font-size: 11px; line-height: 15px;
+    border: 1.6px solid var(--stroke); background: var(--fill); color: var(--ink-n); box-shadow: var(--shadow);
+  }
+  .node.build     { --fill: var(--n-build-fill);     --stroke: var(--n-build-stroke);     --ink-n: var(--n-build-ink); }
+  .node.composite { --fill: var(--n-composite-fill); --stroke: var(--n-composite-stroke); --ink-n: var(--n-composite-ink); }
+  .node.external  { --fill: var(--n-external-fill);  --stroke: var(--n-external-stroke);  --ink-n: var(--n-external-ink); }
+  .node.make      { --fill: var(--n-make-fill);      --stroke: var(--n-make-stroke);      --ink-n: var(--n-make-ink); }
+  .node.image     { --fill: var(--n-image-fill);     --stroke: var(--n-image-stroke);     --ink-n: var(--n-image-ink); }
+  .node.external .card { border-style: dashed; }
+  .node.make .card { border-width: 1px; box-shadow: none; border-radius: 7px; }
+  .node.image .card { border-radius: 22px; }
+  .node .t { font-weight: 700; font-size: 12px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node .s { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node .l { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; color: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node .lines { margin-top: 6px; }
+  .node .b { margin-top: 5px; display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
+  .node .b span { background: var(--badge-bg); color: var(--badge-ink); border-radius: 4px; padding: 0 5px; font-size: 10px; white-space: nowrap; }
+  .node:hover .card { box-shadow: 0 0 0 3px var(--sel); }
+  .node.sel .card { box-shadow: 0 0 0 4px var(--sel); }
+  .node.hit .card { box-shadow: 0 0 0 4px var(--hit); }
+  .dim { opacity: .14; }
+
+  /* ---- details panel ----------------------------------------------------- */
+  #panel {
+    position: fixed; top: var(--top); right: 0; bottom: 0; width: 420px; background: var(--panel); border-left: 1px solid var(--line);
+    transform: translateX(100%); transition: transform .18s ease; z-index: 18; overflow-y: auto; padding: 18px 20px 40px;
+  }
+  #panel.open { transform: none; }
+  #panel h2 { font-size: 16px; margin: 0 0 2px; padding-right: 24px; }
+  #panel .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  #panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 18px 0 6px; }
+  #panel pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 16px;
+    overflow-x: auto; margin: 4px 0 10px; white-space: pre; border: 1px solid var(--line);
+  }
+  #panel code { font-size: 11px; }
+  #panel .step { font-size: 12px; font-weight: 600; }
+  #panel .step small { color: var(--muted); font-weight: 400; }
+  #panel ul { margin: 0; padding-left: 16px; font-size: 12px; line-height: 20px; }
+  #panel a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  #panel a:hover { text-decoration: underline; }
+  #panel small.dim-ink { color: var(--faint); }
+  #panel table { font-size: 11px; border-collapse: collapse; width: 100%; }
+  #panel td { border-top: 1px solid var(--line); padding: 3px 4px; vertical-align: top; word-break: break-all; }
+  #panel .close { position: absolute; right: 12px; top: 10px; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); }
+  .pill { display: inline-block; font-size: 10px; border-radius: 4px; padding: 1px 6px; margin-right: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  @media (max-width: 800px) {
+    #canvas { left: 0; }
+    #sidebar { box-shadow: 4px 0 24px rgba(0,0,0,.25); }
+    header .sub, .tools input { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button class="icon-btn" id="side-toggle" title="Toggle sidebar ( [ )" aria-label="Toggle sidebar" aria-controls="sidebar">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg>
+  </button>
+  <h1>Pipeline map</h1>
+  <div class="sub" id="sub"></div>
+  <div class="tools">
+    <input id="search" type="search" placeholder="Search builds, targets, images…  ( / )">
+    <button id="fit" title="Fit to screen (F)">Fit</button>
+    <button id="zin" title="Zoom in">+</button>
+    <button id="zout" title="Zoom out">−</button>
+    <button id="theme" title="Toggle light / dark (T)" aria-label="Toggle theme"></button>
+  </div>
+</header>
+
+<nav id="sidebar" aria-label="Views">
+  <h4>Views</h4>
+  <div class="nav" id="nav-views"></div>
+  <h4>Repositories</h4>
+  <div class="nav" id="nav-repos"></div>
+  <h4>Edges</h4>
+  <div class="edges" id="edge-filters"></div>
+  <div id="warn"></div>
+  <div class="kbd"><b>/</b> search · <b>F</b> fit · <b>[</b> sidebar · <b>T</b> theme · <b>Esc</b> clear</div>
+</nav>
+
+<div id="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg"><defs id="defs"></defs><g id="vp"></g></svg></div>
+<aside id="panel"><button class="close" id="close" aria-label="Close">×</button><div id="panel-body"></div></aside>
+
+<script>
+const DATA = /*DATA*/null;
+const NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const svg = $("svg"), vp = $("vp");
+const styles = Object.fromEntries(DATA.edgeStyles.map(s => [s.kind, s]));
+const hidden = new Set();
+let view = null, tf = { x: 0, y: 0, k: 1 }, selected = null;
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function dash(s) { return s.dash === "dash" ? "6 4" : s.dash === "dot" ? "1.5 3.5" : ""; }
+const edgeColor = kind => `var(--e-${kind})`;
+
+// arrow markers, one per edge kind; colour via CSS so they follow the theme
+for (const s of DATA.edgeStyles) {
+  const m = el("marker", { id: "m-" + s.kind, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, $("defs"));
+  el("path", { d: "M0,1 L10,5 L0,9 z", style: `fill:${edgeColor(s.kind)}` }, m);
+}
+
+function curve(pts) {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+    const dx = Math.max(Math.abs(x1 - x0) / 2, 30) * (x1 >= x0 ? 1 : -1);
+    d += ` C${x0 + dx},${y0} ${x1 - dx},${y1} ${x1},${y1}`;
+  }
+  return d;
+}
+
+// ---- rendering ---------------------------------------------------------------
+function render(v) {
+  view = v; selected = null; $("panel").classList.remove("open");
+  store.set("pg-view", v.id);
+  if (location.hash.slice(1) !== v.id) history.replaceState(null, "", "#" + v.id);
+  vp.innerHTML = "";
+  document.querySelectorAll("#sidebar .nav button").forEach(b => b.classList.toggle("on", b.dataset.id === v.id));
+  document.title = `${v.title} · Pipeline map`;
+  const lanes = el("g", {}, vp), edges = el("g", {}, vp), labels = el("g", {}, vp), nodes = el("g", {}, vp);
+  v.lanes.forEach((l, i) => {
+    const [x, y, w, h] = l.box;
+    el("rect", { x, y, width: w, height: h, rx: 10, class: "lane-bg " + (i % 2 ? "b" : "a") }, lanes);
+    el("path", { d: `M${x + 10},${y} h34 v${h} h-34 a10,10 0 0 1 -10,-10 v${-(h - 20)} a10,10 0 0 1 10,-10 z`, class: "lane-head" + (l.name === "External" ? " ext" : "") }, lanes);
+    const t = el("text", { x: x + 27, y: y + h / 2, class: "lane-title", "text-anchor": "middle", transform: `rotate(-90 ${x + 27} ${y + h / 2})` }, lanes);
+    t.textContent = l.name;
+  });
+  for (const e of v.edges) {
+    const s = styles[e.kind];
+    const p = el("path", { d: curve(e.points), class: "edge", style: `stroke:${edgeColor(e.kind)}`, "stroke-width": s.width, "stroke-dasharray": dash(s), "marker-end": `url(#m-${e.kind})` }, edges);
+    p.dataset.from = e.from; p.dataset.to = e.to; p.dataset.kind = e.kind;
+    const label = e.kind === "trigger" ? ("triggers " + (e.label || "")).trim() : (e.kind === "runs" ? "" : e.label);
+    if (label) {
+      const a = e.points[0], b = e.points[e.points.length - 1];
+      const mid = e.points.length > 2 ? e.points[Math.floor(e.points.length / 2)] : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const t = el("text", { x: mid[0], y: mid[1] - 5, class: "edge-label", "text-anchor": "middle" }, labels);
+      t.textContent = label.length > 40 ? label.slice(0, 38) + "…" : label;
+      t.dataset.from = e.from; t.dataset.to = e.to; t.dataset.kind = e.kind;
+    }
+  }
+  for (const n of v.nodes) {
+    const g = el("g", { class: "node " + n.kind, transform: `translate(${n.x},${n.y})` }, nodes);
+    g.dataset.id = n.id;
+    const fo = el("foreignObject", { width: n.w, height: n.h }, g);
+    const c = n.card;
+    fo.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" class="card">
+      <div class="t" title="${esc(c.title)}">${esc(c.title)}</div>
+      ${c.sub ? `<div class="s" title="${esc(c.sub)}">${esc(c.sub)}</div>` : ""}
+      ${c.lines ? `<div class="lines">${c.lines.map(l => `<div class="l" title="${esc(l)}">${esc(l)}</div>`).join("")}</div>` : ""}
+      ${c.badges ? `<div class="b">${c.badges.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}</div>`;
+    g.addEventListener("click", ev => { ev.stopPropagation(); select(n.id); });
+  }
+  applyHidden();
+  if ($("search").value) $("search").dispatchEvent(new Event("input"));
+  fit();
+}
+
+function applyHidden() {
+  vp.querySelectorAll("[data-kind]").forEach(e => e.style.display = hidden.has(e.dataset.kind) ? "none" : "");
+}
+
+// ---- selection: highlight everything upstream and downstream of a node -------
+function reach(id, dir) {
+  const seen = new Set([id]), stack = [id];
+  while (stack.length) {
+    const cur = stack.pop();
+    for (const e of view.edges) {
+      if (hidden.has(e.kind)) continue;
+      const [a, b] = dir === "down" ? [e.from, e.to] : [e.to, e.from];
+      if (a === cur && !seen.has(b)) { seen.add(b); stack.push(b); }
+    }
+  }
+  return seen;
+}
+
+function select(id) {
+  selected = id;
+  const keep = new Set([...reach(id, "down"), ...reach(id, "up")]);
+  vp.querySelectorAll(".node").forEach(g => {
+    g.classList.toggle("dim", !keep.has(g.dataset.id));
+    g.classList.toggle("sel", g.dataset.id === id);
+  });
+  vp.querySelectorAll(".edge, .edge-label").forEach(p => p.classList.toggle("dim", !(keep.has(p.dataset.from) && keep.has(p.dataset.to))));
+  showPanel(id);
+}
+
+function clearSelection() {
+  selected = null;
+  vp.querySelectorAll(".dim, .sel").forEach(e => e.classList.remove("dim", "sel"));
+  $("panel").classList.remove("open");
+}
+
+function link(id) {
+  const n = DATA.nodes[id];
+  return `<a data-go="${esc(id)}">${esc(n ? n.label : id)}</a>${n && n.repo ? ` <small class="dim-ink">${esc(n.repo)}</small>` : ""}`;
+}
+
+function showPanel(id) {
+  const n = DATA.nodes[id];
+  const kindName = { build: n.composite ? "Composite build" : "Build configuration", make: "Make target", image: "Docker image", external: "External build configuration" }[n.kind];
+  let h = `<h2>${esc(n.label)}</h2><div class="meta"><span class="pill">${kindName}</span>${esc(n.repo || "")}${n.project ? " · " + esc(n.project) : ""}</div>`;
+  if (n.sub) h += `<div class="meta">${esc(n.sub)}</div>`;
+  if (n.source) h += `<div class="meta">Defined in <code>${esc(n.source)}</code></div>`;
+  if (n.triggers && n.triggers.length) {
+    h += `<h3>Triggers</h3><ul>${n.triggers.map(t => `<li><b>${esc(t.type)}</b> ${esc(t.detail || "")}</li>`).join("")}</ul>`;
+  }
+  const inE = view.edges.filter(e => e.to === id), outE = view.edges.filter(e => e.from === id);
+  const rel = (list, key) => list.map(e => `<li>${link(e[key])} <small class="dim-ink">${esc(styles[e.kind].legend)}${e.label ? " · " + esc(e.label) : ""}</small></li>`).join("");
+  if (inE.length) h += `<h3>Upstream (${inE.length})</h3><ul>${rel(inE, "from")}</ul>`;
+  if (outE.length) h += `<h3>Downstream (${outE.length})</h3><ul>${rel(outE, "to")}</ul>`;
+  if (n.steps && n.steps.length) {
+    h += `<h3>${n.kind === "make" ? "Recipe" : "Steps"}</h3>`;
+    n.steps.forEach((s, i) => {
+      if (n.kind !== "make") h += `<div class="step">${i + 1}. ${esc(s.name || s.type)} <small>${esc(s.type)}${s.workDir ? " · in " + esc(s.workDir) : ""}</small></div>`;
+      if (s.script) h += `<pre>${esc(s.script)}</pre>`;
+    });
+  }
+  if (n.artifacts && n.artifacts.length) h += `<h3>Artifact rules</h3><pre>${esc(n.artifacts.join("\n"))}</pre>`;
+  if (n.params && Object.keys(n.params).length) {
+    h += `<h3>Parameters</h3><table>${Object.keys(n.params).sort().map(k => `<tr><td>${esc(k)}</td><td>${esc(n.params[k])}</td></tr>`).join("")}</table>`;
+  }
+  $("panel-body").innerHTML = h;
+  $("panel").classList.add("open");
+  $("panel-body").querySelectorAll("[data-go]").forEach(a => a.addEventListener("click", () => goTo(a.dataset.go)));
+}
+
+// jump to a node, switching to a view that contains it when needed
+function goTo(id) {
+  if (!view.nodes.some(n => n.id === id)) {
+    const other = DATA.views.find(v => v.nodes.some(n => n.id === id));
+    if (!other) return;
+    render(other);
+  }
+  select(id);
+  focus(id);
+}
+
+// ---- pan & zoom --------------------------------------------------------------
+function apply() { vp.setAttribute("transform", `translate(${tf.x},${tf.y}) scale(${tf.k})`); }
+function fit() {
+  // fit the lanes (the layout reserves space at the top for the draw.io title block)
+  const r = svg.getBoundingClientRect();
+  if (!r.width || !view.lanes.length) return;
+  const y0 = Math.min(...view.lanes.map(l => l.box[1])) - 20, h = view.h - y0;
+  const k = Math.min(r.width / view.w, r.height / h, 1.2);
+  tf = { k, x: (r.width - view.w * k) / 2, y: Math.max(10, (r.height - h * k) / 2) - y0 * k };
+  apply();
+}
+function zoomAt(f, cx, cy) {
+  const k = Math.min(4, Math.max(0.05, tf.k * f));
+  tf.x = cx - (cx - tf.x) * (k / tf.k); tf.y = cy - (cy - tf.y) * (k / tf.k); tf.k = k; apply();
+}
+function focus(id) {
+  const n = view.nodes.find(n => n.id === id);
+  if (!n) return;
+  const r = svg.getBoundingClientRect();
+  tf.k = Math.max(tf.k, 0.9);
+  tf.x = r.width / 2 - (n.x + n.w / 2) * tf.k; tf.y = r.height / 2 - (n.y + n.h / 2) * tf.k; apply();
+}
+svg.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = svg.getBoundingClientRect();
+  zoomAt(Math.exp(-ev.deltaY * 0.0015), ev.clientX - r.left, ev.clientY - r.top);
+}, { passive: false });
+let drag = null;
+svg.addEventListener("pointerdown", ev => { drag = { x: ev.clientX, y: ev.clientY, tx: tf.x, ty: tf.y, moved: false }; $("canvas").classList.add("drag"); });
+window.addEventListener("pointermove", ev => {
+  if (!drag) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+  tf.x = drag.tx + dx; tf.y = drag.ty + dy; apply();
+});
+window.addEventListener("pointerup", () => { $("canvas").classList.remove("drag"); setTimeout(() => drag = null, 0); });
+svg.addEventListener("click", () => { if (!drag || !drag.moved) clearSelection(); });
+$("fit").onclick = fit;
+$("zin").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(1.25, r.width / 2, r.height / 2); };
+$("zout").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(0.8, r.width / 2, r.height / 2); };
+$("close").onclick = clearSelection;
+
+// ---- sidebar -----------------------------------------------------------------
+function setSidebar(open) {
+  document.body.classList.toggle("collapsed", !open);
+  $("side-toggle").setAttribute("aria-expanded", String(open));
+  store.set("pg-sidebar", open ? "open" : "closed");
+}
+$("side-toggle").onclick = () => setSidebar(document.body.classList.contains("collapsed"));
+// keep the diagram fitted while the canvas grows or shrinks with the sidebar
+$("canvas").addEventListener("transitionend", ev => { if (ev.propertyName === "left" && view) fit(); });
+
+function navButton(v, label, parent, withDot) {
+  const b = document.createElement("button");
+  b.dataset.id = v.id;
+  b.innerHTML = `${withDot ? '<span class="dot"></span>' : ""}<span class="name">${esc(label)}</span><span class="count">${v.nodes.length}</span>`;
+  b.title = `${v.title}: ${v.nodes.length} nodes, ${v.edges.length} links`;
+  b.onclick = () => { render(v); if (matchMedia("(max-width: 800px)").matches) setSidebar(false); };
+  parent.appendChild(b);
+}
+for (const v of DATA.views) {
+  const repo = v.id.startsWith("repo-");
+  navButton(v, v.title, repo ? $("nav-repos") : $("nav-views"), repo);
+}
+if (!$("nav-repos").children.length) { $("nav-repos").previousElementSibling.remove(); $("nav-repos").remove(); }
+
+const present = new Set(DATA.views.flatMap(v => v.edges.map(e => e.kind)));
+for (const s of DATA.edgeStyles) {
+  if (!present.has(s.kind)) continue;
+  const l = document.createElement("label");
+  l.innerHTML = `<input type="checkbox" checked><svg width="34" height="10"><line x1="1" y1="5" x2="27" y2="5" style="stroke:${edgeColor(s.kind)}" stroke-width="${s.width}" stroke-dasharray="${dash(s)}"/><path d="M26,1 L34,5 L26,9 z" style="fill:${edgeColor(s.kind)}"/></svg>${esc(s.legend)}`;
+  l.onclick = ev => {
+    ev.preventDefault();
+    hidden.has(s.kind) ? hidden.delete(s.kind) : hidden.add(s.kind);
+    l.classList.toggle("off", hidden.has(s.kind));
+    applyHidden();
+    if (selected) select(selected);
+  };
+  $("edge-filters").appendChild(l);
+}
+if (DATA.warnings && DATA.warnings.length) {
+  const b = document.createElement("button");
+  b.id = "warn-btn";
+  b.textContent = `⚠ ${DATA.warnings.length} analysis warning${DATA.warnings.length > 1 ? "s" : ""}`;
+  b.onclick = () => {
+    $("panel-body").innerHTML = `<h2>Analysis warnings</h2><div class="meta">Constructs the static analysis could not resolve. Fix the source or the config to make the map exact.</div><ul>${DATA.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
+    $("panel").classList.add("open");
+  };
+  $("warn").appendChild(b);
+}
+
+// ---- theme -------------------------------------------------------------------
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  $("theme").textContent = t === "dark" ? "☀" : "☾";
+  $("theme").title = `Switch to ${t === "dark" ? "light" : "dark"} theme (T)`;
+}
+$("theme").onclick = () => {
+  const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  store.set("pg-theme", t);
+  setTheme(t);
+};
+// follow the OS until the user picks a theme explicitly
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => { if (!store.get("pg-theme")) setTheme(e.matches ? "dark" : "light"); });
+setTheme(document.documentElement.dataset.theme);
+
+// ---- search & keys -----------------------------------------------------------
+$("search").addEventListener("input", ev => {
+  const q = ev.target.value.trim().toLowerCase();
+  vp.querySelectorAll(".node").forEach(g => {
+    const n = DATA.nodes[g.dataset.id];
+    const hay = [n.label, n.sub, n.repo, n.project, ...(n.steps || []).map(s => s.script)].join(" ").toLowerCase();
+    const hit = q && hay.includes(q);
+    g.classList.toggle("hit", !!hit);
+    g.classList.toggle("dim", !!q && !hit);
+  });
+  vp.querySelectorAll(".edge, .edge-label").forEach(p => p.classList.toggle("dim", !!q));
+});
+$("search").addEventListener("keydown", ev => {
+  if (ev.key === "Enter") { const h = vp.querySelector(".node.hit"); if (h) { select(h.dataset.id); focus(h.dataset.id); } }
+  if (ev.key === "Escape") { ev.target.value = ""; ev.target.dispatchEvent(new Event("input")); ev.target.blur(); }
+});
+window.addEventListener("keydown", ev => {
+  if (ev.target.tagName === "INPUT" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.key === "/") { ev.preventDefault(); $("search").focus(); }
+  if (ev.key === "f" || ev.key === "F") fit();
+  if (ev.key === "[") $("side-toggle").click();
+  if (ev.key === "t" || ev.key === "T") $("theme").click();
+  if (ev.key === "Escape") clearSelection();
+});
+
+// ---- start -------------------------------------------------------------------
+$("sub").textContent = DATA.subtitle;
+$("sub").title = DATA.subtitle;
+setSidebar(store.get("pg-sidebar") !== "closed" && !matchMedia("(max-width: 800px)").matches);
+window.addEventListener("resize", () => view && fit());
+window.addEventListener("hashchange", () => {
+  const v = DATA.views.find(v => v.id === location.hash.slice(1));
+  if (v && v !== view) render(v);
+});
+const startId = location.hash.slice(1) || store.get("pg-view");
+render(DATA.views.find(v => v.id === startId) || DATA.views[0]);
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Copy to pipeline-graph.yaml and list your repositories.
+repos:
+  # a bare string is enough...
+  - git@github.com:acme/service-a.git
+  # ...or a mapping with options
+  - url: git@github.com:acme/platform-base.git
+    branch: main                      # default: the remote's default branch
+    name: platform-base               # swimlane title; default: repo name from the URL
+    teamcity_project_id: PlatformBase # TeamCity project the DSL is imported into; default: derived from name
+    # teamcity_dir: .teamcity         # default below
+  # local checkouts work too (no clone, analysed as-is)
+  # - ../release-train
+
+# cache_dir: ~/.cache/pipeline-graph   # shallow clones are kept and refreshed here
+out_dir: out
+teamcity_dir: .teamcity
+views: [overview, full, per-repo]       # draw.io pages / HTML tabs
+formats: [drawio, vsdx, html, mermaid, dot, json]
+concurrency: 4
+
+# Absolute TeamCity ids referenced from the DSL that the tool cannot map by
+# itself (see warnings.txt), mapped to "<repo name>/<relative id>".
+external_ids:
+  # Acme_Legacy_PlatformBase_BuildBaseImage: platform-base/BuildBaseImage

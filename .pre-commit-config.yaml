@@ -1,0 +1,132 @@
+# Pre-commit quality + security gate for pipeline-graph.
+#   https://pre-commit.com
+#
+#   make hooks               run the hooks on each commit/push, in Docker
+#   make pre-commit-run      every hook on every file, in Docker
+#   make pre-commit-pr-run   hooks on origin/master..HEAD, in Docker
+#   make secrets             gitleaks over the working tree and the full history
+#
+# On commit the hooks see the staged files; on push every hook runs on every
+# file (plus govulncheck and a history secret scan) before anything leaves the
+# machine. The local hooks call binaries baked into Dockerfile.pre-commit, so
+# they are meant to run in that image rather than on the host.
+
+# Golden files are byte-exact tool output; the fixers must not touch them.
+exclude: ^test/integration/testdata/.*\.golden$
+
+repos:
+  # ---- Generic hygiene -------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  # ---- Go, linters and secret scanning, from the image -----------------------
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: gofmt -l -w
+        language: system
+        types: [go]
+
+      - id: go-mod-tidy
+        name: go mod tidy (no diff)
+        entry: go mod tidy -diff
+        language: system
+        files: (\.go|^go\.mod|^go\.sum)$
+        pass_filenames: false
+
+      - id: go-vet
+        name: go vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: golangci-lint
+        name: golangci-lint
+        entry: golangci-lint run ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      # Unit tests plus the end-to-end run against the fixture repos. Renderer
+      # changes show up here as golden-file diffs (accept with `make golden`).
+      - id: go-test
+        name: go test
+        entry: go test ./...
+        language: system
+        files: (\.go|\.html|\.golden|^go\.(mod|sum)|^test/fixtures/.*)$
+        pass_filenames: false
+
+      # Needs the network (vulnerability database), so not on every commit.
+      - id: govulncheck
+        name: govulncheck
+        entry: govulncheck ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push, manual]
+
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck -x
+        language: system
+        types: [shell]
+
+      # examples/ holds fictional input repos for the analyzer, never built;
+      # their unpinned `:latest` tags and apk installs are part of the story.
+      - id: hadolint
+        name: hadolint
+        entry: hadolint
+        language: system
+        files: (^|/)Dockerfile(\.[a-z-]+)?$
+        exclude: ^examples/
+
+      - id: makefile
+        name: Makefile parses
+        entry: make -n help
+        language: system
+        files: ^Makefile$
+        pass_filenames: false
+
+      # What is about to be committed. On a commit that is the staged diff; on
+      # `make pre-commit-run` (--all-files) there is nothing staged, so the tree
+      # scan below is what covers it.
+      - id: gitleaks-staged
+        name: gitleaks (staged changes)
+        entry: gitleaks git --pre-commit --staged --redact --no-banner
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: gitleaks-tree
+        name: gitleaks (working tree)
+        entry: gitleaks dir --redact --no-banner
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      # A secret that ever landed in history is leaked once pushed, even if a
+      # later commit removed it. Checked before it leaves the machine.
+      - id: gitleaks-history
+        name: gitleaks (full git history)
+        entry: gitleaks git --redact --no-banner
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push, manual]

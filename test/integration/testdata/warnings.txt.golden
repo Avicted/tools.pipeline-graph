@@ -1,0 +1,5 @@
+release-train: .teamcity/settings.kts:11: build configuration Billing_Deploy_staging not found in any analysed repo; shown as external
+service-a-main: .teamcity/patches/buildTypes/Build.kts:6: patch changeBuildType(Build) not applied: commit the patch into the DSL for accurate results
+service-a-main: deploy runs make in "deploy/prod" but no makefile was found there
+service-a: .teamcity/patches/buildTypes/Build.kts:6: patch changeBuildType(Build) not applied: commit the patch into the DSL for accurate results
+service-a: deploy runs make in "deploy/prod" but no makefile was found there

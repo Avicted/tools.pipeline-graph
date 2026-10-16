@@ -1,0 +1,16 @@
+# A fictional "Acme" organisation: 7 repositories whose TeamCity pipelines
+# depend on each other. In real life these would be ssh URLs such as
+#   - git@github.com:acme/orders-service.git
+# Local directories (relative to this file) are analysed as-is.
+repos:
+  - repos/platform-images
+  - repos/shared-libs
+  - repos/infra-terraform
+  - repos/orders-service
+  - repos/payments-service
+  - repos/web-frontend
+  - repos/release-train
+
+out_dir: out/acme
+views: [overview, full, per-repo]
+formats: [drawio, vsdx, html, mermaid, dot, json]

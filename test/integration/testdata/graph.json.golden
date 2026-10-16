@@ -1,0 +1,848 @@
+{
+  "generated": "2026-01-01 00:00 UTC",
+  "repos": [
+    {
+      "name": "platform-base",
+      "url": "file://$TMP/remotes/platform-base",
+      "commit": "2837e630b78c7a2171ae335d73ac33400d0331e3"
+    },
+    {
+      "name": "service-a",
+      "url": "file://$TMP/remotes/service-a",
+      "commit": "3d36d78113a922b2979884a11aca03f9f6286335"
+    },
+    {
+      "name": "release-train",
+      "url": "file://$TMP/remotes/release-train",
+      "commit": "a89e03e540d39aec59af4c865aeb079d82447e72"
+    },
+    {
+      "name": "service-a-main",
+      "url": "file://$TMP/remotes/service-a",
+      "commit": "3d36d78113a922b2979884a11aca03f9f6286335"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "bt:platform-base/BuildBaseImage",
+      "kind": "build",
+      "repo": "platform-base",
+      "label": "Build base image",
+      "sub": "PlatformBase_BuildBaseImage",
+      "steps": [
+        {
+          "name": "prepare",
+          "type": "script",
+          "summary": "./ci/prepare.sh",
+          "script": "#!/bin/bash\nset -euo pipefail\n./ci/prepare.sh"
+        },
+        {
+          "name": "build",
+          "type": "dockerCommand",
+          "summary": "docker build -f Dockerfile -t registry.acme.io/base:%buil...",
+          "script": "docker build -f Dockerfile -t registry.acme.io/base:%build.number% ."
+        },
+        {
+          "name": "push",
+          "type": "dockerCommand",
+          "summary": "docker push registry.acme.io/base:%build.number%",
+          "script": "docker push registry.acme.io/base:%build.number%"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "vcs",
+          "detail": "+:\u003cdefault\u003e +:release/*"
+        }
+      ],
+      "params": {
+        "env.REGISTRY": "registry.acme.io"
+      },
+      "source": ".teamcity/settings.kts:44"
+    },
+    {
+      "id": "bt:platform-base/Lint",
+      "kind": "build",
+      "repo": "platform-base",
+      "label": "Lint",
+      "sub": "PlatformBase_Lint",
+      "steps": [
+        {
+          "name": "lint",
+          "type": "script",
+          "summary": "make lint",
+          "script": "make lint"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "vcs",
+          "detail": "+:\u003cdefault\u003e +:release/*"
+        }
+      ],
+      "params": {
+        "env.REGISTRY": "registry.acme.io"
+      },
+      "source": ".teamcity/settings.kts:33"
+    },
+    {
+      "id": "bt:release-train/Release",
+      "kind": "build",
+      "repo": "release-train",
+      "label": "Release train",
+      "sub": "ReleaseTrain_Release",
+      "composite": true,
+      "source": ".teamcity/settings.kts:33"
+    },
+    {
+      "id": "bt:release-train/Smoke",
+      "kind": "build",
+      "repo": "release-train",
+      "label": "Nightly smoke",
+      "sub": "ReleaseTrain_Smoke",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "make smoke",
+          "script": "make smoke"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "schedule",
+          "detail": "daily hour=2"
+        }
+      ],
+      "source": ".teamcity/settings.kts:18"
+    },
+    {
+      "id": "bt:service-a-main/Build",
+      "kind": "build",
+      "repo": "service-a-main",
+      "label": "Build \u0026 Test",
+      "sub": "ServiceAMain_Build",
+      "steps": [
+        {
+          "name": "build",
+          "type": "script",
+          "summary": "make build test",
+          "script": "make build test"
+        },
+        {
+          "name": "web",
+          "type": "exec",
+          "summary": "make -C web bundle",
+          "script": "make -C web bundle"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "vcs"
+        }
+      ],
+      "artifacts": [
+        "dist/service-a.tar.gz",
+        "reports/** =\u003e reports.zip"
+      ],
+      "source": ".teamcity/settings.kts:15"
+    },
+    {
+      "id": "bt:service-a-main/Deploy_prod",
+      "kind": "build",
+      "repo": "service-a-main",
+      "label": "Deploy to prod",
+      "sub": "ServiceAMain_Deploy_prod",
+      "project": "Deploy",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "make deploy ENV=prod",
+          "script": "make deploy ENV=prod"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "finishBuild",
+          "detail": "Package image"
+        }
+      ],
+      "source": ".teamcity/Deploy.kt:7"
+    },
+    {
+      "id": "bt:service-a-main/Deploy_staging",
+      "kind": "build",
+      "repo": "service-a-main",
+      "label": "Deploy to staging",
+      "sub": "ServiceAMain_Deploy_staging",
+      "project": "Deploy",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "make deploy ENV=staging",
+          "script": "make deploy ENV=staging"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "finishBuild",
+          "detail": "Package image"
+        }
+      ],
+      "source": ".teamcity/Deploy.kt:7"
+    },
+    {
+      "id": "bt:service-a-main/Package",
+      "kind": "build",
+      "repo": "service-a-main",
+      "label": "Package image",
+      "sub": "ServiceAMain_Package",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "docker build -t registry.acme.io/service-a:%build.number%...",
+          "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a"
+        }
+      ],
+      "source": ".teamcity/settings.kts:42"
+    },
+    {
+      "id": "bt:service-a/Build",
+      "kind": "build",
+      "repo": "service-a",
+      "label": "Build \u0026 Test",
+      "sub": "ServiceA_Build",
+      "steps": [
+        {
+          "name": "build",
+          "type": "script",
+          "summary": "make build test",
+          "script": "make build test"
+        },
+        {
+          "name": "web",
+          "type": "exec",
+          "summary": "make -C web bundle",
+          "script": "make -C web bundle"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "vcs"
+        }
+      ],
+      "artifacts": [
+        "dist/service-a.tar.gz",
+        "reports/** =\u003e reports.zip"
+      ],
+      "source": ".teamcity/settings.kts:15"
+    },
+    {
+      "id": "bt:service-a/Deploy_prod",
+      "kind": "build",
+      "repo": "service-a",
+      "label": "Deploy to prod",
+      "sub": "ServiceA_Deploy_prod",
+      "project": "Deploy",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "make deploy ENV=prod",
+          "script": "make deploy ENV=prod"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "finishBuild",
+          "detail": "Package image"
+        }
+      ],
+      "source": ".teamcity/Deploy.kt:7"
+    },
+    {
+      "id": "bt:service-a/Deploy_staging",
+      "kind": "build",
+      "repo": "service-a",
+      "label": "Deploy to staging",
+      "sub": "ServiceA_Deploy_staging",
+      "project": "Deploy",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "make deploy ENV=staging",
+          "script": "make deploy ENV=staging"
+        }
+      ],
+      "triggers": [
+        {
+          "type": "finishBuild",
+          "detail": "Package image"
+        }
+      ],
+      "source": ".teamcity/Deploy.kt:7"
+    },
+    {
+      "id": "bt:service-a/Package",
+      "kind": "build",
+      "repo": "service-a",
+      "label": "Package image",
+      "sub": "ServiceA_Package",
+      "steps": [
+        {
+          "type": "script",
+          "summary": "docker build -t registry.acme.io/service-a:%build.number%...",
+          "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a"
+        }
+      ],
+      "source": ".teamcity/settings.kts:42"
+    },
+    {
+      "id": "ext:Billing_Deploy_staging",
+      "kind": "external",
+      "label": "Billing_Deploy_staging",
+      "sub": "not in analysed repos"
+    },
+    {
+      "id": "img:registry.acme.io/base",
+      "kind": "image",
+      "repo": "platform-base",
+      "label": "base",
+      "sub": "registry.acme.io/base"
+    },
+    {
+      "id": "img:registry.acme.io/service-a",
+      "kind": "image",
+      "repo": "service-a-main",
+      "label": "service-a",
+      "sub": "registry.acme.io/service-a"
+    },
+    {
+      "id": "mk:platform-base/Makefile:certs/ca.pem",
+      "kind": "make",
+      "repo": "platform-base",
+      "label": "certs/ca.pem",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "mkdir -p certs \u0026\u0026 curl -fsSL https://pki.acme.io/ca.pem -...",
+          "script": "mkdir -p certs \u0026\u0026 curl -fsSL https://pki.acme.io/ca.pem -o certs/ca.pem"
+        }
+      ],
+      "source": "Makefile:11"
+    },
+    {
+      "id": "mk:platform-base/Makefile:fetch-certs",
+      "kind": "make",
+      "repo": "platform-base",
+      "label": "fetch-certs",
+      "sub": "Makefile",
+      "source": "Makefile:9"
+    },
+    {
+      "id": "mk:platform-base/Makefile:lint",
+      "kind": "make",
+      "repo": "platform-base",
+      "label": "lint",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "shellcheck ci/*.sh",
+          "script": "shellcheck ci/*.sh"
+        }
+      ],
+      "source": "Makefile:6"
+    },
+    {
+      "id": "mk:release-train/Makefile:smoke",
+      "kind": "make",
+      "repo": "release-train",
+      "label": "smoke",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "./scripts/smoke.sh",
+          "script": "./scripts/smoke.sh"
+        }
+      ],
+      "source": "Makefile:1"
+    },
+    {
+      "id": "mk:service-a-main/Makefile:build",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "build",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "go build -o dist/service-a ./cmd/service-a",
+          "script": "go build -o dist/service-a ./cmd/service-a\ntar czf dist/service-a.tar.gz -C dist service-a"
+        }
+      ],
+      "source": "Makefile:8"
+    },
+    {
+      "id": "mk:service-a-main/Makefile:deploy",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "deploy",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "$(MAKE) -C deploy/prod apply",
+          "script": "$(MAKE) -C deploy/prod apply\nhelm upgrade --install service-a chart/ --set image=registry.acme.io/service-a"
+        }
+      ],
+      "source": "Makefile:21"
+    },
+    {
+      "id": "mk:service-a-main/Makefile:generate",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "generate",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "go generate ./...",
+          "script": "go generate ./..."
+        }
+      ],
+      "source": "Makefile:15"
+    },
+    {
+      "id": "mk:service-a-main/Makefile:publish",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "publish",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "docker push registry.acme.io/service-a:$(shell git descri...",
+          "script": "docker push registry.acme.io/service-a:$(shell git describe --tags)"
+        }
+      ],
+      "source": "Makefile:18"
+    },
+    {
+      "id": "mk:service-a-main/Makefile:test",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "test",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "go test ./...",
+          "script": "go test ./..."
+        }
+      ],
+      "source": "Makefile:12"
+    },
+    {
+      "id": "mk:service-a-main/web/Makefile:bundle",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "bundle",
+      "sub": "web/Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "npm run build",
+          "script": "npm run build"
+        }
+      ],
+      "source": "web/Makefile:1"
+    },
+    {
+      "id": "mk:service-a-main/web/Makefile:deps",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "deps",
+      "sub": "web/Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "npm ci",
+          "script": "npm ci"
+        }
+      ],
+      "source": "web/Makefile:4"
+    },
+    {
+      "id": "mk:service-a/Makefile:build",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "build",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "go build -o dist/service-a ./cmd/service-a",
+          "script": "go build -o dist/service-a ./cmd/service-a\ntar czf dist/service-a.tar.gz -C dist service-a"
+        }
+      ],
+      "source": "Makefile:8"
+    },
+    {
+      "id": "mk:service-a/Makefile:deploy",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "deploy",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "$(MAKE) -C deploy/prod apply",
+          "script": "$(MAKE) -C deploy/prod apply\nhelm upgrade --install service-a chart/ --set image=registry.acme.io/service-a"
+        }
+      ],
+      "source": "Makefile:21"
+    },
+    {
+      "id": "mk:service-a/Makefile:generate",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "generate",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "go generate ./...",
+          "script": "go generate ./..."
+        }
+      ],
+      "source": "Makefile:15"
+    },
+    {
+      "id": "mk:service-a/Makefile:publish",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "publish",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "docker push registry.acme.io/service-a:$(shell git descri...",
+          "script": "docker push registry.acme.io/service-a:$(shell git describe --tags)"
+        }
+      ],
+      "source": "Makefile:18"
+    },
+    {
+      "id": "mk:service-a/Makefile:test",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "test",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "go test ./...",
+          "script": "go test ./..."
+        }
+      ],
+      "source": "Makefile:12"
+    },
+    {
+      "id": "mk:service-a/web/Makefile:bundle",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "bundle",
+      "sub": "web/Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "npm run build",
+          "script": "npm run build"
+        }
+      ],
+      "source": "web/Makefile:1"
+    },
+    {
+      "id": "mk:service-a/web/Makefile:deps",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "deps",
+      "sub": "web/Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "npm ci",
+          "script": "npm ci"
+        }
+      ],
+      "source": "web/Makefile:4"
+    }
+  ],
+  "edges": [
+    {
+      "from": "bt:platform-base/BuildBaseImage",
+      "to": "bt:service-a-main/Build",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:platform-base/BuildBaseImage",
+      "to": "bt:service-a/Build",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:platform-base/BuildBaseImage",
+      "to": "img:registry.acme.io/base",
+      "kind": "produces"
+    },
+    {
+      "from": "bt:platform-base/BuildBaseImage",
+      "to": "mk:platform-base/Makefile:fetch-certs",
+      "kind": "runs",
+      "label": "prepare"
+    },
+    {
+      "from": "bt:platform-base/Lint",
+      "to": "bt:platform-base/BuildBaseImage",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:platform-base/Lint",
+      "to": "mk:platform-base/Makefile:lint",
+      "kind": "runs",
+      "label": "lint"
+    },
+    {
+      "from": "bt:release-train/Smoke",
+      "to": "bt:service-a/Deploy_staging",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:release-train/Smoke",
+      "to": "ext:Billing_Deploy_staging",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:release-train/Smoke",
+      "to": "mk:release-train/Makefile:smoke",
+      "kind": "runs"
+    },
+    {
+      "from": "bt:service-a-main/Build",
+      "to": "bt:service-a-main/Package",
+      "kind": "artifact",
+      "label": "service-a.tar.gz =\u003e dist/"
+    },
+    {
+      "from": "bt:service-a-main/Build",
+      "to": "mk:service-a-main/Makefile:build",
+      "kind": "runs",
+      "label": "build"
+    },
+    {
+      "from": "bt:service-a-main/Build",
+      "to": "mk:service-a-main/Makefile:test",
+      "kind": "runs",
+      "label": "build"
+    },
+    {
+      "from": "bt:service-a-main/Build",
+      "to": "mk:service-a-main/web/Makefile:bundle",
+      "kind": "runs",
+      "label": "web"
+    },
+    {
+      "from": "bt:service-a-main/Deploy_prod",
+      "to": "mk:service-a-main/Makefile:deploy",
+      "kind": "runs"
+    },
+    {
+      "from": "bt:service-a-main/Deploy_staging",
+      "to": "bt:service-a-main/Deploy_prod",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a-main/Deploy_staging",
+      "to": "mk:service-a-main/Makefile:deploy",
+      "kind": "runs"
+    },
+    {
+      "from": "bt:service-a-main/Package",
+      "to": "bt:service-a-main/Deploy_prod",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a-main/Package",
+      "to": "bt:service-a-main/Deploy_prod",
+      "kind": "trigger",
+      "label": "on success"
+    },
+    {
+      "from": "bt:service-a-main/Package",
+      "to": "bt:service-a-main/Deploy_staging",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a-main/Package",
+      "to": "bt:service-a-main/Deploy_staging",
+      "kind": "trigger",
+      "label": "on success"
+    },
+    {
+      "from": "bt:service-a-main/Package",
+      "to": "img:registry.acme.io/service-a",
+      "kind": "produces"
+    },
+    {
+      "from": "bt:service-a-main/Package",
+      "to": "mk:service-a-main/Makefile:publish",
+      "kind": "runs"
+    },
+    {
+      "from": "bt:service-a/Build",
+      "to": "bt:service-a/Package",
+      "kind": "artifact",
+      "label": "service-a.tar.gz =\u003e dist/"
+    },
+    {
+      "from": "bt:service-a/Build",
+      "to": "mk:service-a/Makefile:build",
+      "kind": "runs",
+      "label": "build"
+    },
+    {
+      "from": "bt:service-a/Build",
+      "to": "mk:service-a/Makefile:test",
+      "kind": "runs",
+      "label": "build"
+    },
+    {
+      "from": "bt:service-a/Build",
+      "to": "mk:service-a/web/Makefile:bundle",
+      "kind": "runs",
+      "label": "web"
+    },
+    {
+      "from": "bt:service-a/Deploy_prod",
+      "to": "mk:service-a/Makefile:deploy",
+      "kind": "runs"
+    },
+    {
+      "from": "bt:service-a/Deploy_staging",
+      "to": "bt:release-train/Release",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a/Deploy_staging",
+      "to": "bt:service-a/Deploy_prod",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a/Deploy_staging",
+      "to": "mk:service-a/Makefile:deploy",
+      "kind": "runs"
+    },
+    {
+      "from": "bt:service-a/Package",
+      "to": "bt:service-a/Deploy_prod",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a/Package",
+      "to": "bt:service-a/Deploy_prod",
+      "kind": "trigger",
+      "label": "on success"
+    },
+    {
+      "from": "bt:service-a/Package",
+      "to": "bt:service-a/Deploy_staging",
+      "kind": "snapshot"
+    },
+    {
+      "from": "bt:service-a/Package",
+      "to": "bt:service-a/Deploy_staging",
+      "kind": "trigger",
+      "label": "on success"
+    },
+    {
+      "from": "bt:service-a/Package",
+      "to": "img:registry.acme.io/service-a",
+      "kind": "produces"
+    },
+    {
+      "from": "bt:service-a/Package",
+      "to": "mk:service-a/Makefile:publish",
+      "kind": "runs"
+    },
+    {
+      "from": "ext:Billing_Deploy_staging",
+      "to": "bt:release-train/Release",
+      "kind": "snapshot"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "bt:service-a-main/Package",
+      "kind": "consumes"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "bt:service-a/Package",
+      "kind": "consumes"
+    },
+    {
+      "from": "mk:platform-base/Makefile:fetch-certs",
+      "to": "mk:platform-base/Makefile:certs/ca.pem",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a-main/Makefile:build",
+      "to": "mk:service-a-main/Makefile:generate",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a-main/Makefile:publish",
+      "to": "img:registry.acme.io/service-a",
+      "kind": "produces"
+    },
+    {
+      "from": "mk:service-a-main/Makefile:publish",
+      "to": "mk:service-a-main/Makefile:build",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a-main/Makefile:test",
+      "to": "mk:service-a-main/Makefile:build",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a-main/web/Makefile:bundle",
+      "to": "mk:service-a-main/web/Makefile:deps",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a/Makefile:build",
+      "to": "mk:service-a/Makefile:generate",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a/Makefile:publish",
+      "to": "img:registry.acme.io/service-a",
+      "kind": "produces"
+    },
+    {
+      "from": "mk:service-a/Makefile:publish",
+      "to": "mk:service-a/Makefile:build",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a/Makefile:test",
+      "to": "mk:service-a/Makefile:build",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a/web/Makefile:bundle",
+      "to": "mk:service-a/web/Makefile:deps",
+      "kind": "depends"
+    }
+  ]
+}

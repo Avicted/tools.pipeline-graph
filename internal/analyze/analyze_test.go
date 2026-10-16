@@ -1,0 +1,114 @@
+package analyze
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"pipeline-graph/internal/model"
+)
+
+func repo(t *testing.T, name string, files map[string]string) Repo {
+	t.Helper()
+	root := t.TempDir()
+	for p, c := range files {
+		full := filepath.Join(root, p)
+		os.MkdirAll(filepath.Dir(full), 0o755)
+		if err := os.WriteFile(full, []byte(c), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return Repo{Name: name, Root: root}
+}
+
+func edges(g *model.Graph) string {
+	var s []string
+	for _, e := range g.Edges {
+		s = append(s, e.From+">"+e.To+":"+string(e.Kind))
+	}
+	return strings.Join(s, "\n")
+}
+
+func TestCrossRepoResolution(t *testing.T) {
+	lib := repo(t, "core-lib", map[string]string{".teamcity/settings.kts": `
+project { buildType(Publish) }
+object Publish : BuildType({ name = "Publish" })
+`})
+	app := repo(t, "app", map[string]string{".teamcity/settings.kts": `
+project { buildType(Build) }
+object Build : BuildType({
+    dependencies {
+        snapshot(AbsoluteId("CoreLib_Publish")) {}             // derived project id
+        snapshot(AbsoluteId("Acme_CoreLib_Publish")) {}        // nested under a parent project: suffix match
+        snapshot(AbsoluteId("Other_Publish")) {}               // unrelated project: external
+        artifacts(AbsoluteId("Mapped")) { artifactRules = "x" } // external_ids mapping
+    }
+})
+`})
+	g, warnings := Run([]Repo{lib, app}, Options{ExternalIDs: map[string]string{"Mapped": "core-lib/Publish"}})
+	want := strings.Join([]string{
+		"bt:core-lib/Publish>bt:app/Build:artifact",
+		"bt:core-lib/Publish>bt:app/Build:snapshot",
+		"ext:Other_Publish>bt:app/Build:snapshot",
+	}, "\n")
+	if got := edges(g); got != want {
+		t.Errorf("edges:\n%s\nwant:\n%s", got, want)
+	}
+	joined := strings.Join(warnings, "\n")
+	if !strings.Contains(joined, "Acme_CoreLib_Publish matched to bt:core-lib/Publish by id suffix") ||
+		!strings.Contains(joined, "Other_Publish not found") {
+		t.Errorf("warnings: %s", joined)
+	}
+}
+
+func TestImagesAndMake(t *testing.T) {
+	base := repo(t, "base", map[string]string{
+		".teamcity/settings.kts": `
+object Img : BuildType({
+    params { param("img", "reg.io/base") }
+    steps { script { scriptContent = "make image TAG=%build.number%" } }
+})`,
+		"Makefile": "image: check\n\tdocker build -t %img%:$(TAG) .\n\tdocker push reg.io/base:$(TAG)\ncheck:\n\t@true\n",
+	})
+	app := repo(t, "app", map[string]string{
+		".teamcity/settings.kts": `
+object App : BuildType({
+    steps { script { scriptContent = "docker build -f build/Dockerfile ." } }
+})`,
+		"build/Dockerfile": "FROM reg.io/base:42\nFROM alpine:3\n",
+	})
+	g, _ := Run([]Repo{base, app}, Options{})
+	want := strings.Join([]string{
+		"bt:base/Img>mk:base/Makefile:image:runs",
+		"img:reg.io/base>bt:app/App:consumes",
+		"mk:base/Makefile:image>img:reg.io/base:produces",
+		"mk:base/Makefile:image>mk:base/Makefile:check:depends",
+	}, "\n")
+	if got := edges(g); got != want {
+		t.Errorf("edges:\n%s\nwant:\n%s", got, want)
+	}
+	if g.Node("img:alpine") != nil {
+		t.Error("third-party images must not become nodes")
+	}
+}
+
+func TestImageName(t *testing.T) {
+	for in, want := range map[string]string{
+		"reg.io/a/b:1.2":          "reg.io/a/b",
+		"localhost:5000/x":        "localhost:5000/x",
+		"reg.io/x@sha256:abc":     "reg.io/x",
+		"reg.io/x:%build.number%": "reg.io/x",
+		"$(IMAGE):latest":         "",
+	} {
+		if got := ImageName(in); got != want {
+			t.Errorf("ImageName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDeriveProjectID(t *testing.T) {
+	if got := DeriveProjectID("service-a_api"); got != "ServiceAApi" {
+		t.Errorf("got %q", got)
+	}
+}

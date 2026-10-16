@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+
+# Image that runs the pre-commit hooks, with every linter present as a system
+# binary at an exact pinned version - a linter that changes its verdict between
+# rebuilds without the code changing is worse than no linter. Docker is then the
+# only thing a machine needs to run the full gate.
+#
+# Build:  make pre-commit-image
+# Run:    make pre-commit-run, make pre-commit-pr-run
+#
+# shellcheck, gitleaks and hadolint are static binaries lifted from their
+# official images rather than taken from apk, whose versions drift.
+# golangci-lint and govulncheck are built with the same Go as go.mod: a linter
+# built with an older Go refuses to analyse a module targeting a newer one.
+
+ARG GO_IMAGE=golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+
+FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
+FROM zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f AS gitleaks
+FROM hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1ad7588c8bd1e04f4866b34ad3cac50335198552 AS hadolint
+
+FROM ${GO_IMAGE} AS gotools
+ARG GOLANGCI_LINT_VERSION=v2.15.0
+ARG GOVULNCHECK_VERSION=v1.9.0
+RUN CGO_ENABLED=0 GOBIN=/out go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}" \
+ && CGO_ENABLED=0 GOBIN=/out go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+
+FROM ${GO_IMAGE}
+
+ARG PRE_COMMIT_VERSION=4.7.0
+
+# python3 and git for pre-commit itself (git also for the end-to-end test,
+# which clones fixture repos), make for the Makefile hook.
+# hadolint ignore=DL3018
+RUN <<EOF
+    set -eu
+    apk add --no-cache bash git make python3 py3-pip
+    pip install --no-cache-dir --break-system-packages "pre-commit==${PRE_COMMIT_VERSION}"
+    # The container runs as the host user, whose UID owns the mounted repo but
+    # not this image - so the safe.directory exemption must be system-wide.
+    git config --system --add safe.directory '*'
+EOF
+
+COPY --from=shellcheck /bin/shellcheck /usr/local/bin/shellcheck
+COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
+COPY --from=hadolint /bin/hadolint /usr/local/bin/hadolint
+COPY --from=gotools /out/golangci-lint /out/govulncheck /usr/local/bin/
+
+# Hook environments and the Go build/module/lint caches live on a host bind
+# mount, so they survive between runs and stay owned by the host user.
+ENV PRE_COMMIT_HOME=/cache/pre-commit \
+    GOCACHE=/cache/go-build \
+    GOMODCACHE=/cache/go-mod \
+    GOLANGCI_LINT_CACHE=/cache/golangci-lint \
+    GOTOOLCHAIN=local
+
+WORKDIR /repo
+
+ENTRYPOINT ["pre-commit"]
+CMD ["run", "--all-files"]
