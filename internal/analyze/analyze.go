@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"pipeline-graph/internal/kts"
-	"pipeline-graph/internal/makefile"
-	"pipeline-graph/internal/model"
-	"pipeline-graph/internal/shell"
+	"github.com/Avicted/tools.pipeline-graph/internal/kts"
+	"github.com/Avicted/tools.pipeline-graph/internal/makefile"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/shell"
 )
 
 type Repo struct {

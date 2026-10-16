@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 var reUnsafe = regexp.MustCompile(`[^A-Za-z0-9_]`)

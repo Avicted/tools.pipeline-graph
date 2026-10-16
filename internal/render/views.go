@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"pipeline-graph/internal/layout"
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/layout"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 const ExternalLane = "External"

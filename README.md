@@ -39,7 +39,7 @@ make drill-down, edge tooltips and analysis warnings.
 ## Quick start
 
 ```sh
-make build
+make build   # or: go install github.com/Avicted/tools.pipeline-graph/cmd/pipeline-graph@latest
 cp pipeline-graph.example.yaml pipeline-graph.yaml   # list your repos
 ./pipeline-graph -config pipeline-graph.yaml
 

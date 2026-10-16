@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 type RefKind int

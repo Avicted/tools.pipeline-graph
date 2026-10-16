@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 //go:embed viewer.html

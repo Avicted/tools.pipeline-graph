@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 func sample() *model.Graph {
