@@ -22,7 +22,19 @@ out/warnings.txt
 pipeline-graph: 3 repos, 8 build configurations, 11 make targets, 2 images, 1 external, 30 links, 3 warnings (see out/warnings.txt)
 ```
 
-![interactive HTML output](docs/screenshot.png)
+![Every pipeline across seven repos on one page](docs/screenshots/overview.png)
+
+### What it answers
+
+| | |
+|---|---|
+| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Click the image or its build: the upstream turns green, the downstream red, and `I` hides everything else. The URL points at exactly this view. | ![Blast radius of a base image change](docs/screenshots/blast-radius.png) |
+| **DevSecOps:** *where are images pushed and pulled?* `/` searches names, TeamCity ids, step scripts and parameters across every view. | ![Supply chain search](docs/screenshots/search-supply-chain.png) |
+| **QA:** *what does this test job actually run, what triggers it, and what waits for it?* | ![Details of a test job](docs/screenshots/qa-test-job.png) |
+| **Everyone:** *walk the team through the path to prod.* `P` is a presentation mode for screen sharing. | ![Presentation mode](docs/screenshots/present.png) |
+
+More in the [screenshot gallery](docs/screenshots/README.md), including the
+make drill-down, edge tooltips and analysis warnings.
 
 ## Quick start
 
@@ -155,6 +167,27 @@ make golden   # accept an intended output change, then review the diff in test/i
 Output is deterministic: the same commits give the same files. Set
 `SOURCE_DATE_EPOCH` to pin the "generated" timestamp.
 
+### Screenshots
+
+The images in `docs/screenshots` are generated, not hand-made. After a change
+to the viewer (or the Acme example), run:
+
+```sh
+make screenshots
+```
+
+This builds the example and drives headless Chromium through the scenes
+defined in `scripts/screenshots.mjs`, one per PNG, and rewrites the
+gallery in `docs/screenshots/README.md`. It runs in Docker
+(`Dockerfile.screenshots`), so the browser, the fonts, and therefore the
+pixels, are the same on every machine, and the browser clock is frozen. A
+second run gives byte-identical files, so `git status` shows only what really
+changed. Each scene also checks the page reached the expected state and fails
+on any JavaScript error, so a broken viewer fails the run instead of producing
+a bad picture. To add a screenshot, add a scene to `SCENES` in the script.
+Without Docker, `node scripts/screenshots.mjs` (Node 22 or later) uses a local
+`chromium`, or the browser named in `$CHROME`.
+
 ### Quality gate
 
 All checks run in Docker (`Dockerfile.pre-commit`) with pinned tool versions,
@@ -189,6 +222,7 @@ internal/layout      layered left-to-right layout with repo swimlanes
 internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
 test/fixtures/repos  sample repos covering the recognised constructs
 examples/acme        larger fictional example (`make example`)
+scripts              screenshots.mjs: regenerates docs/screenshots (`make screenshots`)
 ```
 
 ## License
