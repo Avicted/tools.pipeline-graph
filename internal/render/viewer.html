@@ -17,12 +17,13 @@
 <style>
   /* ---- themes ------------------------------------------------------------ */
   :root, [data-theme="light"] {
-    --bg: #F1F5F9; --panel: #FFFFFF; --panel-2: #F8FAFC; --ink: #0F172A; --muted: #64748B; --faint: #94A3B8;
+    --bg: #F1F5F9; --panel: #FFFFFF; --panel-2: #F8FAFC; --ink: #0F172A; --muted: #475569; --faint: #64748B;
     --line: #E2E8F0; --hover: #F1F5F9; --accent: #2563EB; --accent-ink: #FFFFFF; --accent-soft: #EFF6FF;
     --lane-a: #F8FAFC; --lane-b: #FFFFFF; --lane-stroke: #CBD5E1; --lane-head: #1E3A8A; --lane-ext: #9A3412; --lane-title: #FFFFFF;
     --code-bg: #0F172A; --code-ink: #E2E8F0; --halo: #FFFFFF; --edge-label: #475569;
     --badge-bg: #FFF7ED; --badge-ink: #9A3412; --mono: #334155; --shadow: 0 1px 2px rgba(15,23,42,.08), 0 2px 8px rgba(15,23,42,.06);
-    --hit: rgba(234,179,8,.6); --sel: rgba(37,99,235,.35);
+    --hit: rgba(234,179,8,.75); --sel: rgba(37,99,235,.45); --up: #0D9488; --down: #DB2777;
+    --tip-bg: #0F172A; --tip-ink: #F8FAFC; --backdrop: rgba(15,23,42,.35);
     --n-build-fill: #FFFFFF; --n-build-stroke: #2563EB; --n-build-ink: #0F172A;
     --n-composite-fill: #FAF5FF; --n-composite-stroke: #7C3AED; --n-composite-ink: #2E1065;
     --n-external-fill: #FFF7ED; --n-external-stroke: #EA580C; --n-external-ink: #7C2D12;
@@ -33,12 +34,13 @@
   }
   /* Gruvbox dark (https://github.com/morhetz/gruvbox) */
   [data-theme="dark"] {
-    --bg: #1d2021; --panel: #282828; --panel-2: #32302f; --ink: #ebdbb2; --muted: #a89984; --faint: #7c6f64;
+    --bg: #1d2021; --panel: #282828; --panel-2: #32302f; --ink: #ebdbb2; --muted: #bdae93; --faint: #a89984;
     --line: #3c3836; --hover: #3c3836; --accent: #d79921; --accent-ink: #1d2021; --accent-soft: #3c3836;
     --lane-a: #282828; --lane-b: #32302f; --lane-stroke: #504945; --lane-head: #458588; --lane-ext: #d65d0e; --lane-title: #fbf1c7;
     --code-bg: #1d2021; --code-ink: #ebdbb2; --halo: #1d2021; --edge-label: #d5c4a1;
     --badge-bg: #3c3836; --badge-ink: #fabd2f; --mono: #d5c4a1; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 2px 10px rgba(0,0,0,.3);
-    --hit: rgba(250,189,47,.7); --sel: rgba(215,153,33,.55);
+    --hit: rgba(250,189,47,.8); --sel: rgba(215,153,33,.6); --up: #8ec07c; --down: #fb4934;
+    --tip-bg: #ebdbb2; --tip-ink: #1d2021; --backdrop: rgba(0,0,0,.5);
     --n-build-fill: #32302f; --n-build-stroke: #83a598; --n-build-ink: #ebdbb2;
     --n-composite-fill: #32302f; --n-composite-stroke: #d3869b; --n-composite-ink: #ebdbb2;
     --n-external-fill: #3c3836; --n-external-stroke: #fe8019; --n-external-ink: #fe8019;
@@ -49,27 +51,102 @@
   }
 
   /* ---- chrome ------------------------------------------------------------ */
-  :root { --side: 264px; --top: 56px; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  :root {
+    --side: 264px; --top: 56px; --panel-w: 440px;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --monof: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--sans);
+  }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
   button { font: inherit; color: inherit; }
-  header {
-    position: fixed; inset: 0 0 auto 0; height: var(--top); display: flex; align-items: center; gap: 14px;
-    padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 20;
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  kbd {
+    font-family: var(--monof); font-size: 10px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+    padding: 0 4px; color: var(--muted); background: var(--panel-2); line-height: 16px; display: inline-block; min-width: 18px; text-align: center;
   }
-  header h1 { font-size: 16px; margin: 0; white-space: nowrap; }
-  header .sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  header {
+    position: fixed; inset: 0 0 auto 0; height: var(--top); display: flex; align-items: center; gap: 10px;
+    padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 20;
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
+  .brand h1 { font-size: 16px; margin: 0; }
+  .brand .crumb { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .brand .crumb::before { content: "/"; margin-right: 8px; color: var(--faint); }
+  .meta-btn {
+    border: 0; background: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .meta-btn:hover { background: var(--hover); color: var(--ink); }
+  .spacer { flex: 1; }
   .icon-btn, .tools button {
     border: 1px solid var(--line); background: var(--panel); border-radius: 7px; height: 32px; min-width: 32px;
-    padding: 0 10px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 0 10px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none;
   }
   .icon-btn:hover, .tools button:hover { background: var(--hover); }
   .tools { display: flex; gap: 6px; align-items: center; }
-  .tools input {
+  .zoom { display: flex; }
+  .zoom button { border-radius: 0; margin-left: -1px; }
+  .zoom button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
+  .zoom button:last-child { border-radius: 0 7px 7px 0; }
+  #zpct { min-width: 56px; font-variant-numeric: tabular-nums; font-size: 12px; }
+  #present-exit { display: none; }
+
+  /* ---- search ------------------------------------------------------------ */
+  .search { position: relative; display: flex; align-items: center; }
+  .search > svg { position: absolute; left: 9px; color: var(--faint); pointer-events: none; }
+  .search input {
     border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 7px;
-    height: 32px; padding: 0 10px; font: inherit; font-size: 12px; width: 240px;
+    height: 32px; padding: 0 64px 0 30px; font: inherit; font-size: 12px; width: 300px;
   }
-  .tools input::placeholder { color: var(--faint); }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search input::placeholder { color: var(--faint); }
+  .search .hint { position: absolute; right: 8px; display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--faint); pointer-events: none; font-variant-numeric: tabular-nums; }
+  #results {
+    position: absolute; top: 38px; right: 0; width: 440px; max-height: min(60vh, 520px); overflow-y: auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.25); padding: 6px; z-index: 30;
+  }
+  #results .r { display: flex; gap: 10px; align-items: center; padding: 7px 9px; border-radius: 7px; cursor: pointer; font-size: 12px; }
+  #results .r.on, #results .r:hover { background: var(--hover); }
+  #results .r.on { box-shadow: inset 3px 0 0 var(--accent); }
+  #results .r .main { flex: 1; min-width: 0; }
+  #results .r .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #results .r .where { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #results .r mark { background: var(--hit); color: inherit; border-radius: 2px; }
+  #results .empty, #results .more { color: var(--muted); font-size: 12px; padding: 8px 10px; }
+  #results .foot { border-top: 1px solid var(--line); margin-top: 4px; padding: 6px 8px 2px; font-size: 11px; color: var(--faint); display: flex; gap: 12px; }
+
+  /* ---- popovers, toast, tooltip, help ------------------------------------ */
+  .pop {
+    position: fixed; z-index: 40; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25); padding: 12px 14px; font-size: 12px;
+  }
+  #meta-pop { top: calc(var(--top) - 6px); left: 200px; max-width: min(640px, 90vw); }
+  #meta-pop table { border-collapse: collapse; }
+  #meta-pop td { padding: 3px 10px 3px 0; white-space: nowrap; }
+  #meta-pop td.url { color: var(--muted); font-family: var(--monof); font-size: 11px; white-space: normal; word-break: break-all; }
+  #meta-pop a, #panel a, .help a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  #meta-pop a:hover, #panel a:hover { text-decoration: underline; }
+  #meta-pop .gen { color: var(--muted); margin-bottom: 8px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; transition: .18s ease; z-index: 60;
+    background: var(--tip-bg); color: var(--tip-ink); padding: 8px 14px; border-radius: 8px; font-size: 13px; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #tip {
+    position: fixed; z-index: 50; pointer-events: none; background: var(--tip-bg); color: var(--tip-ink); font-size: 12px;
+    padding: 6px 9px; border-radius: 6px; max-width: 420px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  }
+  #tip small { opacity: .75; display: block; }
+  .modal { position: fixed; inset: 0; background: var(--backdrop); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .help { background: var(--panel); border-radius: 12px; padding: 20px 24px; width: min(680px, 92vw); max-height: 86vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .help h2 { margin: 0 0 4px; font-size: 18px; }
+  .help p { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .help .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px; }
+  .help h3 { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 12px 0 2px; }
+  .help .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .help .row span:last-child { white-space: nowrap; }
 
   /* ---- sidebar ----------------------------------------------------------- */
   #sidebar {
@@ -90,87 +167,162 @@
   .nav button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .nav button .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nav button .count { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .nav button kbd { opacity: 0; transition: opacity .1s; }
+  .nav button:hover kbd { opacity: 1; }
   .nav button.on .count { color: inherit; opacity: .8; }
   .nav .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--lane-head); flex: none; }
+  .legend div { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 12px; }
+  .legend .sw { width: 26px; height: 14px; border-radius: 4px; border: 1.6px solid var(--stroke); background: var(--fill); flex: none; }
+  .legend .sw.external { border-style: dashed; } .legend .sw.make { border-width: 1px; } .legend .sw.image { border-radius: 8px; }
   .edges label {
     display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
     user-select: none; font-size: 12px; white-space: nowrap;
   }
   .edges label:hover { background: var(--hover); }
-  .edges label.off { opacity: .4; }
-  .edges input { display: none; }
+  .edges label.off { opacity: .4; text-decoration: line-through; }
+  .edges input { position: absolute; opacity: 0; pointer-events: none; }
+  .edges label:has(input:focus-visible) { outline: 2px solid var(--accent); }
   .edges svg { flex: none; }
   #warn-btn {
     margin: 18px 6px 0; width: calc(100% - 12px); border: 1px solid var(--line); background: var(--badge-bg); color: var(--badge-ink);
     border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; text-align: left;
   }
-  .kbd { margin: 18px 10px 0; font-size: 11px; color: var(--faint); line-height: 18px; }
-  .kbd b { font-family: ui-monospace, monospace; font-weight: 600; color: var(--muted); }
+  .side-help { margin: 18px 6px 0; width: calc(100% - 12px); border: 1px dashed var(--line); background: none; color: var(--muted); border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; text-align: left; }
+  .side-help:hover { background: var(--hover); }
 
   /* ---- canvas ------------------------------------------------------------ */
-  #canvas { position: fixed; top: var(--top); right: 0; bottom: 0; left: var(--side); overflow: hidden; cursor: grab; transition: left .18s ease; }
+  #canvas { position: fixed; top: var(--top); right: 0; bottom: 0; left: var(--side); overflow: hidden; cursor: grab; transition: left .18s ease; touch-action: none; }
   body.collapsed #canvas { left: 0; }
   #canvas.drag { cursor: grabbing; }
   #svg { display: block; width: 100%; height: 100%; }
+  #vp { --k: 1; --es: 1; }
   .lane-bg { stroke: var(--lane-stroke); }
   .lane-bg.a { fill: var(--lane-a); } .lane-bg.b { fill: var(--lane-b); }
   .lane-head { fill: var(--lane-head); } .lane-head.ext { fill: var(--lane-ext); }
-  .lane-title { fill: var(--lane-title); font-weight: 700; font-size: 14px; }
-  .edge { fill: none; transition: opacity .15s; }
-  .edge-label { font-size: 10px; fill: var(--edge-label); paint-order: stroke; stroke: var(--halo); stroke-width: 4px; stroke-linejoin: round; }
-  .node { cursor: pointer; transition: opacity .15s; }
+  .lane-title { fill: var(--lane-title); font-weight: 700; font-size: min(calc(13px / var(--k)), 24px); font-family: var(--sans); }
+  .edge { fill: none; transition: opacity .15s; stroke-width: calc(var(--w) * var(--es)); }
+  .edge.on { stroke-width: calc(var(--w) * var(--es) * 1.9); }
+  .edge-hit { fill: none; stroke: transparent; stroke-width: calc(12px * var(--es)); pointer-events: stroke; cursor: pointer; }
+  .edge-label { font-size: 10px; font-family: var(--sans); fill: var(--edge-label); paint-order: stroke; stroke: var(--halo); stroke-width: 4px; stroke-linejoin: round; transition: opacity .15s; pointer-events: none; }
+  .node { cursor: pointer; transition: opacity .15s; outline: none; }
   .node .card {
     width: 100%; height: 100%; border-radius: 9px; padding: 7px 10px; overflow: hidden; font-size: 11px; line-height: 15px;
-    border: 1.6px solid var(--stroke); background: var(--fill); color: var(--ink-n); box-shadow: var(--shadow);
+    border: 1.6px solid var(--stroke); background: var(--fill); color: var(--ink-n); box-shadow: var(--shadow); font-family: var(--sans);
   }
-  .node.build     { --fill: var(--n-build-fill);     --stroke: var(--n-build-stroke);     --ink-n: var(--n-build-ink); }
-  .node.composite { --fill: var(--n-composite-fill); --stroke: var(--n-composite-stroke); --ink-n: var(--n-composite-ink); }
-  .node.external  { --fill: var(--n-external-fill);  --stroke: var(--n-external-stroke);  --ink-n: var(--n-external-ink); }
-  .node.make      { --fill: var(--n-make-fill);      --stroke: var(--n-make-stroke);      --ink-n: var(--n-make-ink); }
-  .node.image     { --fill: var(--n-image-fill);     --stroke: var(--n-image-stroke);     --ink-n: var(--n-image-ink); }
+  .node.build, .sw.build         { --fill: var(--n-build-fill);     --stroke: var(--n-build-stroke);     --ink-n: var(--n-build-ink); }
+  .node.composite, .sw.composite { --fill: var(--n-composite-fill); --stroke: var(--n-composite-stroke); --ink-n: var(--n-composite-ink); }
+  .node.external, .sw.external   { --fill: var(--n-external-fill);  --stroke: var(--n-external-stroke);  --ink-n: var(--n-external-ink); }
+  .node.make, .sw.make           { --fill: var(--n-make-fill);      --stroke: var(--n-make-stroke);      --ink-n: var(--n-make-ink); }
+  .node.image, .sw.image         { --fill: var(--n-image-fill);     --stroke: var(--n-image-stroke);     --ink-n: var(--n-image-ink); }
   .node.external .card { border-style: dashed; }
   .node.make .card { border-width: 1px; box-shadow: none; border-radius: 7px; }
   .node.image .card { border-radius: 22px; }
   .node .t { font-weight: 700; font-size: 12px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .node .s { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .node .l { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; color: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node .l { font-family: var(--monof); font-size: 10px; color: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .node .lines { margin-top: 6px; }
   .node .b { margin-top: 5px; display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
   .node .b span { background: var(--badge-bg); color: var(--badge-ink); border-radius: 4px; padding: 0 5px; font-size: 10px; white-space: nowrap; }
-  .node:hover .card { box-shadow: 0 0 0 3px var(--sel); }
-  .node.sel .card { box-shadow: 0 0 0 4px var(--sel); }
-  .node.hit .card { box-shadow: 0 0 0 4px var(--hit); }
-  .dim { opacity: .14; }
+  .node:hover .card, .node:focus-visible .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--sel); }
+  .node.up .card   { box-shadow: 0 0 0 calc(3px * var(--es)) var(--up); }
+  .node.down .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--down); }
+  .node.sel .card  { box-shadow: 0 0 0 calc(5px * var(--es)) var(--sel); }
+  .node.hit .card  { box-shadow: 0 0 0 calc(4px * var(--es)) var(--hit); }
+  .node.hit.cur .card { box-shadow: 0 0 0 calc(6px * var(--es)) var(--hit); }
+  .dim { opacity: .1; }
+  #svg.isolate .dim { display: none; }
+  #svg.hovering .node:not(.nb) { opacity: .35; }
+  #svg.hovering .edge:not(.nb), #svg.hovering .edge-label:not(.nb) { opacity: .2; }
+
+  /* Zoomed out: titles only, counter-scaled so they stay readable on a shared screen. */
+  #svg.far .node .s, #svg.far .node .lines, #svg.far .node .b, #svg.far .edge-label { display: none; }
+  #svg.far .node .card { display: flex; align-items: center; padding: 4px 8px; }
+  #svg.far .node .t {
+    white-space: normal; text-overflow: clip; overflow: hidden; line-height: 1.12; word-break: break-word;
+    font-size: min(calc(var(--far-px, 12px) / var(--k)), var(--fh), 34px);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines);
+  }
+  #svg.far .node.one .t { display: block; white-space: nowrap; text-overflow: ellipsis; }
 
   /* ---- details panel ----------------------------------------------------- */
   #panel {
-    position: fixed; top: var(--top); right: 0; bottom: 0; width: 420px; background: var(--panel); border-left: 1px solid var(--line);
-    transform: translateX(100%); transition: transform .18s ease; z-index: 18; overflow-y: auto; padding: 18px 20px 40px;
+    position: fixed; top: var(--top); right: 0; bottom: 0; width: var(--panel-w); max-width: 100vw; background: var(--panel); border-left: 1px solid var(--line);
+    transform: translateX(100%); transition: transform .18s ease; z-index: 18; display: flex; flex-direction: column;
   }
-  #panel.open { transform: none; }
-  #panel h2 { font-size: 16px; margin: 0 0 2px; padding-right: 24px; }
-  #panel .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
-  #panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 18px 0 6px; }
+  #panel.open { transform: none; box-shadow: -8px 0 30px rgba(0,0,0,.08); }
+  #panel.resizing { transition: none; user-select: none; }
+  #grip { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 2; }
+  #grip:hover, #panel.resizing #grip { background: linear-gradient(90deg, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px); }
+  #panel-head { padding: 16px 20px 10px; border-bottom: 1px solid var(--line); }
+  #panel-body { overflow-y: auto; padding: 4px 20px 40px; flex: 1; }
+  #panel h2 { font-size: 16px; margin: 0 0 4px; padding-right: 28px; word-break: break-word; }
+  #panel .meta { color: var(--muted); font-size: 12px; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  #panel .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  #panel .actions button {
+    border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; font-size: 12px; padding: 4px 9px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+  }
+  #panel .actions button:hover { background: var(--hover); }
+  #panel .actions button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  #panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 20px 0 6px; display: flex; align-items: center; gap: 8px; }
+  #panel h3 .n { font-weight: 400; letter-spacing: 0; }
+  #panel h3 .sw-dir { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 12px; margin-top: 10px; align-items: center; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; display: flex; gap: 6px; align-items: center; min-width: 0; }
+  .kv code { font-family: var(--monof); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .copy {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 5px; font-size: 10px; padding: 1px 6px; cursor: pointer; color: var(--muted); flex: none;
+  }
+  .copy:hover { color: var(--ink); background: var(--hover); }
+  .code { position: relative; }
+  .code .copy { position: absolute; top: 6px; right: 6px; opacity: 0; transition: opacity .1s; background: var(--panel-2); }
+  .code:hover .copy, .code .copy:focus-visible { opacity: 1; }
   #panel pre {
-    background: var(--code-bg); color: var(--code-ink); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 16px;
+    background: var(--code-bg); color: var(--code-ink); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 16px; font-family: var(--monof);
     overflow-x: auto; margin: 4px 0 10px; white-space: pre; border: 1px solid var(--line);
   }
-  #panel code { font-size: 11px; }
-  #panel .step { font-size: 12px; font-weight: 600; }
+  #panel .step { font-size: 12px; font-weight: 600; margin-top: 10px; }
   #panel .step small { color: var(--muted); font-weight: 400; }
-  #panel ul { margin: 0; padding-left: 16px; font-size: 12px; line-height: 20px; }
-  #panel a { color: var(--accent); cursor: pointer; text-decoration: none; }
-  #panel a:hover { text-decoration: underline; }
+  #panel ul { margin: 0; padding-left: 0; list-style: none; font-size: 12px; line-height: 20px; }
+  #panel li { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  #panel .rk { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin: 8px 0 2px; }
   #panel small.dim-ink { color: var(--faint); }
+  #panel .tag { font-size: 10px; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
   #panel table { font-size: 11px; border-collapse: collapse; width: 100%; }
-  #panel td { border-top: 1px solid var(--line); padding: 3px 4px; vertical-align: top; word-break: break-all; }
-  #panel .close { position: absolute; right: 12px; top: 10px; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); }
-  .pill { display: inline-block; font-size: 10px; border-radius: 4px; padding: 1px 6px; margin-right: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  #panel td { border-top: 1px solid var(--line); padding: 3px 4px; vertical-align: top; word-break: break-all; font-family: var(--monof); }
+  #panel td:first-child { color: var(--muted); width: 40%; }
+  #panel .filter { width: 100%; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; margin-bottom: 6px; }
+  #panel .close { position: absolute; right: 12px; top: 10px; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); border-radius: 6px; width: 30px; height: 30px; }
+  #panel .close:hover { background: var(--hover); }
+  .pill { display: inline-block; font-size: 10px; border-radius: 4px; padding: 1px 6px; background: var(--accent-soft); color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .chip { font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; cursor: pointer; background: var(--panel-2); }
+  .chip:hover { background: var(--hover); }
+  .chip.on { border-color: var(--accent); color: var(--accent); cursor: default; }
+  #panel .warn-list li { display: list-item; margin-left: 16px; list-style: disc; line-height: 18px; margin-bottom: 4px; }
 
-  @media (max-width: 800px) {
+  /* ---- presentation mode -------------------------------------------------- */
+  body.present #sidebar { transform: translateX(-100%); }
+  body.present #canvas { left: 0; }
+  body.present header .meta-btn, body.present header .search, body.present header .tools, body.present #side-toggle { display: none; }
+  body.present #present-exit { display: inline-flex; }
+  body.present .brand h1 { font-size: 20px; }
+  body.present .brand .crumb { font-size: 18px; color: var(--ink); }
+  body.present #vp { --far-px: 15px; }
+  body.present #panel { font-size: 14px; }
+
+  @media (max-width: 900px) {
     #canvas { left: 0; }
     #sidebar { box-shadow: 4px 0 24px rgba(0,0,0,.25); }
-    header .sub, .tools input { display: none; }
+    .meta-btn, .tools #export, .tools #present, .tools #help-btn { display: none; }
+    .search input { width: 170px; }
+    #results { width: 92vw; right: -100px; }
+  }
+  @media print {
+    header, #sidebar, #panel, #toast, #tip { display: none !important; }
+    #canvas { position: static; width: 100vw; height: 100vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
   }
 </style>
 </head>
@@ -179,30 +331,63 @@
   <button class="icon-btn" id="side-toggle" title="Toggle sidebar ( [ )" aria-label="Toggle sidebar" aria-controls="sidebar">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg>
   </button>
-  <h1>Pipeline map</h1>
-  <div class="sub" id="sub"></div>
-  <div class="tools">
-    <input id="search" type="search" placeholder="Search builds, targets, images…  ( / )">
-    <button id="fit" title="Fit to screen (F)">Fit</button>
-    <button id="zin" title="Zoom in">+</button>
-    <button id="zout" title="Zoom out">−</button>
-    <button id="theme" title="Toggle light / dark (T)" aria-label="Toggle theme"></button>
+  <div class="brand"><h1>Pipeline map</h1><span class="crumb" id="crumb"></span></div>
+  <button class="meta-btn" id="meta-btn" aria-expanded="false" aria-controls="meta-pop" title="Where this map came from"></button>
+  <div class="spacer"></div>
+  <div class="search">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="7" r="5"/><line x1="11" y1="11" x2="15" y2="15"/></svg>
+    <input id="search" type="search" placeholder="Search all views…" autocomplete="off" spellcheck="false"
+           role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search builds, make targets and images">
+    <span class="hint"><span id="search-count"></span><kbd id="search-kbd">/</kbd></span>
+    <div id="results" role="listbox" hidden></div>
   </div>
+  <div class="tools">
+    <div class="zoom">
+      <button id="zout" title="Zoom out (−)" aria-label="Zoom out">−</button>
+      <button id="zpct" title="Reset to 100% (0)" aria-label="Reset zoom to 100%">100%</button>
+      <button id="zin" title="Zoom in (+)" aria-label="Zoom in">+</button>
+    </div>
+    <button id="fit" title="Fit to screen (F)">Fit</button>
+    <button id="export" title="Download this view as SVG (for slides and docs)" aria-label="Download view as SVG">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M2.5 13.5h11"/></svg>SVG</button>
+    <button id="present" title="Presentation mode for screen sharing (P)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M8 11.5v2.5M5 14h6"/></svg>Present</button>
+    <button id="theme" title="Toggle light / dark (T)" aria-label="Toggle theme"></button>
+    <button id="help-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
+  </div>
+  <button class="icon-btn" id="present-exit" title="Leave presentation mode (Esc)">Exit presentation <kbd>Esc</kbd></button>
 </header>
+<div class="pop" id="meta-pop" hidden></div>
 
 <nav id="sidebar" aria-label="Views">
   <h4>Views</h4>
   <div class="nav" id="nav-views"></div>
   <h4>Repositories</h4>
   <div class="nav" id="nav-repos"></div>
-  <h4>Edges</h4>
+  <h4>Nodes</h4>
+  <div class="legend" id="node-legend"></div>
+  <h4>Edges <span style="text-transform:none;letter-spacing:0;font-weight:400">· click to hide</span></h4>
   <div class="edges" id="edge-filters"></div>
   <div id="warn"></div>
-  <div class="kbd"><b>/</b> search · <b>F</b> fit · <b>[</b> sidebar · <b>T</b> theme · <b>Esc</b> clear</div>
+  <button class="side-help" id="side-help">Keyboard shortcuts <kbd>?</kbd></button>
 </nav>
 
-<div id="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg"><defs id="defs"></defs><g id="vp"></g></svg></div>
-<aside id="panel"><button class="close" id="close" aria-label="Close">×</button><div id="panel-body"></div></aside>
+<div id="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline diagram"><defs id="defs"></defs><g id="vp"></g></svg></div>
+<aside id="panel" aria-label="Details">
+  <div id="grip" title="Drag to resize"></div>
+  <button class="close" id="close" aria-label="Close details (Esc)" title="Close (Esc)">×</button>
+  <div id="panel-head"></div>
+  <div id="panel-body"></div>
+</aside>
+<div id="tip" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div class="modal" id="help" hidden>
+  <div class="help" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <h2 id="help-title">Keyboard &amp; mouse</h2>
+    <p>Every view and selection has its own URL: copy the address bar (or press <kbd>L</kbd>) to share exactly what you are looking at.</p>
+    <div class="cols" id="help-rows"></div>
+  </div>
+</div>
 
 <script>
 const DATA = /*DATA*/null;
@@ -210,8 +395,13 @@ const NS = "http://www.w3.org/2000/svg";
 const $ = id => document.getElementById(id);
 const svg = $("svg"), vp = $("vp");
 const styles = Object.fromEntries(DATA.edgeStyles.map(s => [s.kind, s]));
+const viewById = Object.fromEntries(DATA.views.map(v => [v.id, v]));
 const hidden = new Set();
-let view = null, tf = { x: 0, y: 0, k: 1 }, selected = null;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const narrow = matchMedia("(max-width: 900px)");
+const FAR = 0.6; // below this zoom only node titles are drawn
+let view = null, tf = { x: 0, y: 0, k: 1 }, selected = null, isolate = false;
+const search = { q: "", terms: [], all: [], inView: [], cur: -1, active: 0 };
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -227,6 +417,19 @@ function el(tag, attrs, parent) {
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function dash(s) { return s.dash === "dash" ? "6 4" : s.dash === "dot" ? "1.5 3.5" : ""; }
 const edgeColor = kind => `var(--e-${kind})`;
+const kindName = n => ({ build: n.composite ? "Composite build" : "Build configuration", make: "Make target", image: "Docker image", external: "External build" }[n.kind] || n.kind);
+const nodeClass = n => n.composite ? "composite" : n.kind;
+function swatch(kind) {
+  const s = styles[kind];
+  return `<svg width="30" height="10" aria-hidden="true"><line x1="1" y1="5" x2="23" y2="5" style="stroke:${edgeColor(kind)}" stroke-width="${s.width}" stroke-dasharray="${dash(s)}"/><path d="M22,1 L30,5 L22,9 z" style="fill:${edgeColor(kind)}"/></svg>`;
+}
+
+// per-view indexes: node ids and adjacency
+for (const v of DATA.views) {
+  v.ids = new Set(v.nodes.map(n => n.id));
+  v.byId = Object.fromEntries(v.nodes.map(n => [n.id, n]));
+}
+const viewsOf = id => DATA.views.filter(v => v.ids.has(id));
 
 // arrow markers, one per edge kind; colour via CSS so they follow the theme
 for (const s of DATA.edgeStyles) {
@@ -244,37 +447,73 @@ function curve(pts) {
   return d;
 }
 
+// ---- links to the source repositories ----------------------------------------
+// Turns a clone URL into the repo's web URL for well-known forges; null otherwise.
+function forge(url) {
+  const m = String(url || "").trim().match(/^(?:git@([^:/]+):|(?:ssh|git\+ssh|https?):\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?\/)(.+?)(?:\.git)?\/?$/);
+  if (!m) return null;
+  const host = (m[1] || m[2]).toLowerCase(), base = `https://${host}/${m[3]}`;
+  if (/github/.test(host)) return { base, blob: "/blob/", commit: "/commit/", line: "#L" };
+  if (/gitlab/.test(host)) return { base, blob: "/-/blob/", commit: "/-/commit/", line: "#L" };
+  if (host === "bitbucket.org") return { base, blob: "/src/", commit: "/commits/", line: "#lines-" };
+  if (/gitea|codeberg|forgejo/.test(host)) return { base, blob: "/src/commit/", commit: "/commit/", line: "#L" };
+  return null;
+}
+const repoByName = Object.fromEntries((DATA.repos || []).map(r => [r.name, r]));
+function sourceURL(n) {
+  const r = repoByName[n.repo], f = r && forge(r.url);
+  if (!f || !n.source) return null;
+  const m = n.source.match(/^(.*?)(?::(\d+))?$/);
+  return f.base + f.blob + (r.commit || "HEAD") + "/" + m[1].split("/").map(encodeURIComponent).join("/") + (m[2] ? f.line + m[2] : "");
+}
+function commitURL(r) {
+  const f = forge(r.url);
+  return f && r.commit ? f.base + f.commit + r.commit : null;
+}
+
 // ---- rendering ---------------------------------------------------------------
 function render(v) {
-  view = v; selected = null; $("panel").classList.remove("open");
-  store.set("pg-view", v.id);
-  if (location.hash.slice(1) !== v.id) history.replaceState(null, "", "#" + v.id);
+  view = v; selected = null; isolate = false;
   vp.innerHTML = "";
-  document.querySelectorAll("#sidebar .nav button").forEach(b => b.classList.toggle("on", b.dataset.id === v.id));
+  document.querySelectorAll("#sidebar .nav button").forEach(b => {
+    b.classList.toggle("on", b.dataset.id === v.id);
+    if (b.dataset.id === v.id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
   document.title = `${v.title} · Pipeline map`;
-  const lanes = el("g", {}, vp), edges = el("g", {}, vp), labels = el("g", {}, vp), nodes = el("g", {}, vp);
+  $("crumb").textContent = v.title;
+  store.set("pg-view", v.id);
+  const lanes = el("g", {}, vp), edges = el("g", {}, vp), labels = el("g", {}, vp), hits = el("g", {}, vp), nodes = el("g", {}, vp);
   v.lanes.forEach((l, i) => {
     const [x, y, w, h] = l.box;
     el("rect", { x, y, width: w, height: h, rx: 10, class: "lane-bg " + (i % 2 ? "b" : "a") }, lanes);
     el("path", { d: `M${x + 10},${y} h34 v${h} h-34 a10,10 0 0 1 -10,-10 v${-(h - 20)} a10,10 0 0 1 10,-10 z`, class: "lane-head" + (l.name === "External" ? " ext" : "") }, lanes);
-    const t = el("text", { x: x + 27, y: y + h / 2, class: "lane-title", "text-anchor": "middle", transform: `rotate(-90 ${x + 27} ${y + h / 2})` }, lanes);
+    const t = el("text", { x: x + 27, y: y + h / 2, class: "lane-title", "text-anchor": "middle", "dominant-baseline": "central", transform: `rotate(-90 ${x + 27} ${y + h / 2})` }, lanes);
     t.textContent = l.name;
   });
   for (const e of v.edges) {
-    const s = styles[e.kind];
-    const p = el("path", { d: curve(e.points), class: "edge", style: `stroke:${edgeColor(e.kind)}`, "stroke-width": s.width, "stroke-dasharray": dash(s), "marker-end": `url(#m-${e.kind})` }, edges);
-    p.dataset.from = e.from; p.dataset.to = e.to; p.dataset.kind = e.kind;
+    const s = styles[e.kind], d = curve(e.points);
+    const p = el("path", { d, class: "edge", style: `stroke:${edgeColor(e.kind)};--w:${s.width}px`, "stroke-dasharray": dash(s), "marker-end": `url(#m-${e.kind})` }, edges);
+    const hit = el("path", { d, class: "edge-hit" }, hits);
     const label = e.kind === "trigger" ? ("triggers " + (e.label || "")).trim() : (e.kind === "runs" ? "" : e.label);
+    const parts = [p, hit];
     if (label) {
       const a = e.points[0], b = e.points[e.points.length - 1];
       const mid = e.points.length > 2 ? e.points[Math.floor(e.points.length / 2)] : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
       const t = el("text", { x: mid[0], y: mid[1] - 5, class: "edge-label", "text-anchor": "middle" }, labels);
       t.textContent = label.length > 40 ? label.slice(0, 38) + "…" : label;
-      t.dataset.from = e.from; t.dataset.to = e.to; t.dataset.kind = e.kind;
+      parts.push(t);
     }
+    for (const x of parts) { x.dataset.from = e.from; x.dataset.to = e.to; x.dataset.kind = e.kind; }
+    hit.addEventListener("pointerenter", ev => showTip(ev, e));
+    hit.addEventListener("pointermove", moveTip);
+    hit.addEventListener("pointerleave", hideTip);
+    hit.addEventListener("click", ev => { ev.stopPropagation(); if (!wasDrag()) { hideTip(); show(v.id, e.from, { push: true, reveal: true }); } });
   }
   for (const n of v.nodes) {
-    const g = el("g", { class: "node " + n.kind, transform: `translate(${n.x},${n.y})` }, nodes);
+    const node = DATA.nodes[n.id] || {};
+    // zoomed-out title: as many lines as the box height allows, at most two
+    const lines = n.h >= 56 ? 2 : 1, fh = (n.h - 10) / (lines * 1.12);
+    const g = el("g", { class: "node " + n.kind + (lines === 1 ? " one" : ""), transform: `translate(${n.x},${n.y})`, style: `--fh:${fh}px;--lines:${lines}`, tabindex: 0, role: "button", "aria-label": `${kindName(node)}: ${n.card.title}` }, nodes);
     g.dataset.id = n.id;
     const fo = el("foreignObject", { width: n.w, height: n.h }, g);
     const c = n.card;
@@ -283,18 +522,22 @@ function render(v) {
       ${c.sub ? `<div class="s" title="${esc(c.sub)}">${esc(c.sub)}</div>` : ""}
       ${c.lines ? `<div class="lines">${c.lines.map(l => `<div class="l" title="${esc(l)}">${esc(l)}</div>`).join("")}</div>` : ""}
       ${c.badges ? `<div class="b">${c.badges.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}</div>`;
-    g.addEventListener("click", ev => { ev.stopPropagation(); select(n.id); });
+    g.addEventListener("click", ev => { ev.stopPropagation(); if (!wasDrag()) show(v.id, n.id, { push: true, reveal: true }); });
+    g.addEventListener("dblclick", ev => { ev.stopPropagation(); focusNode(n.id, Math.max(tf.k, 1)); });
+    g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); show(v.id, n.id, { push: true, reveal: true }); } });
+    g.addEventListener("pointerenter", () => hover(n.id));
+    g.addEventListener("pointerleave", () => hover(null));
   }
   applyHidden();
-  if ($("search").value) $("search").dispatchEvent(new Event("input"));
-  fit();
+  runSearch(false);
+  fit(false);
 }
 
 function applyHidden() {
   vp.querySelectorAll("[data-kind]").forEach(e => e.style.display = hidden.has(e.dataset.kind) ? "none" : "");
 }
 
-// ---- selection: highlight everything upstream and downstream of a node -------
+// ---- highlighting: lineage of the selection, search hits, hover ---------------
 function reach(id, dir) {
   const seen = new Set([id]), stack = [id];
   while (stack.length) {
@@ -308,109 +551,368 @@ function reach(id, dir) {
   return seen;
 }
 
-function select(id) {
-  selected = id;
-  const keep = new Set([...reach(id, "down"), ...reach(id, "up")]);
+let lineage = null;
+function paint() {
+  lineage = selected ? { up: reach(selected, "up"), down: reach(selected, "down") } : null;
+  const hits = new Set(search.inView), cur = search.inView[search.cur];
   vp.querySelectorAll(".node").forEach(g => {
-    g.classList.toggle("dim", !keep.has(g.dataset.id));
-    g.classList.toggle("sel", g.dataset.id === id);
+    const id = g.dataset.id;
+    const up = !!lineage && id !== selected && lineage.up.has(id), down = !!lineage && id !== selected && lineage.down.has(id);
+    g.classList.toggle("sel", id === selected);
+    g.classList.toggle("up", up && !down);
+    g.classList.toggle("down", down);
+    g.classList.toggle("hit", hits.has(id));
+    g.classList.toggle("cur", id === cur);
+    g.classList.toggle("dim", lineage ? !(id === selected || up || down) : !!search.q && !hits.has(id));
   });
-  vp.querySelectorAll(".edge, .edge-label").forEach(p => p.classList.toggle("dim", !(keep.has(p.dataset.from) && keep.has(p.dataset.to))));
-  showPanel(id);
+  vp.querySelectorAll("[data-from]").forEach(p => {
+    const f = p.dataset.from, t = p.dataset.to;
+    const on = !!lineage && ((lineage.up.has(f) && lineage.up.has(t)) || (lineage.down.has(f) && lineage.down.has(t)));
+    p.classList.toggle("on", on);
+    p.classList.toggle("dim", lineage ? !on : !!search.q);
+  });
+  svg.classList.toggle("isolate", isolate && !!selected);
 }
 
-function clearSelection() {
-  selected = null;
-  vp.querySelectorAll(".dim, .sel").forEach(e => e.classList.remove("dim", "sel"));
-  $("panel").classList.remove("open");
+function hover(id) {
+  if (selected || search.q || drag) id = null;
+  svg.classList.toggle("hovering", !!id);
+  vp.querySelectorAll(".nb").forEach(e => e.classList.remove("nb"));
+  if (!id) return;
+  vp.querySelector(`.node[data-id="${CSS.escape(id)}"]`).classList.add("nb");
+  vp.querySelectorAll("[data-from]").forEach(p => {
+    if (p.dataset.from !== id && p.dataset.to !== id) return;
+    p.classList.add("nb");
+    const other = p.dataset.from === id ? p.dataset.to : p.dataset.from;
+    vp.querySelector(`.node[data-id="${CSS.escape(other)}"]`)?.classList.add("nb");
+  });
 }
 
+const tip = $("tip");
+function showTip(ev, e) {
+  if (drag) return;
+  const a = DATA.nodes[e.from], b = DATA.nodes[e.to];
+  tip.innerHTML = `<b>${esc(a ? a.label : e.from)}</b> → <b>${esc(b ? b.label : e.to)}</b><small>${esc(styles[e.kind].legend)}${e.label ? " · " + esc(e.label) : ""}</small>`;
+  tip.hidden = false;
+  moveTip(ev);
+}
+function moveTip(ev) {
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(ev.clientX + 14, innerWidth - r.width - 8) + "px";
+  tip.style.top = Math.min(ev.clientY + 16, innerHeight - r.height - 8) + "px";
+}
+function hideTip() { tip.hidden = true; }
+
+// ---- navigation state <-> URL ------------------------------------------------
+// #<view> or #<view>/<node id>; every change is a history entry so Back works.
+function readHash() {
+  const h = location.hash.slice(1), i = h.indexOf("/");
+  const vid = decodeURIComponent(i < 0 ? h : h.slice(0, i)), nid = i < 0 ? null : decodeURIComponent(h.slice(i + 1));
+  return { vid, nid };
+}
+function writeHash(push) {
+  const h = "#" + encodeURIComponent(view.id) + (selected ? "/" + encodeURIComponent(selected) : "");
+  if (location.hash !== h) history[push ? "pushState" : "replaceState"](null, "", h);
+}
+
+// show is the single entry point for changing what is on screen.
+// opts: push (new history entry), focus (centre the node), reveal (pan only if hidden behind the panel)
+function show(vid, nid, opts = {}) {
+  const v = viewById[vid] || DATA.views[0];
+  if (v !== view) { render(v); }
+  if (nid && !v.ids.has(nid)) nid = null;
+  if (nid !== selected) isolate = false;
+  selected = nid;
+  paint();
+  hover(null);
+  if (nid) { showPanel(nid); } else { closePanel(); }
+  if (nid && opts.focus) focusNode(nid, Math.max(tf.k, 0.9), !opts.instant);
+  else if (nid && opts.reveal) reveal(nid);
+  writeHash(opts.push);
+}
+const clearSelection = () => selected && show(view.id, null, { push: true });
+
+// jump to a node anywhere: stay in this view when it has the node
+function goTo(id, push = true) {
+  const v = view.ids.has(id) ? view : viewsOf(id)[0];
+  if (v) show(v.id, id, { push, focus: true });
+}
+
+function onLocation() {
+  const { vid, nid } = readHash();
+  if (view && vid === view.id && (nid || null) === selected) return;
+  show(vid, nid, { focus: !!nid });
+}
+window.addEventListener("popstate", onLocation);
+window.addEventListener("hashchange", onLocation);
+
+// ---- details panel ----------------------------------------------------------
 function link(id) {
   const n = DATA.nodes[id];
-  return `<a data-go="${esc(id)}">${esc(n ? n.label : id)}</a>${n && n.repo ? ` <small class="dim-ink">${esc(n.repo)}</small>` : ""}`;
+  const away = !view.ids.has(id) ? ` <span class="tag" title="Not in this view; opens ${esc((viewsOf(id)[0] || {}).title || "")}">other view</span>` : "";
+  return `<a data-go="${esc(id)}">${esc(n ? n.label : id)}</a>${n && n.repo ? ` <small class="dim-ink">${esc(n.repo)}</small>` : ""}${away}`;
+}
+function copyBtn(text, label = "Copy") { return `<button class="copy" data-copy="${esc(text)}" title="Copy to clipboard">${label}</button>`; }
+
+// neighbours from this view plus the full graph (views lift or drop some edges)
+function neighbours(id, dir) {
+  const seen = new Set(), out = [];
+  for (const e of [...view.edges, ...(DATA.edges || [])]) {
+    if ((dir === "in" ? e.to : e.from) !== id) continue;
+    const other = dir === "in" ? e.from : e.to, k = other + "|" + e.kind;
+    if (!seen.has(k) && DATA.nodes[other]) { seen.add(k); out.push({ id: other, kind: e.kind, label: e.label }); }
+  }
+  return out;
+}
+function relSection(title, list, dirVar) {
+  if (!list.length) return "";
+  let h = `<h3><span class="sw-dir" style="background:var(${dirVar})"></span>${title} <span class="n">(${list.length})</span></h3>`;
+  for (const s of DATA.edgeStyles) {
+    const items = list.filter(r => r.kind === s.kind);
+    if (!items.length) continue;
+    h += `<div class="rk">${swatch(s.kind)}${esc(s.legend)}</div><ul>${items.map(r => `<li>${link(r.id)}${r.label ? ` <small class="dim-ink">${esc(r.label)}</small>` : ""}</li>`).join("")}</ul>`;
+  }
+  return h;
 }
 
 function showPanel(id) {
   const n = DATA.nodes[id];
-  const kindName = { build: n.composite ? "Composite build" : "Build configuration", make: "Make target", image: "Docker image", external: "External build configuration" }[n.kind];
-  let h = `<h2>${esc(n.label)}</h2><div class="meta"><span class="pill">${kindName}</span>${esc(n.repo || "")}${n.project ? " · " + esc(n.project) : ""}</div>`;
-  if (n.sub) h += `<div class="meta">${esc(n.sub)}</div>`;
-  if (n.source) h += `<div class="meta">Defined in <code>${esc(n.source)}</code></div>`;
+  const vs = viewsOf(id), src = sourceURL(n);
+  let head = `<h2>${esc(n.label)}</h2><div class="meta"><span class="pill">${esc(kindName(n))}</span>${esc(n.repo || "")}${n.project ? " · " + esc(n.project) : ""}</div>`;
+  head += `<dl class="kv">`;
+  if (n.sub) head += `<dt>${n.kind === "build" || n.kind === "external" ? "TeamCity id" : "Where"}</dt><dd><code title="${esc(n.sub)}">${esc(n.sub)}</code>${copyBtn(n.sub)}</dd>`;
+  if (n.source) head += `<dt>Source</dt><dd>${src ? `<a href="${esc(src)}" target="_blank" rel="noopener" title="Open at the analysed commit"><code>${esc(n.source)}</code> ↗</a>` : `<code>${esc(n.source)}</code>`}${copyBtn(n.source)}</dd>`;
+  head += `<dt>Views</dt><dd style="flex-wrap:wrap">${vs.map(v => `<span class="chip${v === view ? " on" : ""}" data-view="${esc(v.id)}">${esc(v.title)}</span>`).join("")}</dd></dl>`;
+  const up = lineage ? lineage.up.size - 1 : 0, down = lineage ? lineage.down.size - 1 : 0;
+  head += `<div class="actions">
+    <button data-act="link" title="Copy a link to this node (L)">🔗 Copy link</button>
+    <button data-act="isolate" aria-pressed="${isolate}" title="Hide everything not up- or downstream (I)">◎ Isolate lineage</button>
+    <button data-act="focus" title="Centre on this node (Enter)">⌖ Zoom to</button>
+  </div>
+  <div class="meta" style="margin:8px 0 0"><span><span class="sw-dir" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--up)"></span> ${up} upstream</span>
+  <span><span class="sw-dir" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--down)"></span> ${down} downstream</span></div>`;
+
+  let h = "";
   if (n.triggers && n.triggers.length) {
     h += `<h3>Triggers</h3><ul>${n.triggers.map(t => `<li><b>${esc(t.type)}</b> ${esc(t.detail || "")}</li>`).join("")}</ul>`;
   }
-  const inE = view.edges.filter(e => e.to === id), outE = view.edges.filter(e => e.from === id);
-  const rel = (list, key) => list.map(e => `<li>${link(e[key])} <small class="dim-ink">${esc(styles[e.kind].legend)}${e.label ? " · " + esc(e.label) : ""}</small></li>`).join("");
-  if (inE.length) h += `<h3>Upstream (${inE.length})</h3><ul>${rel(inE, "from")}</ul>`;
-  if (outE.length) h += `<h3>Downstream (${outE.length})</h3><ul>${rel(outE, "to")}</ul>`;
+  h += relSection("Upstream", neighbours(id, "in"), "--up");
+  h += relSection("Downstream", neighbours(id, "out"), "--down");
   if (n.steps && n.steps.length) {
-    h += `<h3>${n.kind === "make" ? "Recipe" : "Steps"}</h3>`;
+    h += `<h3>${n.kind === "make" ? "Recipe" : "Steps"} <span class="n">(${n.steps.length})</span></h3>`;
     n.steps.forEach((s, i) => {
       if (n.kind !== "make") h += `<div class="step">${i + 1}. ${esc(s.name || s.type)} <small>${esc(s.type)}${s.workDir ? " · in " + esc(s.workDir) : ""}</small></div>`;
-      if (s.script) h += `<pre>${esc(s.script)}</pre>`;
+      if (s.script) h += `<div class="code">${copyBtn(s.script)}<pre>${esc(s.script)}</pre></div>`;
     });
   }
-  if (n.artifacts && n.artifacts.length) h += `<h3>Artifact rules</h3><pre>${esc(n.artifacts.join("\n"))}</pre>`;
-  if (n.params && Object.keys(n.params).length) {
-    h += `<h3>Parameters</h3><table>${Object.keys(n.params).sort().map(k => `<tr><td>${esc(k)}</td><td>${esc(n.params[k])}</td></tr>`).join("")}</table>`;
+  if (n.artifacts && n.artifacts.length) {
+    const a = n.artifacts.join("\n");
+    h += `<h3>Artifact rules</h3><div class="code">${copyBtn(a)}<pre>${esc(a)}</pre></div>`;
   }
+  const keys = n.params ? Object.keys(n.params).sort() : [];
+  if (keys.length) {
+    h += `<h3>Parameters <span class="n">(${keys.length})</span></h3>`;
+    if (keys.length > 10) h += `<input class="filter" id="param-filter" type="search" placeholder="Filter parameters…" aria-label="Filter parameters">`;
+    h += `<table id="params">${keys.map(k => `<tr><td>${esc(k)}</td><td>${esc(n.params[k])}</td></tr>`).join("")}</table>`;
+  }
+  $("panel-head").innerHTML = head;
   $("panel-body").innerHTML = h;
-  $("panel").classList.add("open");
-  $("panel-body").querySelectorAll("[data-go]").forEach(a => a.addEventListener("click", () => goTo(a.dataset.go)));
+  $("panel-body").scrollTop = 0;
+  openPanel();
 }
 
-// jump to a node, switching to a view that contains it when needed
-function goTo(id) {
-  if (!view.nodes.some(n => n.id === id)) {
-    const other = DATA.views.find(v => v.nodes.some(n => n.id === id));
-    if (!other) return;
-    render(other);
+function showWarnings() {
+  selected && show(view.id, null, { push: true });
+  $("panel-head").innerHTML = `<h2>Analysis warnings</h2><div class="meta">Constructs the static analysis could not resolve. Fix the source or the config to make the map exact.</div>
+    <div class="actions"><button data-copy="${esc(DATA.warnings.join("\n"))}">Copy all</button></div>`;
+  $("panel-body").innerHTML = `<ul class="warn-list">${DATA.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
+  openPanel();
+}
+
+function openPanel() { $("panel").classList.add("open"); }
+function closePanel() { $("panel").classList.remove("open"); }
+const panelOpen = () => $("panel").classList.contains("open");
+
+$("panel").addEventListener("click", ev => {
+  const t = ev.target.closest("[data-go], [data-view], [data-act]");
+  if (!t) return;
+  if (t.dataset.go) goTo(t.dataset.go);
+  else if (t.dataset.view && t.dataset.view !== view.id) show(t.dataset.view, selected, { push: true, focus: true });
+  else if (t.dataset.act === "link") copyLink();
+  else if (t.dataset.act === "isolate") toggleIsolate();
+  else if (t.dataset.act === "focus") focusNode(selected, Math.max(tf.k, 1));
+});
+$("panel").addEventListener("input", ev => {
+  if (ev.target.id !== "param-filter") return;
+  const q = ev.target.value.toLowerCase();
+  $("params").querySelectorAll("tr").forEach(r => r.hidden = q && !r.textContent.toLowerCase().includes(q));
+});
+$("close").onclick = () => { selected ? clearSelection() : closePanel(); };
+
+function toggleIsolate() {
+  if (!selected) return;
+  isolate = !isolate;
+  paint();
+  const b = $("panel-head").querySelector('[data-act="isolate"]');
+  if (b) b.setAttribute("aria-pressed", String(isolate));
+  if (isolate) fitBox(boxOf([...lineage.up, ...lineage.down]), true);
+  toast(isolate ? "Showing only this lineage — press I to show everything" : "Showing everything");
+}
+
+// resizable panel
+(function () {
+  const w = parseInt(store.get("pg-panel-w"), 10);
+  if (w) document.documentElement.style.setProperty("--panel-w", w + "px");
+  $("grip").addEventListener("pointerdown", ev => {
+    ev.preventDefault();
+    const p = $("panel");
+    p.classList.add("resizing");
+    $("grip").setPointerCapture(ev.pointerId);
+    const move = e => {
+      const nw = Math.round(Math.min(innerWidth * 0.75, Math.max(320, innerWidth - e.clientX)));
+      document.documentElement.style.setProperty("--panel-w", nw + "px");
+    };
+    const up = () => {
+      p.classList.remove("resizing");
+      store.set("pg-panel-w", parseInt(getComputedStyle(p).width, 10));
+      $("grip").removeEventListener("pointermove", move);
+      $("grip").removeEventListener("pointerup", up);
+    };
+    $("grip").addEventListener("pointermove", move);
+    $("grip").addEventListener("pointerup", up);
+  });
+})();
+
+// ---- clipboard & toast ---------------------------------------------------------
+async function copy(text, what = "Copied") {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const t = document.createElement("textarea");
+    t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
   }
-  select(id);
-  focus(id);
+  toast(what);
+}
+function copyLink() { copy(location.href, selected ? `Link to “${DATA.nodes[selected].label}” copied` : `Link to ${view.title} copied`); }
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-copy]");
+  if (b) { ev.stopPropagation(); copy(b.dataset.copy); }
+});
+let toastTimer = 0;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
 }
 
 // ---- pan & zoom --------------------------------------------------------------
-function apply() { vp.setAttribute("transform", `translate(${tf.x},${tf.y}) scale(${tf.k})`); }
-function fit() {
-  // fit the lanes (the layout reserves space at the top for the draw.io title block)
+// The visible part of the canvas: the details panel covers its right side.
+function area() {
   const r = svg.getBoundingClientRect();
-  if (!r.width || !view.lanes.length) return;
-  const y0 = Math.min(...view.lanes.map(l => l.box[1])) - 20, h = view.h - y0;
-  const k = Math.min(r.width / view.w, r.height / h, 1.2);
-  tf = { k, x: (r.width - view.w * k) / 2, y: Math.max(10, (r.height - h * k) / 2) - y0 * k };
-  apply();
+  const pw = panelOpen() && !narrow.matches ? $("panel").getBoundingClientRect().width : 0;
+  return { w: Math.max(200, r.width - pw), h: r.height, left: r.left, top: r.top };
 }
-function zoomAt(f, cx, cy) {
+function apply() {
+  vp.setAttribute("transform", `translate(${tf.x},${tf.y}) scale(${tf.k})`);
+  vp.style.setProperty("--k", tf.k);
+  vp.style.setProperty("--es", Math.min(3, Math.max(1, 0.7 / tf.k)));
+  svg.classList.toggle("far", tf.k < FAR);
+  $("zpct").textContent = Math.round(tf.k * 100) + "%";
+}
+let anim = 0;
+function animateTo(target, animate = true) {
+  cancelAnimationFrame(anim);
+  if (!animate || reduceMotion.matches) { tf = target; apply(); return; }
+  const from = { ...tf }, t0 = performance.now(), dur = 240;
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    tf = { x: from.x + (target.x - from.x) * e, y: from.y + (target.y - from.y) * e, k: from.k + (target.k - from.k) * e };
+    apply();
+    if (p < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+function boxOf(ids) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const id of ids) {
+    const n = view.byId[id];
+    if (!n) continue;
+    x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x + n.w); y1 = Math.max(y1, n.y + n.h);
+  }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+function fitBox(b, animate, pad = 40, maxK = 1.2) {
+  const a = area();
+  if (!isFinite(b.w) || !a.h) return;
+  const k = Math.min((a.w - 2 * pad) / b.w, (a.h - 2 * pad) / b.h, maxK);
+  animateTo({ k, x: (a.w - b.w * k) / 2 - b.x * k, y: (a.h - b.h * k) / 2 - b.y * k }, animate);
+}
+// the layout reserves space above the lanes for the draw.io title block; skip it
+function viewBox(v) {
+  if (!v.lanes.length) return { x: 0, y: 0, w: v.w, h: v.h };
+  const y0 = Math.min(...v.lanes.map(l => l.box[1]));
+  return { x: 0, y: y0, w: v.w, h: v.h - y0 };
+}
+function fit(animate = true) { if (view) fitBox(viewBox(view), animate, 16); }
+function zoomAt(f, cx, cy, animate = false) {
   const k = Math.min(4, Math.max(0.05, tf.k * f));
-  tf.x = cx - (cx - tf.x) * (k / tf.k); tf.y = cy - (cy - tf.y) * (k / tf.k); tf.k = k; apply();
+  animateTo({ x: cx - (cx - tf.x) * (k / tf.k), y: cy - (cy - tf.y) * (k / tf.k), k }, animate);
 }
-function focus(id) {
-  const n = view.nodes.find(n => n.id === id);
+const zoomCenter = (f) => { const a = area(); zoomAt(f, a.w / 2, a.h / 2, true); };
+function focusNode(id, k = tf.k, animate = true) {
+  const n = view.byId[id];
   if (!n) return;
-  const r = svg.getBoundingClientRect();
-  tf.k = Math.max(tf.k, 0.9);
-  tf.x = r.width / 2 - (n.x + n.w / 2) * tf.k; tf.y = r.height / 2 - (n.y + n.h / 2) * tf.k; apply();
+  const a = area();
+  animateTo({ k, x: a.w / 2 - (n.x + n.w / 2) * k, y: a.h / 2 - (n.y + n.h / 2) * k }, animate);
 }
+// pan just enough to bring a node out from under the panel or the edges
+function reveal(id) {
+  const n = view.byId[id], a = area(), m = 24;
+  if (!n) return;
+  const sx = n.x * tf.k + tf.x, sy = n.y * tf.k + tf.y, sw = n.w * tf.k, sh = n.h * tf.k;
+  let dx = 0, dy = 0;
+  if (sx + sw > a.w - m) dx = a.w - m - (sx + sw);
+  if (sx + dx < m) dx = m - sx;
+  if (sy + sh > a.h - m) dy = a.h - m - (sy + sh);
+  if (sy + dy < m) dy = m - sy;
+  if (dx || dy) animateTo({ ...tf, x: tf.x + dx, y: tf.y + dy });
+}
+
+// Scroll / two-finger swipe pans, pinch (ctrl+wheel) zooms – like Figma and Miro.
 svg.addEventListener("wheel", ev => {
   ev.preventDefault();
+  cancelAnimationFrame(anim);
   const r = svg.getBoundingClientRect();
-  zoomAt(Math.exp(-ev.deltaY * 0.0015), ev.clientX - r.left, ev.clientY - r.top);
+  const unit = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? r.height : 1;
+  if (ev.ctrlKey || ev.metaKey) {
+    zoomAt(Math.exp(-Math.max(-50, Math.min(50, ev.deltaY * unit)) * 0.01), ev.clientX - r.left, ev.clientY - r.top);
+  } else {
+    let dx = ev.deltaX * unit, dy = ev.deltaY * unit;
+    if (ev.shiftKey && !dx) { dx = dy; dy = 0; }
+    tf.x -= dx; tf.y -= dy; apply();
+  }
 }, { passive: false });
-let drag = null;
-svg.addEventListener("pointerdown", ev => { drag = { x: ev.clientX, y: ev.clientY, tx: tf.x, ty: tf.y, moved: false }; $("canvas").classList.add("drag"); });
+let drag = null, dragged = false;
+const wasDrag = () => dragged;
+svg.addEventListener("pointerdown", ev => {
+  if (ev.button !== 0) return;
+  cancelAnimationFrame(anim);
+  drag = { x: ev.clientX, y: ev.clientY, tx: tf.x, ty: tf.y };
+  dragged = false;
+});
 window.addEventListener("pointermove", ev => {
   if (!drag) return;
   const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
-  if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
-  tf.x = drag.tx + dx; tf.y = drag.ty + dy; apply();
+  if (!dragged && Math.abs(dx) + Math.abs(dy) > 4) { dragged = true; $("canvas").classList.add("drag"); hideTip(); hover(null); }
+  if (dragged) { tf.x = drag.tx + dx; tf.y = drag.ty + dy; apply(); }
 });
-window.addEventListener("pointerup", () => { $("canvas").classList.remove("drag"); setTimeout(() => drag = null, 0); });
-svg.addEventListener("click", () => { if (!drag || !drag.moved) clearSelection(); });
-$("fit").onclick = fit;
-$("zin").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(1.25, r.width / 2, r.height / 2); };
-$("zout").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(0.8, r.width / 2, r.height / 2); };
-$("close").onclick = clearSelection;
+window.addEventListener("pointerup", () => { drag = null; $("canvas").classList.remove("drag"); setTimeout(() => dragged = false, 0); });
+svg.addEventListener("click", () => { if (!dragged) clearSelection(); });
+svg.addEventListener("dblclick", ev => { const r = svg.getBoundingClientRect(); zoomAt(1.6, ev.clientX - r.left, ev.clientY - r.top, true); });
+$("fit").onclick = () => fit();
+$("zin").onclick = () => zoomCenter(1.25);
+$("zout").onclick = () => zoomCenter(0.8);
+$("zpct").onclick = () => zoomCenter(1 / tf.k);
 
 // ---- sidebar -----------------------------------------------------------------
 function setSidebar(open) {
@@ -420,46 +922,71 @@ function setSidebar(open) {
 }
 $("side-toggle").onclick = () => setSidebar(document.body.classList.contains("collapsed"));
 // keep the diagram fitted while the canvas grows or shrinks with the sidebar
-$("canvas").addEventListener("transitionend", ev => { if (ev.propertyName === "left" && view) fit(); });
+$("canvas").addEventListener("transitionend", ev => { if (ev.propertyName === "left" && view && !selected) fit(false); });
 
-function navButton(v, label, parent, withDot) {
+DATA.views.forEach((v, i) => {
+  const repo = v.id.startsWith("repo-");
   const b = document.createElement("button");
   b.dataset.id = v.id;
-  b.innerHTML = `${withDot ? '<span class="dot"></span>' : ""}<span class="name">${esc(label)}</span><span class="count">${v.nodes.length}</span>`;
+  b.innerHTML = `${repo ? '<span class="dot"></span>' : ""}<span class="name">${esc(v.title)}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ""}<span class="count">${v.nodes.length}</span>`;
   b.title = `${v.title}: ${v.nodes.length} nodes, ${v.edges.length} links`;
-  b.onclick = () => { render(v); if (matchMedia("(max-width: 800px)").matches) setSidebar(false); };
-  parent.appendChild(b);
-}
-for (const v of DATA.views) {
-  const repo = v.id.startsWith("repo-");
-  navButton(v, v.title, repo ? $("nav-repos") : $("nav-views"), repo);
-}
+  b.onclick = () => { show(v.id, null, { push: true }); if (narrow.matches) setSidebar(false); };
+  (repo ? $("nav-repos") : $("nav-views")).appendChild(b);
+});
 if (!$("nav-repos").children.length) { $("nav-repos").previousElementSibling.remove(); $("nav-repos").remove(); }
 
-const present = new Set(DATA.views.flatMap(v => v.edges.map(e => e.kind)));
+const presentKinds = new Set(DATA.views.flatMap(v => v.nodes.map(n => n.kind)));
+for (const [k, label] of [["build", "build configuration"], ["composite", "composite build"], ["external", "build in another project"], ["make", "make target"], ["image", "docker image"]]) {
+  if (!presentKinds.has(k)) continue;
+  $("node-legend").insertAdjacentHTML("beforeend", `<div><span class="sw ${k}"></span>${label}</div>`);
+}
+
+const presentEdges = new Set(DATA.views.flatMap(v => v.edges.map(e => e.kind)));
 for (const s of DATA.edgeStyles) {
-  if (!present.has(s.kind)) continue;
+  if (!presentEdges.has(s.kind)) continue;
   const l = document.createElement("label");
-  l.innerHTML = `<input type="checkbox" checked><svg width="34" height="10"><line x1="1" y1="5" x2="27" y2="5" style="stroke:${edgeColor(s.kind)}" stroke-width="${s.width}" stroke-dasharray="${dash(s)}"/><path d="M26,1 L34,5 L26,9 z" style="fill:${edgeColor(s.kind)}"/></svg>${esc(s.legend)}`;
-  l.onclick = ev => {
-    ev.preventDefault();
-    hidden.has(s.kind) ? hidden.delete(s.kind) : hidden.add(s.kind);
+  l.innerHTML = `<input type="checkbox" checked aria-label="Show ${esc(s.legend)} edges">${swatch(s.kind)}${esc(s.legend)}`;
+  l.querySelector("input").addEventListener("change", ev => {
+    ev.target.checked ? hidden.delete(s.kind) : hidden.add(s.kind);
     l.classList.toggle("off", hidden.has(s.kind));
     applyHidden();
-    if (selected) select(selected);
-  };
+    paint();
+    if (selected) showPanel(selected);
+  });
   $("edge-filters").appendChild(l);
 }
 if (DATA.warnings && DATA.warnings.length) {
   const b = document.createElement("button");
   b.id = "warn-btn";
   b.textContent = `⚠ ${DATA.warnings.length} analysis warning${DATA.warnings.length > 1 ? "s" : ""}`;
-  b.onclick = () => {
-    $("panel-body").innerHTML = `<h2>Analysis warnings</h2><div class="meta">Constructs the static analysis could not resolve. Fix the source or the config to make the map exact.</div><ul>${DATA.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
-    $("panel").classList.add("open");
-  };
+  b.onclick = showWarnings;
   $("warn").appendChild(b);
 }
+
+// ---- header: provenance -----------------------------------------------------
+(function () {
+  const repos = DATA.repos || [];
+  let age = "";
+  const t = Date.parse(String(DATA.generated || "").replace(" UTC", "Z").replace(" ", "T"));
+  if (!isNaN(t)) {
+    const d = (Date.now() - t) / 1000;
+    age = d < 3600 ? "just now" : d < 86400 ? `${Math.round(d / 3600)} h ago` : `${Math.round(d / 86400)} days ago`;
+  }
+  $("meta-btn").textContent = `${age ? "Generated " + age : DATA.generated || ""} · ${repos.length} repo${repos.length === 1 ? "" : "s"} ▾`;
+  const rows = [...repos].sort((a, b) => a.name.localeCompare(b.name)).map(r => {
+    const c = r.commit ? r.commit.slice(0, 8) : "", cu = commitURL(r);
+    return `<tr><td><b>${esc(r.name)}</b></td><td>${cu ? `<a href="${esc(cu)}" target="_blank" rel="noopener"><code>${esc(c)}</code></a>` : `<code>${esc(c)}</code>`}</td><td class="url">${esc(r.url)}</td></tr>`;
+  }).join("");
+  $("meta-pop").innerHTML = `<div class="gen">Generated ${esc(DATA.generated)} by static analysis of these commits.</div><table>${rows}</table>`;
+  const pop = $("meta-pop");
+  $("meta-btn").onclick = ev => {
+    ev.stopPropagation();
+    pop.hidden = !pop.hidden;
+    pop.style.left = Math.max(8, Math.min($("meta-btn").getBoundingClientRect().left, innerWidth - 660)) + "px";
+    $("meta-btn").setAttribute("aria-expanded", String(!pop.hidden));
+  };
+  document.addEventListener("click", ev => { if (!pop.hidden && !pop.contains(ev.target)) { pop.hidden = true; $("meta-btn").setAttribute("aria-expanded", "false"); } });
+})();
 
 // ---- theme -------------------------------------------------------------------
 function setTheme(t) {
@@ -476,42 +1003,216 @@ $("theme").onclick = () => {
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => { if (!store.get("pg-theme")) setTheme(e.matches ? "dark" : "light"); });
 setTheme(document.documentElement.dataset.theme);
 
-// ---- search & keys -----------------------------------------------------------
-$("search").addEventListener("input", ev => {
-  const q = ev.target.value.trim().toLowerCase();
-  vp.querySelectorAll(".node").forEach(g => {
-    const n = DATA.nodes[g.dataset.id];
-    const hay = [n.label, n.sub, n.repo, n.project, ...(n.steps || []).map(s => s.script)].join(" ").toLowerCase();
-    const hit = q && hay.includes(q);
-    g.classList.toggle("hit", !!hit);
-    g.classList.toggle("dim", !!q && !hit);
+// ---- presentation mode -------------------------------------------------------
+function setPresent(on) {
+  document.body.classList.toggle("present", on);
+  hideTip();
+  setTimeout(() => selected ? focusNode(selected, Math.max(tf.k, 0.9)) : fit(), 200);
+  if (on) toast("Presentation mode — press Esc or P to leave");
+}
+$("present").onclick = () => setPresent(true);
+$("present-exit").onclick = () => setPresent(false);
+
+// ---- export ------------------------------------------------------------------
+// Writes the current view (with the active filters and highlight) as a standalone SVG.
+function exportSVG() {
+  const b = viewBox(view), pad = 24, head = 56;
+  const c = svg.cloneNode(true);
+  c.classList.remove("far", "hovering");
+  c.setAttribute("data-theme", document.documentElement.dataset.theme);
+  const W = b.w + 2 * pad, H = b.h + head + pad;
+  c.setAttribute("viewBox", `${b.x - pad} ${b.y - head} ${W} ${H}`);
+  c.setAttribute("width", W); c.setAttribute("height", H);
+  c.setAttribute("style", `width:${W}px;height:${H}px;font-family:${getComputedStyle(document.documentElement).fontFamily}`);
+  const cvp = c.querySelector("#vp");
+  cvp.removeAttribute("transform");
+  cvp.setAttribute("style", "--k:1;--es:1");
+  cvp.querySelectorAll(".edge-hit").forEach(e => e.remove());
+  cvp.querySelectorAll("[tabindex]").forEach(e => e.removeAttribute("tabindex"));
+  const bg = el("rect", { x: b.x - pad, y: b.y - head, width: W, height: H, style: "fill:var(--bg)" });
+  cvp.insertBefore(bg, cvp.firstChild);
+  const title = el("text", { x: b.x, y: b.y - 28, style: "fill:var(--ink);font-size:20px;font-weight:700" }, cvp);
+  title.textContent = view.title;
+  const sub = el("text", { x: b.x, y: b.y - 10, style: "fill:var(--muted);font-size:11px" }, cvp);
+  sub.textContent = DATA.subtitle;
+  const st = document.createElementNS(NS, "style");
+  st.textContent = document.querySelector("style").textContent;
+  c.querySelector("defs").appendChild(st);
+  const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(c)], { type: "image/svg+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `pipeline-map-${view.id}.svg`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Saved ${a.download}`);
+}
+$("export").onclick = exportSVG;
+
+// ---- search ------------------------------------------------------------------
+// Matches every node in every view; all words must match (label, ids, repo, scripts, params).
+const haystack = {};
+for (const id in DATA.nodes) {
+  const n = DATA.nodes[id];
+  haystack[id] = {
+    title: (n.label + " " + (n.sub || "")).toLowerCase(),
+    all: [id, n.label, n.sub, n.repo, n.project, n.kind, ...(n.steps || []).flatMap(s => [s.name, s.script]),
+          ...Object.keys(n.params || {}), ...(n.artifacts || [])].join(" ").toLowerCase(),
+  };
+}
+function runSearch(showList = true) {
+  const q = $("search").value.trim().toLowerCase();
+  search.q = q;
+  search.terms = q.split(/\s+/).filter(Boolean);
+  search.all = [];
+  if (q) {
+    for (const id in haystack) {
+      if (!viewsOf(id).length || !search.terms.every(t => haystack[id].all.includes(t))) continue;
+      const h = haystack[id], n = DATA.nodes[id];
+      const score = (view.ids.has(id) ? 0 : 100) + (n.label.toLowerCase().startsWith(search.terms[0]) ? 0 : search.terms.every(t => h.title.includes(t)) ? 10 : 50);
+      search.all.push({ id, score });
+    }
+    search.all.sort((a, b) => a.score - b.score || DATA.nodes[a.id].label.localeCompare(DATA.nodes[b.id].label));
+  }
+  // hits in this view, in reading order (lane by lane, left to right)
+  search.inView = search.all.map(r => r.id).filter(id => view.ids.has(id))
+    .sort((a, b) => (view.byId[a].y - view.byId[b].y) || (view.byId[a].x - view.byId[b].x));
+  search.cur = -1;
+  search.active = 0;
+  $("search-count").textContent = q ? `${search.inView.length} here · ${search.all.length} total` : "";
+  $("search-kbd").hidden = !!q;
+  paint();
+  if (showList) renderResults();
+}
+function highlight(text) {
+  let s = esc(text);
+  for (const t of search.terms) {
+    const i = s.toLowerCase().indexOf(esc(t));
+    if (i >= 0) s = s.slice(0, i) + "<mark>" + s.slice(i, i + esc(t).length) + "</mark>" + s.slice(i + esc(t).length);
+  }
+  return s;
+}
+function renderResults() {
+  const box = $("results"), input = $("search");
+  if (!search.q || document.activeElement !== input) { box.hidden = true; input.setAttribute("aria-expanded", "false"); return; }
+  const list = search.all.slice(0, 40);
+  let h = list.length ? "" : `<div class="empty">No builds, targets or images match “${esc(search.q)}”.</div>`;
+  list.forEach((r, i) => {
+    const n = DATA.nodes[r.id], vs = viewsOf(r.id);
+    const where = [n.repo, view.ids.has(r.id) ? "in this view" : "→ " + vs[0].title].filter(Boolean).join(" · ");
+    h += `<div class="r${i === search.active ? " on" : ""}" role="option" id="res-${i}" aria-selected="${i === search.active}" data-i="${i}">
+      <span class="sw ${nodeClass(n)}" style="width:12px;height:12px;border-radius:3px;border:1.6px solid var(--stroke);background:var(--fill)"></span>
+      <div class="main"><div class="title">${highlight(n.label)}</div><div class="where">${esc(where)}${n.sub ? " · " + highlight(n.sub) : ""}</div></div>
+      <span class="pill">${esc(kindName(n))}</span></div>`;
   });
-  vp.querySelectorAll(".edge, .edge-label").forEach(p => p.classList.toggle("dim", !!q));
-});
+  if (search.all.length > list.length) h += `<div class="more">${search.all.length - list.length} more — refine the search</div>`;
+  h += `<div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span><span><kbd>N</kbd> next hit on map</span></div>`;
+  box.innerHTML = h;
+  box.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+  input.setAttribute("aria-activedescendant", list.length ? "res-" + search.active : "");
+  box.querySelector(".r.on")?.scrollIntoView({ block: "nearest" });
+}
+function openResult(i) {
+  const r = search.all[i];
+  if (!r) return;
+  $("search").blur();
+  goTo(r.id);
+}
+// cycle through the hits in the current view
+function nextHit(dir) {
+  if (!search.inView.length) return;
+  search.cur = (search.cur + dir + search.inView.length) % search.inView.length;
+  const id = search.inView[search.cur];
+  $("search-count").textContent = `${search.cur + 1} / ${search.inView.length} here · ${search.all.length} total`;
+  if (selected) show(view.id, null, { push: false });
+  paint();
+  focusNode(id, Math.max(tf.k, 0.9));
+}
+$("search").addEventListener("input", () => runSearch());
+$("search").addEventListener("focus", renderResults);
+$("search").addEventListener("blur", () => setTimeout(renderResults, 120));
+$("results").addEventListener("pointerdown", ev => { const r = ev.target.closest(".r"); if (r) { ev.preventDefault(); openResult(+r.dataset.i); } });
 $("search").addEventListener("keydown", ev => {
-  if (ev.key === "Enter") { const h = vp.querySelector(".node.hit"); if (h) { select(h.dataset.id); focus(h.dataset.id); } }
-  if (ev.key === "Escape") { ev.target.value = ""; ev.target.dispatchEvent(new Event("input")); ev.target.blur(); }
+  const n = Math.min(search.all.length, 40);
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    if (n) { search.active = (search.active + (ev.key === "ArrowDown" ? 1 : -1) + n) % n; renderResults(); }
+  } else if (ev.key === "Enter") {
+    ev.preventDefault();
+    openResult(search.active);
+  } else if (ev.key === "Escape") {
+    ev.stopPropagation();
+    if (ev.target.value) { ev.target.value = ""; runSearch(); } else ev.target.blur();
+  }
 });
+
+// ---- keyboard ----------------------------------------------------------------
+const KEYS = [
+  ["Navigate"],
+  ["Search all views", "/"], ["Next / previous hit on the map", "N  ⇧N"],
+  ["Switch view", "1 – 9"], ["Back / forward", "Alt ← / →"],
+  ["Clear selection, close", "Esc"], ["Toggle sidebar", "["],
+  ["Canvas"],
+  ["Pan", "scroll · drag · arrows"], ["Zoom", "pinch · Ctrl+scroll · + −"],
+  ["Fit to screen", "F"], ["Zoom 100%", "0"],
+  ["Zoom into node / canvas", "double-click"], ["Select node", "click · Tab + Enter"],
+  ["Selection"],
+  ["Isolate lineage", "I"], ["Centre on selection", "Enter"],
+  ["Copy link to this view / node", "L"], ["Hover an edge", "shows its endpoints"],
+  ["Sharing"],
+  ["Presentation mode", "P"], ["Light / dark theme", "T"],
+  ["Export view as SVG", "button in toolbar"], ["This help", "?"],
+];
+$("help-rows").innerHTML = KEYS.map(([a, b]) => b ? `<div class="row"><span>${esc(a)}</span><span>${esc(b).split(" · ").map(x => /^[^a-z]{1,9}$|^Esc$|^Alt|^Ctrl|^Tab/.test(x) ? `<kbd>${x}</kbd>` : x).join(" · ")}</span></div>` : `<h3>${esc(a)}</h3>`).join("");
+function setHelp(open) { $("help").hidden = !open; if (open) $("help").querySelector(".help").focus?.(); }
+$("help-btn").onclick = () => setHelp(true);
+$("side-help").onclick = () => setHelp(true);
+$("help").addEventListener("click", ev => { if (ev.target === $("help")) setHelp(false); });
+
 window.addEventListener("keydown", ev => {
-  if (ev.target.tagName === "INPUT" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
-  if (ev.key === "/") { ev.preventDefault(); $("search").focus(); }
-  if (ev.key === "f" || ev.key === "F") fit();
-  if (ev.key === "[") $("side-toggle").click();
-  if (ev.key === "t" || ev.key === "T") $("theme").click();
-  if (ev.key === "Escape") clearSelection();
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName);
+  if (ev.key === "Escape") {
+    if (!$("help").hidden) return setHelp(false);
+    if (!$("meta-pop").hidden) { $("meta-pop").hidden = true; return; }
+    if (typing) return;
+    if (selected) return clearSelection();
+    if (panelOpen()) return closePanel();
+    if (document.body.classList.contains("present")) return setPresent(false);
+    return;
+  }
+  if (typing || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (!$("help").hidden) return;
+  const pan = ev.shiftKey ? 240 : 80;
+  const k = ev.key;
+  if (k === "/") { ev.preventDefault(); $("search").focus(); $("search").select(); }
+  else if (k === "?") setHelp(true);
+  else if (k === "f" || k === "F") fit();
+  else if (k === "0") zoomCenter(1 / tf.k);
+  else if (k === "+" || k === "=") zoomCenter(1.25);
+  else if (k === "-" || k === "_") zoomCenter(0.8);
+  else if (k === "ArrowLeft") { ev.preventDefault(); animateTo({ ...tf, x: tf.x + pan }, false); }
+  else if (k === "ArrowRight") { ev.preventDefault(); animateTo({ ...tf, x: tf.x - pan }, false); }
+  else if (k === "ArrowUp") { ev.preventDefault(); animateTo({ ...tf, y: tf.y + pan }, false); }
+  else if (k === "ArrowDown") { ev.preventDefault(); animateTo({ ...tf, y: tf.y - pan }, false); }
+  else if (k === "[") $("side-toggle").click();
+  else if (k === "t" || k === "T") $("theme").click();
+  else if (k === "p" || k === "P") setPresent(!document.body.classList.contains("present"));
+  else if (k === "i" || k === "I") toggleIsolate();
+  else if (k === "l" || k === "L") copyLink();
+  else if (k === "n") nextHit(1);
+  else if (k === "N") nextHit(-1);
+  else if (k === "Enter" && selected && !ev.target.closest?.(".node, button, a")) focusNode(selected, Math.max(tf.k, 1));
+  else if (/^[1-9]$/.test(k) && DATA.views[+k - 1]) show(DATA.views[+k - 1].id, null, { push: true });
 });
 
 // ---- start -------------------------------------------------------------------
-$("sub").textContent = DATA.subtitle;
-$("sub").title = DATA.subtitle;
-setSidebar(store.get("pg-sidebar") !== "closed" && !matchMedia("(max-width: 800px)").matches);
-window.addEventListener("resize", () => view && fit());
-window.addEventListener("hashchange", () => {
-  const v = DATA.views.find(v => v.id === location.hash.slice(1));
-  if (v && v !== view) render(v);
-});
-const startId = location.hash.slice(1) || store.get("pg-view");
-render(DATA.views.find(v => v.id === startId) || DATA.views[0]);
+setSidebar(store.get("pg-sidebar") !== "closed" && !narrow.matches);
+window.addEventListener("resize", () => view && (selected ? reveal(selected) : fit(false)));
+(function () {
+  let { vid, nid } = readHash();
+  if (!viewById[vid]) { vid = store.get("pg-view"); nid = null; }
+  show(viewById[vid] ? vid : DATA.views[0].id, nid, { focus: !!nid, instant: true });
+})();
 </script>
 </body>
 </html>

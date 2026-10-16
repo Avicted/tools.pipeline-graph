@@ -166,6 +166,9 @@ func TestEndToEnd(t *testing.T) {
 	if strings.Contains(string(h), "/*DATA*/null") || !strings.Contains(string(h), `"bt:service-a/Package"`) {
 		t.Error("html: graph data not embedded")
 	}
+	if !strings.Contains(string(h), `"repos":[{"name":`) {
+		t.Error("html: repositories not embedded (needed for source links)")
+	}
 	if strings.Contains(string(h), "<script src=") || strings.Contains(string(h), `href="http`) || strings.Contains(string(h), "@import") {
 		t.Error("html must be self-contained")
 	}
