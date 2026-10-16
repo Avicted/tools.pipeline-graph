@@ -24,6 +24,9 @@ pipeline-graph: 3 repos, 8 build configurations, 11 make targets, 2 images, 1 ex
 
 ![Every pipeline across seven repos on one page](docs/screenshots/overview.png)
 
+**[Try the live demo](https://avicted.github.io/tools.pipeline-graph/)**: the
+HTML viewer for the [Acme example](examples/acme), rebuilt on every push.
+
 ### What it answers
 
 | | |
@@ -51,7 +54,9 @@ make docker-run
 ```
 
 `make example` runs it on seven linked fictional repos in
-[`examples/acme`](examples/acme) and writes `out/acme/`.
+[`examples/acme`](examples/acme) and writes `out/acme/`. `make pages` builds
+the [live demo](https://avicted.github.io/tools.pipeline-graph/) from it into
+`out/pages/`.
 
 Repositories are shallow-cloned with the system `git`, so your SSH agent and
 keys are used. Clones are cached in `cache_dir` and refreshed on each run. A
