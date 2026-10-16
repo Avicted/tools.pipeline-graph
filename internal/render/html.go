@@ -52,17 +52,23 @@ type htmlEdgeStyle struct {
 }
 
 type htmlData struct {
-	Title    string                 `json:"title"`
-	Subtitle string                 `json:"subtitle"`
-	Views    []htmlView             `json:"views"`
-	Nodes    map[string]*model.Node `json:"nodes"`
-	Styles   []htmlEdgeStyle        `json:"edgeStyles"`
-	Warnings []string               `json:"warnings"`
+	Title     string                 `json:"title"`
+	Subtitle  string                 `json:"subtitle"`
+	Generated string                 `json:"generated"`
+	Repos     []model.Repo           `json:"repos"`
+	Views     []htmlView             `json:"views"`
+	Nodes     map[string]*model.Node `json:"nodes"`
+	Edges     []model.Edge           `json:"edges"` // the full graph, for neighbours outside the current view
+	Styles    []htmlEdgeStyle        `json:"edgeStyles"`
+	Warnings  []string               `json:"warnings"`
 }
 
 // HTML writes a single self-contained interactive page (no external assets).
 func HTML(w io.Writer, g *model.Graph, views []View, warnings []string) error {
-	d := htmlData{Title: "Pipeline map", Subtitle: Subtitle(g), Nodes: map[string]*model.Node{}, Warnings: warnings}
+	d := htmlData{
+		Title: "Pipeline map", Subtitle: Subtitle(g), Generated: g.Generated, Repos: g.Repos,
+		Nodes: map[string]*model.Node{}, Edges: g.Edges, Warnings: warnings,
+	}
 	for _, n := range g.Nodes {
 		d.Nodes[n.ID] = n
 	}

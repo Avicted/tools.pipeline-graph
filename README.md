@@ -51,11 +51,35 @@ local directory instead of a URL is analysed as it is.
 |------|---------------|
 | `pipelines.drawio` | The main diagram. Pages: *Overview* (pipelines and images), *Pipelines + make*, and one per repo with its cross-repo neighbours. Repos are swimlanes, flow runs left to right, and each page has a legend and the commit SHAs it was built from. |
 | `pipelines.vsdx` | The same pages as Visio, for importing into Miro. |
-| `pipelines.html` | Self-contained interactive viewer (no CDN): views and edge filters in a sidebar, pan/zoom, search (`/`), light/dark theme (`T`). Clicking a node highlights everything up- and downstream and shows its steps, scripts, triggers, params, artifact rules and source `file:line`. |
+| `pipelines.html` | Self-contained interactive viewer (no CDN). See [The HTML viewer](#the-html-viewer). |
 | `pipelines.mmd` | Mermaid flowchart of the overview; renders in GitHub/GitLab markdown and Miro's Mermaid app. |
 | `pipelines.dot` / `.svg` | Graphviz source of the overview. The `.svg` is written only if `dot` is installed (the Docker image has it). |
 | `graph.json` | The full graph model, for scripting or diffing runs. |
 | `warnings.txt` | Everything the analysis could not resolve. Nothing is dropped silently. |
+
+### The HTML viewer
+
+Open `pipelines.html` in any browser; it needs no server and no network.
+
+- **Shareable URLs.** The address bar always holds the view and the selected
+  node (`pipelines.html#overview/bt%3Aorders-service%2FImage`), so you can paste
+  exactly what you are looking at. Browser Back/Forward step through views and
+  selections. `L` copies the link.
+- **Lineage.** Click a node to colour everything upstream and downstream of it.
+  `I` hides everything else. The side panel lists neighbours by link type,
+  including ones outside the current view, plus steps, scripts, triggers, params
+  and artifact rules, each with a copy button. When the repo is on GitHub,
+  GitLab, Bitbucket Cloud or Gitea, `file:line` links to the analysed commit.
+- **Search everything** with `/`. It matches names, TeamCity ids, scripts and
+  param names in every view. `↑`/`↓` and `Enter` jump to a node (switching views
+  if needed), and `N`/`⇧N` steps through the hits on the map.
+- **Canvas.** Scroll or drag to pan; pinch or `Ctrl`+scroll to zoom. `F` fits,
+  `0` is 100%, and double-click zooms in. When zoomed out, cards show only
+  their titles, enlarged so they stay readable.
+- **Sharing.** `P` is a presentation mode for screen sharing (no chrome, bigger
+  text). **SVG** downloads the current view, with its filters and highlights,
+  for slides and docs. `T` switches light/dark.
+- `?` lists every shortcut.
 
 ### Importing into Miro
 
