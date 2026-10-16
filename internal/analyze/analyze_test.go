@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 func repo(t *testing.T, name string, files map[string]string) Repo {

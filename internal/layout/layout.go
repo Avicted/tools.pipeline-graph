@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 type Pt struct{ X, Y float64 }

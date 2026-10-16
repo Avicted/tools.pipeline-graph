@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"pipeline-graph/internal/analyze"
-	"pipeline-graph/internal/config"
-	"pipeline-graph/internal/fetch"
-	"pipeline-graph/internal/model"
-	"pipeline-graph/internal/render"
+	"github.com/Avicted/tools.pipeline-graph/internal/analyze"
+	"github.com/Avicted/tools.pipeline-graph/internal/config"
+	"github.com/Avicted/tools.pipeline-graph/internal/fetch"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/render"
 )
 
 var version = "dev"

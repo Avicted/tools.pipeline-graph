@@ -1,4 +1,4 @@
-module pipeline-graph
+module github.com/Avicted/tools.pipeline-graph
 
 go 1.27.1
 

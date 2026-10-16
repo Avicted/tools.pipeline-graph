@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"pipeline-graph/internal/layout"
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/layout"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 // VSDX writes a Visio drawing (one page per view). This is the format Miro

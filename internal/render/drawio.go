@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 // DrawIO writes an uncompressed .drawio file with one page per view.

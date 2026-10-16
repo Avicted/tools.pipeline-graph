@@ -3,7 +3,7 @@ package render
 import (
 	"testing"
 
-	"pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
 func TestWithoutMakeLiftsImageEdges(t *testing.T) {
