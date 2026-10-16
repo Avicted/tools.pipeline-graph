@@ -88,6 +88,16 @@ screenshots: build ## Regenerate the README screenshots in docs/screenshots from
 	@docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(ROOT_DIR)":/repo -w /repo \
 	  $(SHOTS_IMAGE) node scripts/screenshots.mjs out/acme/pipelines.html docs/screenshots
 
+# The GitHub Pages demo: the Acme viewer as index.html, plus the other formats
+# as downloads. CI publishes out/pages (.github/workflows/pages.yml).
+.PHONY: pages
+pages: build ## Build the GitHub Pages demo site from the Acme example into out/pages/
+	SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml
+	rm -rf out/pages && mkdir -p out/pages
+	cp out/acme/pipelines.html out/pages/index.html
+	cp out/acme/pipelines.drawio out/acme/pipelines.vsdx out/acme/pipelines.mmd \
+	  out/acme/pipelines.dot out/acme/graph.json out/pages/
+
 ##@ Test
 .PHONY: test
 test: ## Unit + end-to-end tests (needs git)
