@@ -687,17 +687,17 @@ function showPanel(id) {
   head += `<div class="actions">
     <button data-act="link" title="Copy a link to this node (L)">🔗 Copy link</button>
     <button data-act="isolate" aria-pressed="${isolate}" title="Hide everything not up- or downstream (I)">◎ Isolate lineage</button>
-    <button data-act="focus" title="Centre on this node (Enter)">⌖ Zoom to</button>
+    <button data-act="focus" title="Centre on this node (Enter)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5"/><path d="M8 1v4M8 11v4M1 8h4M11 8h4"/></svg> Zoom to</button>
   </div>
-  <div class="meta" style="margin:8px 0 0"><span><span class="sw-dir" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--up)"></span> ${up} upstream</span>
+  <div class="meta" style="margin:8px 0 0"><span>In total:</span><span><span class="sw-dir" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--up)"></span> ${up} upstream</span>
   <span><span class="sw-dir" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--down)"></span> ${down} downstream</span></div>`;
 
   let h = "";
   if (n.triggers && n.triggers.length) {
     h += `<h3>Triggers</h3><ul>${n.triggers.map(t => `<li><b>${esc(t.type)}</b> ${esc(t.detail || "")}</li>`).join("")}</ul>`;
   }
-  h += relSection("Upstream", neighbours(id, "in"), "--up");
-  h += relSection("Downstream", neighbours(id, "out"), "--down");
+  h += relSection("Direct upstream", neighbours(id, "in"), "--up");
+  h += relSection("Direct downstream", neighbours(id, "out"), "--down");
   if (n.steps && n.steps.length) {
     h += `<h3>${n.kind === "make" ? "Recipe" : "Steps"} <span class="n">(${n.steps.length})</span></h3>`;
     n.steps.forEach((s, i) => {

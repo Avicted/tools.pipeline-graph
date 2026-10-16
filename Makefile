@@ -18,6 +18,7 @@ PLATFORMS := linux/amd64 linux/arm64 windows/amd64 darwin/arm64
 CONFIG    ?= pipeline-graph.yaml
 
 PC_IMAGE  := pipeline-graph-pre-commit:local
+SHOTS_IMAGE := pipeline-graph-screenshots:local
 CACHE_DIR := $(HOME)/.cache/pipeline-graph-pre-commit
 HOOKS_DIR  = $(shell git -C "$(ROOT_DIR)" rev-parse --path-format=absolute --git-path hooks)
 
@@ -76,6 +77,16 @@ docker-run: docker-build ## Generate in a container, using the host ssh-agent fo
 		-v $$HOME/.ssh/known_hosts:/home/pg/.ssh/known_hosts:ro \
 		-v $(CURDIR):/work -w /work \
 		$(BINARY):$(VERSION) -config $(CONFIG)
+
+##@ Docs
+# Screenshots are taken in Docker (Dockerfile.screenshots) so that browser and
+# fonts, and therefore the pixels, are the same on every machine.
+.PHONY: screenshots
+screenshots: build ## Regenerate the README screenshots in docs/screenshots from the Acme example
+	SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml
+	@docker build -q -t $(SHOTS_IMAGE) - < "$(ROOT_DIR)/Dockerfile.screenshots" >/dev/null
+	@docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(ROOT_DIR)":/repo -w /repo \
+	  $(SHOTS_IMAGE) node scripts/screenshots.mjs out/acme/pipelines.html docs/screenshots
 
 ##@ Test
 .PHONY: test
@@ -164,7 +175,7 @@ clean: ## Remove build artifacts and generated diagrams
 
 .PHONY: clean-all
 clean-all: clean ## Also remove the pre-commit image and its cache
-	@docker image rm -f $(PC_IMAGE) >/dev/null 2>&1 || true
+	@docker image rm -f $(PC_IMAGE) $(SHOTS_IMAGE) >/dev/null 2>&1 || true
 	@rm -rf "$(CACHE_DIR)"
 
 ##@ Help
