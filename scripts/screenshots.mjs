@@ -28,6 +28,24 @@ const viewport = { width: 1920, height: 1080, deviceScaleFactor: 1 };
 //   check - JS that must be truthy, with a message for when it is not
 const SCENES = [
   {
+    file: "table.png", theme: "light", hash: "table",
+    title: "Find any job, and see what it can break",
+    caption: "The page opens on a table of every job and image: triggers, images built or used, how many jobs it needs and how many it breaks. Sorted by blast radius by default, filterable with `/`. `Enter` focuses a row.",
+    steps: [{ check: "document.querySelectorAll('#t-body tr[data-id]').length > 20", msg: "table rows rendered" }],
+  },
+  {
+    file: "focus.png", theme: "light", hash: "focus:" + encodeURIComponent("bt:platform-images/BaseGo") + "/" + encodeURIComponent("bt:platform-images/BaseGo"),
+    title: "Focus: just the chain that matters",
+    caption: "Focus re-lays out only a job's upstream and downstream, in one band ordered by dependency, so a change's impact is not spread over seven repository lanes. `B`, `D`, `I` and the path finder work here too.",
+    steps: [{ check: "document.querySelector('.node.sel') && document.querySelectorAll('.node').length < 40", msg: "focus view shows only the lineage" }],
+  },
+  {
+    file: "flow.png", theme: "dark", hash: "flow:orders-service",
+    title: "From commit to prod",
+    caption: "Per repository: every job a commit triggers and everything downstream of it, ending at the deploys.",
+    steps: [{ check: "document.querySelectorAll('.node').length > 3", msg: "flow rendered" }],
+  },
+  {
     file: "overview.png", theme: "light", hash: "overview",
     title: "Every pipeline, every repo, one page",
     caption: "Seven repositories, their TeamCity build configurations, snapshot and artifact dependencies, finish-build triggers, and the docker images passed between them. Each repo is a lane, and work flows left to right.",
