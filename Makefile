@@ -58,29 +58,65 @@ build-all: ## Cross-compile linux/windows/darwin binaries into dist/
 	done
 
 ##@ Run
+# These run the tool in Docker, so Docker and make are all you need. The
+# container runs as you (files in out/ are yours), mounts the project at /work,
+# keeps clones in the host cache dir, and gets your ssh-agent and known_hosts
+# when you have them - the bundled demo needs neither.
+# shortcut: /etc/passwd is mounted so ssh finds your uid; Linux hosts only,
+# Docker Desktop on macOS maps ownership itself - add a uname switch if it bites.
+# The viewer is served on localhost and opened via $$BROWSER (set by VS Code
+# devcontainers), else xdg-open / open; only on a terminal, never in CI.
+# shortcut: serves out/, so it assumes out_dir is out/.
+PG_CACHE := $(HOME)/.cache/pipeline-graph
+PG_DOCKER = mkdir -p "$(PG_CACHE)" && \
+	docker run --rm --user "$$(id -u):$$(id -g)" -e HOME="$(HOME)" \
+	  -v /etc/passwd:/etc/passwd:ro -v "$(PG_CACHE):$(PG_CACHE)" \
+	  $${SSH_AUTH_SOCK:+-v "$$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent} \
+	  $$([ -f "$(HOME)/.ssh/known_hosts" ] && echo -v "$(HOME)/.ssh/known_hosts:$(HOME)/.ssh/known_hosts:ro") \
+	  -v "$(ROOT_DIR):/work" -w /work $(BINARY):$(VERSION)
+
+# First run: start from the example, which lists the bundled demo repos.
+pipeline-graph.yaml:
+	cp pipeline-graph.example.yaml $@
+	@printf "$(GREEN)created $@ - put your repo URLs under 'repos:' to analyse your own projects$(RESET)\n"
+
 .PHONY: run
-run: build ## Generate the diagrams from $(CONFIG) into out/
-	./$(BINARY) -config $(CONFIG)
+run: docker-build $(CONFIG) ## Generate the diagrams from $(CONFIG) into out/ (first run: demo)
+	@$(PG_DOCKER) -config $(CONFIG)
+	@$(MAKE) --no-print-directory serve
+
+# file:// links open as text in VS Code, so the viewer is served over http
+# instead, by the tool itself (-serve): no extra image needed.
+PORT ?= 8080
+# Inside a devcontainer, localhost is the devcontainer, not the host Docker
+# daemon's host: share its network so VS Code can forward the port to your browser.
+SERVE_NET = $$(if [ -f /.dockerenv ] && docker inspect "$$HOSTNAME" >/dev/null 2>&1; then echo --network "container:$$HOSTNAME"; else echo -p "$(PORT):$(PORT)"; fi)
+.PHONY: serve
+serve: docker-build ## Serve out/ at http://localhost:$(PORT) in the background and open it (stop with make stop)
+	@docker rm -f $(BINARY)-viewer >/dev/null 2>&1 || true
+	@docker run -d --rm --name $(BINARY)-viewer $(SERVE_NET) -v "$(ROOT_DIR)/out:/www:ro" \
+	  $(BINARY):$(VERSION) -serve :$(PORT) -out /www >/dev/null
+	@url="http://localhost:$(PORT)/pipelines.html"; printf "$(GREEN)$$url$(RESET)  (make stop to stop serving)\n"; \
+	  if [ -t 1 ]; then ( "$${BROWSER:-$$(command -v xdg-open || command -v open || echo true)}" "$$url" >/dev/null 2>&1 || true ); fi
+
+.PHONY: stop
+stop: ## Stop the viewer server
+	@docker rm -f $(BINARY)-viewer >/dev/null 2>&1 || true
 
 .PHONY: example
-example: build ## Generate diagrams for the Acme example (7 linked repos) into out/acme/
-	./$(BINARY) -config examples/acme/pipeline-graph.yaml
+example: docker-build ## Generate diagrams for the Acme example (7 linked repos) into out/acme/
+	@$(PG_DOCKER) -config examples/acme/pipeline-graph.yaml
 
 .PHONY: example-github
-example-github: build ## Generate diagrams for the GitHub Actions example (4 linked repos) into out/github/
-	./$(BINARY) -config examples/github/pipeline-graph.yaml
+example-github: docker-build ## Generate diagrams for the GitHub Actions example (4 linked repos) into out/github/
+	@$(PG_DOCKER) -config examples/github/pipeline-graph.yaml
 
 .PHONY: docker-build
 docker-build: ## Build the pipeline-graph docker image
-	docker build -t $(BINARY):$(VERSION) .
+	@docker build -q -t $(BINARY):$(VERSION) . >/dev/null
 
 .PHONY: docker-run
-docker-run: docker-build ## Generate in a container, using the host ssh-agent for git
-	docker run --rm \
-		-v $$SSH_AUTH_SOCK:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
-		-v $$HOME/.ssh/known_hosts:/home/pg/.ssh/known_hosts:ro \
-		-v $(CURDIR):/work -w /work \
-		$(BINARY):$(VERSION) -config $(CONFIG)
+docker-run: run ## Alias for run
 
 ##@ Docs
 # Screenshots are taken in Docker (Dockerfile.screenshots) so that browser and
@@ -183,7 +219,7 @@ shell: pre-commit-image ## Open a shell in the pre-commit image
 
 ##@ Cleanup
 .PHONY: clean
-clean: ## Remove build artifacts and generated diagrams
+clean: stop ## Remove build artifacts and generated diagrams
 	rm -f $(BINARY)
 	rm -rf $(DIST) out
 
