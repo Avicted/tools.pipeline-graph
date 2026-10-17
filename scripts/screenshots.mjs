@@ -36,7 +36,7 @@ const SCENES = [
   {
     file: "blast-radius.png", theme: "dark", hash: "overview/" + encodeURIComponent("bt:platform-images/BaseGo"),
     title: "Blast radius of a base image change",
-    caption: "A CVE lands in the Go base image: what rebuilds, what gets redeployed, and through which links? Clicking a node colours its upstream green and its downstream red. `I` hides everything else. The URL now points at this exact view, ready to paste into the incident channel.",
+    caption: "A CVE lands in the Go base image: what rebuilds, what gets redeployed, and through which links? Clicking a node rings what it needs in violet and what depends on it in magenta. `B`, `D` and `I` hide everything else. The URL now points at this exact view, ready to paste into the incident channel.",
     steps: [
       { check: "document.querySelector('.node.sel')", msg: "node selected from the URL" },
       { key: "i" },
@@ -68,7 +68,7 @@ const SCENES = [
     title: "How does this reach production?",
     caption: "Select a job, then `Shift+click` another (or pick it from the palette): only the routes between them stay, with the jobs on the path listed in order. The URL carries both ends.",
     steps: [
-      { check: "document.querySelectorAll('.node.path').length > 0 && document.getElementById('svg').classList.contains('isolate')", msg: "path highlighted" },
+      { check: "document.querySelector('.node.end') && document.getElementById('svg').classList.contains('isolate')", msg: "path highlighted" },
     ],
   },
   {

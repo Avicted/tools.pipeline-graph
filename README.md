@@ -31,7 +31,7 @@ HTML viewer for the [Acme example](examples/acme), rebuilt on every push.
 
 | | |
 |---|---|
-| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Click the image or its build: the upstream turns green, the downstream red. `B` keeps only the blast radius, `D` only the dependencies, `I` both. The URL points at exactly this view. | ![Blast radius of a base image change](docs/screenshots/blast-radius.png) |
+| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Click the image or its build: what it needs is ringed violet, what depends on it magenta. `B` keeps only the blast radius, `D` only the dependencies, `I` both. The URL points at exactly this view. | ![Blast radius of a base image change](docs/screenshots/blast-radius.png) |
 | **DevSecOps:** *where are images pushed and pulled?* `/` searches names, TeamCity ids, step scripts and parameters across every view. | ![Supply chain search](docs/screenshots/search-supply-chain.png) |
 | **Platform:** *how does a base image reach prod?* Select a job, then `Shift+click` another: only the routes between them stay, listed in order. The URL carries both ends. | ![Path between two jobs](docs/screenshots/path-finder.png) |
 | **QA:** *what does this test job actually run, what triggers it, and what waits for it?* | ![Details of a test job](docs/screenshots/qa-test-job.png) |

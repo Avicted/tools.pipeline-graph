@@ -15,39 +15,46 @@
   })();
 </script>
 <style>
-  /* ---- themes ------------------------------------------------------------ */
+  /* ---- themes ------------------------------------------------------------
+     Calm map: builds and dependency arrows are neutral; hue means something (rarer node
+     kinds, triggers, image flow, lineage direction, search hits). Every hue set was checked
+     with the dataviz validator (OKLab CVD and normal-vision distance, contrast) per theme. */
   :root, [data-theme="light"] {
-    --bg: #F1F5F9; --panel: #FFFFFF; --panel-2: #F8FAFC; --ink: #0F172A; --muted: #475569; --faint: #64748B;
-    --line: #E2E8F0; --hover: #F1F5F9; --accent: #2563EB; --accent-ink: #FFFFFF; --accent-soft: #EFF6FF;
-    --lane-a: #F8FAFC; --lane-b: #FFFFFF; --lane-stroke: #CBD5E1; --lane-head: #1E3A8A; --lane-ext: #9A3412; --lane-title: #FFFFFF;
-    --code-bg: #0F172A; --code-ink: #E2E8F0; --halo: #FFFFFF; --edge-label: #475569;
-    --badge-bg: #FFF7ED; --badge-ink: #9A3412; --mono: #334155; --shadow: 0 1px 2px rgba(15,23,42,.08), 0 2px 8px rgba(15,23,42,.06);
-    --hit: rgba(234,179,8,.75); --sel: rgba(37,99,235,.45); --up: #0D9488; --down: #DB2777;
-    --tip-bg: #0F172A; --tip-ink: #F8FAFC; --backdrop: rgba(15,23,42,.35);
-    --n-build-fill: #FFFFFF; --n-build-stroke: #2563EB; --n-build-ink: #0F172A;
-    --n-composite-fill: #FAF5FF; --n-composite-stroke: #7C3AED; --n-composite-ink: #2E1065;
-    --n-external-fill: #FFF7ED; --n-external-stroke: #EA580C; --n-external-ink: #7C2D12;
-    --n-make-fill: #F1F5F9; --n-make-stroke: #64748B; --n-make-ink: #1E293B;
-    --n-image-fill: #ECFDF5; --n-image-stroke: #059669; --n-image-ink: #064E3B;
-    --e-snapshot: #2563EB; --e-artifact: #2563EB; --e-trigger: #EA580C; --e-runs: #64748B;
-    --e-depends: #94A3B8; --e-calls: #94A3B8; --e-produces: #059669; --e-consumes: #059669;
+    --bg: #f9f9f7; --panel: #fcfcfb; --ink: #0b0b0b; --muted: #52514e; --faint: #6b6a65; --mark: #898781;
+    --line: #e1e0d9; --lane-stroke: #c3c2b7;
+    --accent: #256abf; --accent-ink: #fcfcfb;
+    --lane-head: #52514e; --lane-title: #fcfcfb; --lane-ext: #eb6834; --lane-ext-title: #0b0b0b;
+    --code-bg: #1a1a19; --code-ink: #f0efec; --halo: #fcfcfb; --shadow: 0 1px 2px rgba(11,11,11,.08), 0 2px 8px rgba(11,11,11,.06);
+    --hit: #eda100; --up: #6250d6; --down: #e87ba4; --warn: #ec835a;
+    --tip-bg: #0b0b0b; --tip-ink: #fcfcfb; --backdrop: rgba(11,11,11,.35);
+    --n-build-stroke: #898781; --n-composite-stroke: #2a78d6; --n-external-stroke: #eb6834; --n-make-stroke: #c3c2b7; --n-image-stroke: #1baf7a;
+    --e-snapshot: #52514e; --e-artifact: #52514e; --e-trigger: #eb6834; --e-runs: #898781;
+    --e-depends: #898781; --e-calls: #898781; --e-produces: #1baf7a; --e-consumes: #1baf7a;
   }
-  /* Gruvbox dark (https://github.com/morhetz/gruvbox) */
   [data-theme="dark"] {
-    --bg: #1d2021; --panel: #282828; --panel-2: #32302f; --ink: #ebdbb2; --muted: #bdae93; --faint: #a89984;
-    --line: #3c3836; --hover: #3c3836; --accent: #d79921; --accent-ink: #1d2021; --accent-soft: #3c3836;
-    --lane-a: #282828; --lane-b: #32302f; --lane-stroke: #504945; --lane-head: #458588; --lane-ext: #d65d0e; --lane-title: #fbf1c7;
-    --code-bg: #1d2021; --code-ink: #ebdbb2; --halo: #1d2021; --edge-label: #d5c4a1;
-    --badge-bg: #3c3836; --badge-ink: #fabd2f; --mono: #d5c4a1; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 2px 10px rgba(0,0,0,.3);
-    --hit: rgba(250,189,47,.8); --sel: rgba(215,153,33,.6); --up: #8ec07c; --down: #fb4934;
-    --tip-bg: #ebdbb2; --tip-ink: #1d2021; --backdrop: rgba(0,0,0,.5);
-    --n-build-fill: #32302f; --n-build-stroke: #83a598; --n-build-ink: #ebdbb2;
-    --n-composite-fill: #32302f; --n-composite-stroke: #d3869b; --n-composite-ink: #ebdbb2;
-    --n-external-fill: #3c3836; --n-external-stroke: #fe8019; --n-external-ink: #fe8019;
-    --n-make-fill: #3c3836; --n-make-stroke: #928374; --n-make-ink: #d5c4a1;
-    --n-image-fill: #32361a; --n-image-stroke: #b8bb26; --n-image-ink: #ebdbb2;
-    --e-snapshot: #83a598; --e-artifact: #83a598; --e-trigger: #fe8019; --e-runs: #a89984;
-    --e-depends: #7c6f64; --e-calls: #928374; --e-produces: #b8bb26; --e-consumes: #8ec07c;
+    --bg: #0d0d0d; --panel: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --faint: #898781; --mark: #898781;
+    --line: #2c2c2a; --lane-stroke: #383835;
+    --accent: #3987e5; --accent-ink: #0b0b0b;
+    --lane-head: #52514e; --lane-title: #f0efec; --lane-ext: #d95926; --lane-ext-title: #0b0b0b;
+    --code-bg: #0d0d0d; --code-ink: #f0efec; --halo: #1a1a19; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 2px 10px rgba(0,0,0,.3);
+    --hit: #c98500; --up: #9085e9; --down: #d55181; --warn: #ec835a;
+    --tip-bg: #f0efec; --tip-ink: #1a1a19; --backdrop: rgba(0,0,0,.6);
+    --n-build-stroke: #898781; --n-composite-stroke: #3987e5; --n-external-stroke: #d95926; --n-make-stroke: #52514e; --n-image-stroke: #199e70;
+    --e-snapshot: #c3c2b7; --e-artifact: #c3c2b7; --e-trigger: #d95926; --e-runs: #898781;
+    --e-depends: #898781; --e-calls: #898781; --e-produces: #199e70; --e-consumes: #199e70;
+  }
+  /* derived once from the tokens above, so both themes stay in step */
+  :root {
+    --panel-2: color-mix(in srgb, var(--ink) 4%, var(--panel)); --hover: color-mix(in srgb, var(--ink) 8%, var(--panel));
+    --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--panel));
+    --lane-a: color-mix(in srgb, var(--ink) 3%, var(--panel)); --lane-b: var(--panel);
+    --edge-label: var(--muted); --mono: var(--muted); --badge-bg: var(--hover); --badge-ink: var(--muted);
+    --sel: var(--ink);
+    --n-build-fill: var(--panel); --n-build-ink: var(--ink);
+    --n-make-fill: color-mix(in srgb, var(--ink) 5%, var(--panel)); --n-make-ink: var(--ink);
+    --n-composite-fill: color-mix(in srgb, var(--n-composite-stroke) 9%, var(--panel)); --n-composite-ink: var(--ink);
+    --n-external-fill: color-mix(in srgb, var(--n-external-stroke) 9%, var(--panel)); --n-external-ink: var(--ink);
+    --n-image-fill: color-mix(in srgb, var(--n-image-stroke) 9%, var(--panel)); --n-image-ink: var(--ink);
   }
 
   /* ---- chrome ------------------------------------------------------------ */
@@ -117,7 +124,7 @@
   #results .r .main { flex: 1; min-width: 0; }
   #results .r .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #results .r .where { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #results .r mark { background: var(--hit); color: inherit; border-radius: 2px; }
+  #results .r mark { background: var(--hit); color: #0b0b0b; border-radius: 2px; }
   #results .r .ico, #ctx .ico { width: 14px; text-align: center; color: var(--faint); flex: none; }
   #results .r.act .title { font-weight: 500; font-size: 13px; }
   #results .empty, #results .more { color: var(--muted); font-size: 12px; padding: 8px 10px; }
@@ -191,7 +198,7 @@
   .edges label:has(input:focus-visible) { outline: 2px solid var(--accent); }
   .edges svg { flex: none; }
   #warn-btn {
-    margin: 18px 6px 0; width: calc(100% - 12px); border: 1px solid var(--line); background: var(--badge-bg); color: var(--badge-ink);
+    margin: 18px 6px 0; width: calc(100% - 12px); border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 16%, var(--panel)); color: var(--ink);
     border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; text-align: left;
   }
   .side-help { margin: 18px 6px 0; width: calc(100% - 12px); border: 1px dashed var(--line); background: none; color: var(--muted); border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; text-align: left; }
@@ -207,7 +214,7 @@
   .lane-bg.a { fill: var(--lane-a); } .lane-bg.b { fill: var(--lane-b); }
   .lane-head { fill: var(--lane-head); } .lane-head.ext { fill: var(--lane-ext); }
   .lane-tag { pointer-events: none; }
-  .lane-tag rect { fill: var(--lane-head); } .lane-tag.ext rect { fill: var(--lane-ext); }
+  .lane-tag rect { fill: var(--lane-head); } .lane-tag.ext rect { fill: var(--lane-ext); } .lane-tag.ext text { fill: var(--lane-ext-title); }
   .lane-tag text { fill: var(--lane-title); font-weight: 700; font-size: 12px; font-family: var(--sans); }
   .edge { fill: none; transition: opacity .15s; stroke-width: calc(var(--w) * var(--es)); }
   .edge.on { stroke-width: calc(var(--w) * var(--es) * 1.9); }
@@ -235,12 +242,13 @@
   .node .lines { margin-top: 6px; }
   .node .b { margin-top: 5px; display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
   .node .b span { background: var(--badge-bg); color: var(--badge-ink); border-radius: 4px; padding: 0 5px; font-size: 10px; white-space: nowrap; }
-  .node:hover .card, .node:focus-visible .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--sel); }
-  .node.up .card   { box-shadow: 0 0 0 calc(3px * var(--es)) var(--up); }
-  .node.down .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--down); }
+  .node:hover .card, .node:focus-visible .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--mark); }
+  /* the fill tint keeps direction readable when zoomed out, where a ring thins to a hairline */
+  .node.up .card   { box-shadow: 0 0 0 calc(4px * var(--es)) var(--up); background: color-mix(in srgb, var(--up) 16%, var(--fill)); }
+  .node.down .card { box-shadow: 0 0 0 calc(4px * var(--es)) var(--down); background: color-mix(in srgb, var(--down) 16%, var(--fill)); }
   .node.sel .card  { box-shadow: 0 0 0 calc(5px * var(--es)) var(--sel); }
-  .node.path .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--accent); }
-  .node.end .card  { box-shadow: 0 0 0 calc(5px * var(--es)) var(--accent); }
+  .node.end.up .card   { box-shadow: 0 0 0 calc(6px * var(--es)) var(--up); }
+  .node.end.down .card { box-shadow: 0 0 0 calc(6px * var(--es)) var(--down); }
   .node.pulse .card { animation: pulse .7s ease-out; }
   .node.hit .card  { box-shadow: 0 0 0 calc(4px * var(--es)) var(--hit); }
   .node.hit.cur .card { box-shadow: 0 0 0 calc(6px * var(--es)) var(--hit); }
@@ -624,7 +632,7 @@ function reach(id, dir) {
 function pathBetween(a, b) {
   for (const [from, to] of [[a, b], [b, a]]) {
     const down = reach(from, "down");
-    if (down.has(to)) { const up = reach(to, "up"); return new Set([...down].filter(x => up.has(x))); }
+    if (down.has(to)) { const up = reach(to, "up"), s = new Set([...down].filter(x => up.has(x))); s.dir = from === a ? "down" : "up"; return s; }
   }
   return null;
 }
@@ -637,16 +645,15 @@ function paint() {
   const hits = new Set(search.inView), cur = search.inView[search.cur];
   vp.querySelectorAll(".node").forEach(g => {
     const id = g.dataset.id;
-    const up = !!lineage && id !== selected && lineage.up.has(id), down = !!lineage && id !== selected && lineage.down.has(id);
-    const onPath = !!path && path.has(id);
+    const pd = path && id !== selected && path.has(id) ? path.dir : null; // a path takes the colour of its direction
+    const up = !!lineage && id !== selected && lineage.up.has(id) || pd === "up", down = !!lineage && id !== selected && lineage.down.has(id) || pd === "down";
     g.classList.toggle("sel", id === selected);
     g.classList.toggle("up", up && !down);
     g.classList.toggle("down", down);
-    g.classList.toggle("path", onPath && id !== selected);
     g.classList.toggle("end", !!path && id === pathTo);
     g.classList.toggle("hit", hits.has(id));
     g.classList.toggle("cur", id === cur);
-    g.classList.toggle("dim", lineage ? !(id === selected || up || down || onPath) : !!search.q && !hits.has(id));
+    g.classList.toggle("dim", lineage ? !(id === selected || up || down) : !!search.q && !hits.has(id));
   });
   vp.querySelectorAll("[data-from]").forEach(p => {
     const f = p.dataset.from, t = p.dataset.to;
