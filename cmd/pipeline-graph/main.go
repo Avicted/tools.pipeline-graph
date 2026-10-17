@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,6 +42,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	outDir := fs.String("out", "", "output directory (overrides out_dir)")
 	offline := fs.Bool("offline", false, "do not fetch; use cached checkouts")
 	strict := fs.Bool("strict", false, "exit with status 3 when the analysis produced warnings")
+	serve := fs.String("serve", "", "serve the -out directory over http at this address (e.g. :8080) instead of analysing")
 	showVersion := fs.Bool("version", false, "print version and exit")
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "usage: pipeline-graph [-config file.yaml] [-out dir] [-offline] [-strict] [repo-url ...]\n\n")
@@ -52,6 +54,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if *showVersion {
 		fmt.Fprintln(stdout, "pipeline-graph", version)
 		return 0
+	}
+	if *serve != "" {
+		srv := &http.Server{Addr: *serve, Handler: http.FileServer(http.Dir(*outDir)), ReadHeaderTimeout: 10 * time.Second}
+		fmt.Fprintf(stderr, "pipeline-graph: serving %s on %s\n", *outDir, *serve)
+		fmt.Fprintln(stderr, "pipeline-graph:", srv.ListenAndServe())
+		return 1
 	}
 	cfg, err := config.Load(*cfgFile)
 	if err != nil {

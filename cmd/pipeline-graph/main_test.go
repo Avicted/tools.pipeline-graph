@@ -3,13 +3,17 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"maps"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 var fixtures = filepath.Join("..", "..", "test", "fixtures", "repos")
@@ -335,5 +339,31 @@ func TestMixedSystems(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(out, "graph.json"))
 	if !strings.Contains(string(b), `"bt:platform-base/`) || !strings.Contains(string(b), `"bt:base-images/images/base-go"`) {
 		t.Errorf("both systems' jobs belong in the graph:\n%s", errs)
+	}
+}
+
+func TestServe(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pipelines.html"), []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := l.Addr().String()
+	_ = l.Close()
+	go run([]string{"-serve", addr, "-out", dir}, io.Discard, io.Discard)
+	var body []byte
+	for i := 0; i < 50; i++ {
+		if resp, err := http.Get("http://" + addr + "/pipelines.html"); err == nil {
+			body, _ = io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if string(body) != "hello" {
+		t.Errorf("served %q", body)
 	}
 }
