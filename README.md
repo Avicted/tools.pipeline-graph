@@ -2,7 +2,7 @@
 
 Maps how CI/CD pipelines across many git repositories link together. TeamCity
 and GitHub Actions are supported, and other systems plug in through
-[one small interface](#adding-a-cicd-system):
+[one small interface](docs/development.md#adding-a-cicd-system):
 build configurations, snapshot/artifact dependencies and finish-build triggers
 (also across repos), the `make` targets each step runs, and the docker images
 flowing between pipelines.
@@ -12,7 +12,7 @@ shell-command scanner. No TeamCity server access, no AI, and nothing from the
 repositories is executed.
 
 ```
-$ ./pipeline-graph -config pipeline-graph.yaml
+$ make run
 pipeline-graph: fetching 3 repositories into ~/.cache/pipeline-graph
 out/pipelines.drawio
 out/pipelines.vsdx
@@ -44,27 +44,33 @@ make drill-down, edge tooltips and analysis warnings.
 
 ## Quick start
 
+You need Docker and make, nothing else.
+
 ```sh
-make build   # or: go install github.com/Avicted/tools.pipeline-graph/cmd/pipeline-graph@latest
-cp pipeline-graph.example.yaml pipeline-graph.yaml   # list your repos
-./pipeline-graph -config pipeline-graph.yaml
-
-# or without a config file
-./pipeline-graph git@github.com:acme/service-a.git git@github.com:acme/platform-base.git
-
-# or in Docker, using the host ssh-agent
-make docker-run
+make run                      # first run: creates pipeline-graph.yaml with a demo and renders it
+$EDITOR pipeline-graph.yaml   # put your repo URLs under `repos:`
+make run                      # serves and opens http://localhost:8080/pipelines.html
 ```
 
-`make example` runs it on seven linked fictional TeamCity repos in
-[`examples/acme`](examples/acme) and writes `out/acme/`. `make example-github`
-does the same for four GitHub Actions repos in [`examples/github`](examples/github). `make pages` builds
-the [live demo](https://avicted.github.io/tools.pipeline-graph/) from it into
-`out/pages/`.
+### Your repos
 
-Repositories are shallow-cloned with the system `git`, so your SSH agent and
-keys are used. Clones are cached in `cache_dir` and refreshed on each run. A
-local directory instead of a URL is analysed as it is.
+Everything you edit is the `repos:` list in `pipeline-graph.yaml`:
+
+```yaml
+repos:
+  - git@github.com:your-org/service-a.git     # a bare URL
+  - url: git@github.com:your-org/base.git     # or a mapping: branch, name, provider, ...
+    branch: main
+  - ./checkout                                # a local directory, analysed as it is
+```
+
+Repos are shallow-cloned with git using your ssh-agent and `known_hosts`, and the
+clones are cached in `~/.cache/pipeline-graph`. Local directories must be inside
+this project directory, since only it is visible to the container.
+[`pipeline-graph.example.yaml`](pipeline-graph.example.yaml) lists every option.
+
+`make example` and `make example-github` render the larger fictional
+[TeamCity](examples/acme) and [GitHub Actions](examples/github) examples.
 
 ## Outputs
 
@@ -72,215 +78,17 @@ local directory instead of a URL is analysed as it is.
 |------|---------------|
 | `pipelines.drawio` | The main diagram. Pages: *Overview* (pipelines and images), *Pipelines + make*, and one per repo with its cross-repo neighbours. Repos are swimlanes, flow runs left to right, and each page has a legend and the commit SHAs it was built from. |
 | `pipelines.vsdx` | The same pages as Visio, for importing into Miro. |
-| `pipelines.html` | Self-contained interactive viewer (no CDN). See [The HTML viewer](#the-html-viewer). |
+| `pipelines.html` | Self-contained interactive viewer (no CDN). See [The HTML viewer](docs/viewer.md). |
 | `pipelines.mmd` | Mermaid flowchart of the overview; renders in GitHub/GitLab markdown and Miro's Mermaid app. |
 | `pipelines.dot` / `.svg` | Graphviz source of the overview. The `.svg` is written only if `dot` is installed (the Docker image has it). |
 | `graph.json` | The full graph model, for scripting or diffing runs. |
 | `warnings.txt` | Everything the analysis could not resolve. Nothing is dropped silently. |
 
-### The HTML viewer
+## Docs
 
-Open `pipelines.html` in any browser; it needs no server and no network.
-
-- **Shareable URLs.** The address bar always holds the view and the selected
-  node (`pipelines.html#overview/bt%3Aorders-service%2FImage`), so you can paste
-  exactly what you are looking at. Browser Back/Forward step through views and
-  selections. `L` copies the link.
-- **Lineage.** Click a node to colour everything upstream and downstream of it.
-  `B` (blast radius) and `D` (dependencies) keep one direction, `I` both, and
-  `Shift+click` on a second job keeps only the path between the two. Right-click
-  a job for these and copy-id / open-source actions. The details panel (docked at the bottom, drag its top edge to resize) lists neighbours by link type,
-  including ones outside the current view, plus steps, scripts, triggers, params
-  and artifact rules, each with a copy button. When the repo is on GitHub,
-  GitLab, Bitbucket Cloud or Gitea, `file:line` links to the analysed commit.
-- **Search and commands** with `/` or `Ctrl`/`⌘`+`K`. It matches names, TeamCity
-  ids, scripts and param names in every view, and lists matching commands below
-  (`>` shows commands only). `↑`/`↓` and `Enter` jump to a node (switching views
-  if needed), and `N`/`⇧N` steps through the hits on the map.
-- **Canvas.** Scroll or drag to pan; pinch or `Ctrl`+scroll to zoom. `F` fits,
-  `0` is 100%, and double-click zooms in. When zoomed out, cards show only
-  their titles, enlarged so they stay readable.
-- **Sharing.** `P` is a presentation mode for screen sharing (no chrome, bigger
-  text). **SVG** downloads the current view, with its filters and highlights,
-  for slides and docs. `T` switches light/dark. The selected lineage's edges flow downstream; **Animate flow** in the sidebar turns that off (it is off by default with reduced motion).
-- `?` lists every shortcut.
-
-### Importing into Miro
-
-Use **Upload → Visio (.vsdx)** with `pipelines.vsdx` and pick the pages to
-import. Colours and formatted text are kept, and connectors stay glued to
-their shapes. `pipelines.drawio` is the editable version for diagrams.net and
-Confluence.
-
-## What is recognised
-
-**GitHub Actions** (`.github/workflows/*.yml|*.yaml`): every job is a node.
-
-- `needs:` becomes a dependency, and a `download-artifact` of what a needed job
-  `upload-artifact`s makes it an artifact dependency.
-- `uses: owner/repo/.github/workflows/x.yml@ref` (and `./.github/workflows/x.yml`)
-  links to the reusable workflow, which runs before the calling job. The called
-  workflow is represented by its last job.
-- `on:` `push`, `pull_request`, `schedule` and `workflow_dispatch` are shown as
-  triggers on the first jobs. `workflow_run` links to the workflow it follows.
-- `run:` steps are scanned like any script (`make`, `docker`, called scripts),
-  with `working-directory` and `${{ env.X }}` resolved. `docker/build-push-action`
-  is read as the `docker build`/`push` it runs, and `container:` and `services:`
-  images count as used.
-
-**TeamCity Kotlin DSL** (`.teamcity/**/*.kts|*.kt`):
-
-- `object X : BuildType({...})`, `Template`, `Project`, inline `BuildType { }`,
-  `project { buildType { } }`, `val x = buildType { }`, and user subclasses
-  (`object X : MyBase(arg = ...)`, `class C(..) : BuildType({...})`), with
-  constructor arguments substituted.
-- Helper functions that build configs or add dependencies/steps
-  (`fun deploy(env: String) = BuildType {...}`, `fun Dependencies.dependsOnX(b: BuildType)`),
-  inlined with their arguments.
-- `id(...)`, `name`, `type = COMPOSITE`, `templates(...)` (steps, dependencies,
-  triggers and params merged in), `params`, `artifactRules`.
-- `dependencies { snapshot(X); artifacts(X) { artifactRules }; dependency(X) { snapshot{}; artifacts{} } }`
-  and `X.dependsOn(Y)`.
-- `sequential { buildType(A); parallel { ... } }` chains.
-- `triggers { vcs; schedule; finishBuildTrigger { buildType = "${X.id}" } }`.
-- Steps `script`, `exec`, `dockerCommand`, `gradle`, `maven`, `nodeJS`,
-  `powerShell`, `python`, `kotlinScript`, and generic runners.
-- String templates with constants and function/constructor arguments, and
-  TeamCity `%param%` references from the build's params.
-
-**Commands in steps** and in scripts they call (e.g. `./ci/build.sh`): `make` /
-`$(MAKE)` with `-C`, `-f`, `VAR=value` and targets; `cd dir && ...`;
-`docker build/buildx/push/pull/run/tag` with `--build-arg` image values and the
-`FROM` lines of the Dockerfile being built.
-
-**Makefiles**: variables (`= := ?= += !=`), command-line overrides, `include`,
-rules and prerequisites, static pattern rules, `.PHONY`, `.DEFAULT_GOAL`,
-recipes with automatic variables, and recursive `$(MAKE) -C dir target`.
-Conditionals are not evaluated (every branch is taken) and `$(shell ...)` is
-never run.
-
-**Images**: an image becomes a node when an analysed pipeline produces it.
-Every pipeline or target that builds `FROM` it, runs it or passes it as a build
-arg is linked as a consumer. Third-party base images such as `alpine` are left
-out.
-
-## Cross-repo references
-
-A string id like `AbsoluteId("ServiceA_Deploy_staging")` is matched against
-`<project id>_<relative id>` of every analysed build. The project id is
-`teamcity_project_id` from the config, or derived from the repo name the way
-TeamCity does it (`service-a` → `ServiceA`). Without an exact match, a unique
-build whose id ends in `_<relative id>` and whose prefix contains the repo name
-is accepted, with a warning. Anything still unresolved goes in the
-**External** lane; `external_ids` in the config pins a mapping by hand.
-
-## Adding a CI/CD system
-
-Everything that is the same for every system (cloning, cross-repo id
-resolution, scanning steps for `make`, `docker` and scripts, the graph and all
-renderers) lives behind [`ci.Provider`](internal/ci/ci.go). A provider only reads
-one system's definitions from a checkout:
-
-```go
-type Provider interface {
-    Name() string                       // `provider:` in the config
-    Detect(r ci.Repo) bool              // does the repo use this system?
-    Load(r ci.Repo) (*ci.Pipelines, error)
-}
-```
-
-`Load` returns neutral `ci.Job`s: a unique `Key` within the repo, a `QualID`
-other repos refer to it by (plus `Aliases` for ids that name it too), its steps,
-dependencies (`ci.Ref` to a job in the same repo or by id across repos),
-triggers and artifact rules. [`internal/ci/github`](internal/ci/github/github.go)
-is a compact reference implementation.
-
-To add one: implement it in `internal/ci/<name>`, add it to `providers` in
-[`cmd/pipeline-graph/main.go`](cmd/pipeline-graph/main.go), and test it. A repo
-that uses several systems is read by all of them; `provider: <name>` on a repo
-in the config picks exactly one. The [`analyze` tests](internal/analyze/provider_test.go)
-use a stub provider as a template.
-
-## Limits
-
-Values only known when TeamCity runs the DSL stay as written, e.g. names built
-from data-class fields (`"${config.name}"`) or loops over lists of configs.
-Such a build is shown once and listed in `warnings.txt` with its `file:line`.
-UI patches in `.teamcity/patches` (`changeBuildType`) are reported but not
-applied.
-
-## Development
-
-```sh
-make          # menu of all targets
-make test     # unit tests + end-to-end test against the fixture repos (golden files); `go test -cover ./...` for coverage
-make golden   # accept an intended output change, then review the diff in test/integration/testdata
-```
-
-Output is deterministic: the same commits give the same files. Set
-`SOURCE_DATE_EPOCH` to pin the "generated" timestamp.
-
-### Screenshots
-
-The images in `docs/screenshots` are generated, not hand-made. After a change
-to the viewer (or the Acme example), run:
-
-```sh
-make screenshots
-```
-
-This builds the example and drives headless Chromium through the scenes
-defined in `scripts/screenshots.mjs`, one per PNG, and rewrites the
-gallery in `docs/screenshots/README.md`. It runs in Docker
-(`Dockerfile.screenshots`), so the browser, the fonts, and therefore the
-pixels, are the same on every machine, and the browser clock is frozen. A
-second run gives byte-identical files, so `git status` shows only what really
-changed. Each scene also checks the page reached the expected state and fails
-on any JavaScript error, so a broken viewer fails the run instead of producing
-a bad picture. To add a screenshot, add a scene to `SCENES` in the script.
-Without Docker, `node scripts/screenshots.mjs` (Node 22 or later) uses a local
-`chromium`, or the browser named in `$CHROME`.
-
-### Quality gate
-
-All checks run in Docker (`Dockerfile.pre-commit`) with pinned tool versions,
-so Docker and make are all a machine needs. Docker images are pinned by tag
-and digest (`name:tag@sha256:...`).
-
-```sh
-make hooks              # once per clone: run the gate on every commit and push
-make pre-commit-run     # every hook on every file, plus govulncheck and a secret scan
-make pre-commit-pr-run  # hooks on FROM_REF..TO_REF (default origin/master..HEAD)
-make secrets            # gitleaks over the working tree and the full history
-make unhook             # remove the git hooks
-```
-
-| Stage | What runs |
-|-------|-----------|
-| commit (staged files) | hygiene fixers, gofmt, `go mod tidy -diff`, `go vet`, golangci-lint, `go test`, shellcheck, hadolint, Makefile parse, gitleaks on the staged diff |
-| push (all files) | all of the above, plus govulncheck and gitleaks over the full history |
-
-### Layout
-
-```
-cmd/pipeline-graph   CLI
-internal/config      YAML config
-internal/fetch       shallow git clones (system git, BatchMode ssh)
-internal/ci          CI/CD provider interface (Provider, Job, Ref)
-internal/ci/teamcity TeamCity provider: reads the Kotlin DSL through internal/kts
-internal/ci/github   GitHub Actions provider: reads workflow yaml
-internal/kts         Kotlin tokenizer, tolerant parser, TeamCity DSL extraction
-internal/makefile    Makefile parser
-internal/shell       make/docker/script invocations in shell text
-internal/analyze     builds the graph from any provider's jobs; resolves cross-repo references
-internal/model       graph types (nodes, edges, steps, triggers)
-internal/layout      layered left-to-right layout with repo swimlanes
-internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
-test/fixtures/repos  sample repos covering the recognised constructs
-examples/acme        larger fictional TeamCity example (`make example`)
-examples/github      fictional GitHub Actions example (`make example-github`)
-scripts              screenshots.mjs: regenerates docs/screenshots (`make screenshots`)
-```
+- [The HTML viewer](docs/viewer.md): shortcuts, lineage, sharing, Miro import
+- [What is analysed](docs/analysis.md): recognised constructs, cross-repo references, limits
+- [Development](docs/development.md): devcontainer, adding a CI/CD system, tests, quality gate, layout
 
 ## License
 
