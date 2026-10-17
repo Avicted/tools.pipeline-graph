@@ -101,3 +101,91 @@ func TestShellFunctionsAreNotRun(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestLoadErrorsAndWarnings(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Load(root, ".", "", nil); err == nil {
+		t.Error("no makefile is an error")
+	}
+	write(t, root, map[string]string{"Makefile": "include nothere.mk\nall:\n\t@true\n"})
+	m, err := Load(root, ".", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Warnings) == 0 {
+		t.Error("a missing mandatory include is reported")
+	}
+	if got := m.Targets(); !reflect.DeepEqual(got, []string{"all"}) {
+		t.Errorf("targets: %v", got)
+	}
+}
+
+func TestFilePreferenceAndExplicitFile(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": "a:\n", "GNUmakefile": "g:\n", "ci.mk": "c:\n"})
+	m, _ := Load(root, ".", "", nil)
+	if m.Path != "GNUmakefile" {
+		t.Errorf("GNU make prefers GNUmakefile, got %s", m.Path)
+	}
+	m, _ = Load(root, ".", "ci.mk", nil)
+	if m.Path != "ci.mk" || m.Rules["c"] == nil {
+		t.Errorf("explicit -f: %+v", m)
+	}
+}
+
+func TestExpand(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": `A = 1
+B = $(A)2
+C := $(B)3
+D = ${A}${A}
+E = $(subst x,y,xx)
+F = $(undefined)
+G = $$HOME
+`})
+	m, err := Load(root, ".", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for in, want := range map[string]string{
+		"$(A)": "1", "$(B)": "12", "$(C)": "123", "${A}": "1", "$(D)": "11",
+		"$(F)x": "x", "plain": "plain",
+	} {
+		if got := m.Expand(in); got != want {
+			t.Errorf("Expand(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCommandLineVarsWinOverAssignments(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": "TAG = dev\nTAG := other\nimg:\n\tdocker build -t x:$(TAG) .\n"})
+	m, _ := Load(root, ".", "", map[string]string{"TAG": "v1"})
+	if got := m.Expand("$(TAG)"); got != "v1" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestAutomaticVariables(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": "out: a b\n\tcp $< $@ # $^\na b:\n"})
+	m, _ := Load(root, ".", "", nil)
+	r := m.Rules["out"]
+	if got := m.ExpandRecipe(r, r.Recipe[0]); got != "cp a out # a b" {
+		t.Errorf("got %q", got)
+	}
+	if _, leaked := m.Vars["@"]; leaked {
+		t.Error("automatic variables must not leak out of the recipe")
+	}
+}
+
+func TestStaticPatternAndMultiTargetRules(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": "a b: shared\n\t@true\nx.o y.o: %.o: %.c\n\t@true\nshared:\n"})
+	m, _ := Load(root, ".", "", nil)
+	for _, want := range []string{"a", "b", "shared", "x.o", "y.o"} {
+		if m.Rules[want] == nil {
+			t.Errorf("rule %s missing; have %v", want, m.Targets())
+		}
+	}
+}
