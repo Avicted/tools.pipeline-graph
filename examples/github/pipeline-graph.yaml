@@ -1,0 +1,13 @@
+# A fictional "Globex" organisation whose pipelines are GitHub Actions
+# workflows. In real life these would be ssh URLs such as
+#   - git@github.com:globex/api-service.git
+# Local directories (relative to this file) are analysed as-is.
+repos:
+  - repos/base-images
+  - repos/shared-workflows
+  - repos/api-service
+  - repos/web-app
+
+out_dir: out/github
+views: [overview, full, per-repo]
+formats: [drawio, vsdx, html, mermaid, dot, json]

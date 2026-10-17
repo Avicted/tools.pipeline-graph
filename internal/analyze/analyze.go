@@ -141,6 +141,11 @@ func providerNames(ps []ci.Provider) string {
 func (a *analyzer) addJob(r Repo, j *ci.Job) {
 	id := buildNodeID(r.Name, j.Key)
 	a.byAbs[j.QualID] = id
+	for _, al := range j.Aliases {
+		if _, taken := a.byAbs[al]; !taken {
+			a.byAbs[al] = id
+		}
+	}
 	a.byRel[j.Key] = append(a.byRel[j.Key], id)
 	n := &model.Node{
 		ID: id, Kind: model.KindBuild, Repo: r.Name, Label: j.Name, Sub: j.QualID,
