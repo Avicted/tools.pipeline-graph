@@ -2,7 +2,8 @@
 // Regenerates the screenshots of the HTML viewer used in the README.
 //
 //   make screenshots                                   (in Docker, the normal way)
-//   node scripts/screenshots.mjs [pipelines.html] [out dir]   (needs Node >= 22 and Chromium)
+//   make shot SCENE=focus,table                        (some scenes, into out/shots)
+//   node scripts/screenshots.mjs [pipelines.html] [out dir] [--scenes file] [--only a,b]   (needs Node >= 22 and Chromium)
 //
 // Each scene opens the page in a fresh tab with the browser clock frozen and
 // animations off, drives it with real keys and mouse events (falling back to
@@ -16,129 +17,24 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 
-const html = resolve(process.argv[2] || "out/acme/pipelines.html");
-const outDir = resolve(process.argv[3] || "docs/screenshots");
+const { values, positionals } = parseArgs({ allowPositionals: true, options: { scenes: { type: "string", default: "scripts/scenes.json" }, only: { type: "string" } } });
+const html = resolve(positionals[0] || "out/acme/pipelines.html");
+const outDir = resolve(positionals[1] || "docs/screenshots");
 const chrome = process.env.CHROME || "chromium";
 const viewport = { width: 1920, height: 1080, deviceScaleFactor: 1 };
 
-// Scenes are written for the Acme example (examples/acme). Steps run in order:
+// Scenes live in scripts/scenes.json (written for the Acme example, examples/acme). Steps run in order:
 //   key   - press a key          type  - type text into the focused input
 //   eval  - run JS in the page   hover - move the mouse to the [x, y] the JS returns
 //   check - JS that must be truthy, with a message for when it is not
-const SCENES = [
-  {
-    file: "table.png", theme: "light", hash: "table",
-    title: "Find any job, and see what it can break",
-    caption: "The page opens on a table of every job and image: triggers, images built or used, how many jobs it needs and how many it breaks. Sorted by blast radius by default, filterable with `/`. `Enter` focuses a row.",
-    steps: [{ check: "document.querySelectorAll('#t-body tr[data-id]').length > 20", msg: "table rows rendered" }],
-  },
-  {
-    file: "focus.png", theme: "light", hash: "focus:" + encodeURIComponent("bt:platform-images/BaseGo") + "/" + encodeURIComponent("bt:platform-images/BaseGo"),
-    title: "Focus: just the chain that matters",
-    caption: "Focus re-lays out only a job's upstream and downstream, in one band ordered by dependency, so a change's impact is not spread over seven repository lanes. `B`, `D`, `I` and the path finder work here too.",
-    steps: [{ check: "document.querySelector('.node.sel') && document.querySelectorAll('.node').length < 40", msg: "focus view shows only the lineage" }],
-  },
-  {
-    file: "flow.png", theme: "dark", hash: "flow:orders-service",
-    title: "From commit to prod",
-    caption: "Per repository: every job a commit triggers and everything downstream of it, ending at the deploys.",
-    steps: [{ check: "document.querySelectorAll('.node').length > 3", msg: "flow rendered" }],
-  },
-  {
-    file: "overview.png", theme: "light", hash: "overview",
-    title: "Every pipeline, every repo, one page",
-    caption: "Seven repositories, their TeamCity build configurations, snapshot and artifact dependencies, finish-build triggers, and the docker images passed between them. Each repo is a lane, and work flows left to right.",
-    steps: [{ check: "document.querySelectorAll('.node').length > 30", msg: "overview rendered" }],
-  },
-  {
-    file: "blast-radius.png", theme: "dark", hash: "overview/" + encodeURIComponent("bt:platform-images/BaseGo"),
-    title: "Blast radius of a base image change",
-    caption: "A CVE lands in the Go base image: what rebuilds, what gets redeployed, and through which links? Clicking a node rings what it needs in violet and what depends on it in magenta. `B`, `D` and `I` hide everything else. The URL now points at this exact view, ready to paste into the incident channel.",
-    steps: [
-      { check: "document.querySelector('.node.sel')", msg: "node selected from the URL" },
-      { key: "i" },
-      { check: "document.getElementById('svg').classList.contains('isolate')", msg: "lineage isolated" },
-    ],
-  },
-  {
-    file: "search-supply-chain.png", theme: "light", hash: "overview",
-    title: "Supply chain questions in one search",
-    caption: "`/` searches every view: names, TeamCity ids, step scripts and parameters. Here it lists every job, make target and image that mentions the internal registry, i.e. everything that pushes or pulls images.",
-    steps: [
-      { key: "/" },
-      { type: "registry.acme.io" },
-      { check: "document.querySelectorAll('#results .r').length > 3", msg: "search results listed" },
-    ],
-  },
-  {
-    file: "command-palette.png", theme: "dark", hash: "overview",
-    title: "One palette for jobs and commands",
-    caption: "`/` or `Ctrl/⌘ K` opens the palette: jobs, targets and images on top, matching commands below. Type `>` for commands only: blast radius, dependencies, copy a TeamCity id, switch view, export.",
-    steps: [
-      { key: "/" },
-      { type: "go" },
-      { check: "document.querySelectorAll('#results .r.act').length > 0 && document.querySelectorAll('#results .r:not(.act)').length > 0", msg: "jobs and commands listed" },
-    ],
-  },
-  {
-    file: "path-finder.png", theme: "light", hash: "overview/" + encodeURIComponent("bt:platform-images/BaseGo") + "/" + encodeURIComponent("bt:orders-service/Deploy_prod"),
-    title: "How does this reach production?",
-    caption: "Select a job, then `Shift+click` another (or pick it from the palette): only the routes between them stay, with the jobs on the path listed in order. The URL carries both ends.",
-    steps: [
-      { check: "document.querySelector('.node.end') && document.getElementById('svg').classList.contains('isolate')", msg: "path highlighted" },
-    ],
-  },
-  {
-    file: "qa-test-job.png", theme: "light", hash: "repo-web-frontend/" + encodeURIComponent("bt:web-frontend/E2E"),
-    title: "What does this test job actually run?",
-    caption: "The per-repo view shows a repository together with its cross-repo neighbours. The side panel shows what triggers the E2E suite, what it waits for, what runs after it, the exact script, and the file and line that define it (a link to the analysed commit when the repo is on GitHub, GitLab, Bitbucket or Gitea).",
-    steps: [{ check: "document.getElementById('panel').classList.contains('open')", msg: "details panel open" }],
-  },
-  {
-    file: "make-drilldown.png", theme: "dark", hash: "full/" + encodeURIComponent("bt:orders-service/Image"),
-    title: "From TeamCity step down to the Makefile",
-    caption: "The *Pipelines + make* view follows each build step into the make targets it calls, their prerequisites, and recursive `make -C` calls, across included `.mk` files.",
-    steps: [
-      { eval: "focusNode('bt:orders-service/Image', 1, false)" },
-      { check: "document.querySelectorAll('.node.make:not(.dim)').length > 1", msg: "make targets in the lineage" },
-    ],
-  },
-  {
-    file: "edge-hover.png", theme: "light", hash: "overview",
-    title: "Every arrow explains itself",
-    caption: "Hover any link to see what it connects and why: a snapshot or artifact dependency (with its artifact rules), a finish-build trigger, or a produced or consumed image.",
-    steps: [
-      { eval: "focusNode('bt:orders-service/Deploy_staging', 1.1, false)" },
-      { hover: `(() => {
-          const p = document.querySelector('.edge-hit[data-kind="trigger"][data-from="bt:orders-service/IntegrationTests"]');
-          const pt = p.getPointAtLength(p.getTotalLength() * 0.4).matrixTransform(p.getScreenCTM());
-          return [pt.x, pt.y];
-        })()` },
-      { check: "!document.getElementById('tip').hidden", msg: "edge tooltip shown" },
-    ],
-  },
-  {
-    file: "present.png", theme: "dark", hash: "overview/" + encodeURIComponent("bt:orders-service/Deploy_prod"),
-    title: "Presentation mode for screen sharing",
-    caption: "`P` hides the controls and enlarges the text, and `I` keeps only one lineage. This view is every path to production for the orders service, from the base images to the release train, for a release review or a post-mortem call.",
-    steps: [
-      { key: "p" },
-      { key: "i" },
-      { wait: 1900 }, // let the "presentation mode" toast fade
-      { check: "document.body.classList.contains('present')", msg: "presentation mode on" },
-    ],
-  },
-  {
-    file: "warnings.png", theme: "light", hash: "overview",
-    title: "Nothing is dropped silently",
-    caption: "Anything the static analysis could not resolve is listed here and in `warnings.txt`. Here, a build configuration lives in a repo that was not analysed, so it is drawn as an external node.",
-    steps: [
-      { eval: "document.getElementById('warn-btn').click()" },
-      { check: "document.querySelector('#panel.open .warn-list li')", msg: "warnings listed" },
-    ],
-  },
-];
+const scenesFile = values.scenes;
+const ALL = JSON.parse(readFileSync(resolve(scenesFile), "utf8"));
+const names = values.only?.split(",").filter(Boolean);
+const bad = (names || []).filter(n => !ALL.some(s => s.file === n + ".png"));
+if (bad.length) { console.error(`unknown scene ${bad.join(", ")}; valid: ${ALL.map(s => s.file.replace(/\.png$/, "")).join(", ")}`); process.exit(2); }
+const SCENES = names ? ALL.filter(s => names.includes(s.file.replace(/\.png$/, ""))) : ALL;
 
 // ---- a minimal Chrome DevTools Protocol client --------------------------------
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -265,7 +161,7 @@ try {
 const gallery = ["# Screenshots", "",
   "Generated by `make screenshots` from the [Acme example](../../examples/acme); do not edit by hand.", "",
   ...SCENES.flatMap(s => [`## ${s.title}`, "", s.caption, "", `![${s.title}](${s.file})`, ""])].join("\n");
-writeFileSync(join(outDir, "README.md"), gallery);
+if (!names) writeFileSync(join(outDir, "README.md"), gallery);
 
 if (failed) {
   console.error(`${failed} of ${SCENES.length} screenshots failed`);
