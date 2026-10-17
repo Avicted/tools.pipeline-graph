@@ -17,6 +17,7 @@ import (
 
 	"github.com/Avicted/tools.pipeline-graph/internal/analyze"
 	"github.com/Avicted/tools.pipeline-graph/internal/ci"
+	"github.com/Avicted/tools.pipeline-graph/internal/ci/github"
 	"github.com/Avicted/tools.pipeline-graph/internal/ci/teamcity"
 	"github.com/Avicted/tools.pipeline-graph/internal/config"
 	"github.com/Avicted/tools.pipeline-graph/internal/fetch"
@@ -27,7 +28,7 @@ import (
 var version = "dev"
 
 // providers are the CI/CD systems that can be read; add new ones here.
-var providers = []ci.Provider{teamcity.New()}
+var providers = []ci.Provider{teamcity.New(), github.New()}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))

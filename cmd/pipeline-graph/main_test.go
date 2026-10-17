@@ -205,6 +205,27 @@ func TestSSHURLList(t *testing.T) {
 	}
 }
 
+// GitHub Actions repos cloned over ssh link up exactly as local ones do.
+func TestGitHubActionsOverSSH(t *testing.T) {
+	tmp := t.TempDir()
+	src := func(n string) string {
+		p, _ := filepath.Abs(filepath.Join("..", "..", "examples", "github", "repos", n))
+		return p
+	}
+	urls := sshRemotes(t, tmp, map[string]string{
+		"base-images": src("base-images"), "shared-workflows": src("shared-workflows"),
+		"api-service": src("api-service"), "web-app": src("web-app"),
+	})
+	out := filepath.Join(tmp, "out")
+	if code, _, errs := cli(t, append([]string{"-strict", "-out", out}, urls...)...); code != 0 {
+		t.Fatalf("exit %d\n%s", code, errs)
+	}
+	g, _ := os.ReadFile(filepath.Join(out, "graph.json"))
+	if !strings.Contains(string(g), `"from": "bt:shared-workflows/go-checks/test"`) || !strings.Contains(string(g), `"from": "img:ghcr.io/globex/base-go"`) {
+		t.Error("cross-repo links through a reusable workflow and an image must survive cloning")
+	}
+}
+
 func copyDir(t *testing.T, src, dst string) {
 	t.Helper()
 	err := filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
@@ -262,10 +283,57 @@ func exampleGraph(t *testing.T, config string, args ...string) (edges map[string
 	return edges, strings.TrimSpace(string(w))
 }
 
+// The GitHub Actions example links its repos through workflows, images and workflow_run.
+func TestGitHubActionsExample(t *testing.T) {
+	edges, warnings := exampleGraph(t, "github", "-strict")
+	if warnings != "" {
+		t.Errorf("the example is meant to be warning-free:\n%s", warnings)
+	}
+	for _, want := range []string{
+		// api-service calls shared-workflows' reusable workflow: it runs before the calling job
+		"bt:shared-workflows/go-checks/test -snapshot-> bt:api-service/ci/checks",
+		// needs:, and the job order within a workflow
+		"bt:api-service/ci/lint -snapshot-> bt:api-service/ci/checks",
+		"bt:api-service/ci/checks -snapshot-> bt:api-service/ci/build",
+		// workflow_run: a deploy workflow starts when CI has finished
+		"bt:api-service/ci/build -trigger-> bt:api-service/deploy/staging",
+		"bt:web-app/ci/image -trigger-> bt:web-app/deploy/publish",
+		// upload-artifact / download-artifact
+		"bt:web-app/ci/bundle -artifact-> bt:web-app/ci/image",
+		// the base image is built in one repo and used in another, by container: and by FROM
+		"bt:base-images/images/base-go -produces-> img:ghcr.io/globex/base-go",
+		"img:ghcr.io/globex/base-go -consumes-> bt:api-service/ci/lint",
+		"img:ghcr.io/globex/base-go -consumes-> bt:api-service/ci/build",
+		// images built by build-push-action and by a make target
+		"bt:api-service/ci/build -produces-> img:ghcr.io/globex/api",
+		"mk:web-app/Makefile:image -produces-> img:ghcr.io/globex/web",
+		// run: steps reach the Makefile
+		"bt:api-service/deploy/staging -runs-> mk:api-service/Makefile:deploy",
+	} {
+		if !edges[want] {
+			t.Errorf("missing edge: %s", want)
+		}
+	}
+}
+
 // Acme stays exactly as the TeamCity-only tool produced it: one intended warning.
 func TestAcmeExampleStillWorks(t *testing.T) {
 	edges, warnings := exampleGraph(t, "acme")
 	if len(edges) < 20 || strings.Count(warnings, "\n") != 0 || !strings.Contains(warnings, "Legacy_Billing_DeployProd") {
 		t.Errorf("%d edges, warnings:\n%s", len(edges), warnings)
+	}
+}
+
+// One organisation, two CI systems: a TeamCity repo and a GitHub Actions repo in the same map.
+func TestMixedSystems(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "out")
+	gh, _ := filepath.Abs(filepath.Join("..", "..", "examples", "github", "repos", "base-images"))
+	code, _, errs := cli(t, "-out", out, fixture("platform-base"), gh)
+	if code != 0 {
+		t.Fatalf("exit %d\n%s", code, errs)
+	}
+	b, _ := os.ReadFile(filepath.Join(out, "graph.json"))
+	if !strings.Contains(string(b), `"bt:platform-base/`) || !strings.Contains(string(b), `"bt:base-images/images/base-go"`) {
+		t.Errorf("both systems' jobs belong in the graph:\n%s", errs)
 	}
 }

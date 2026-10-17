@@ -1,0 +1,29 @@
+# Reusable workflow: every Go service in the organisation calls this.
+name: Go checks
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        type: string
+        default: "1.23"
+
+jobs:
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+      - run: go vet ./...
+
+  test:
+    needs: vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+      - name: Unit tests
+        run: go test -race -coverprofile=cover.out ./...

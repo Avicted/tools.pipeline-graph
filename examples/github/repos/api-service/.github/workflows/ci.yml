@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: ghcr.io/globex/base-go:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make lint
+
+  checks:
+    needs: lint
+    uses: globex/shared-workflows/.github/workflows/go-checks.yml@v1
+
+  build:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the binary
+        run: make build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-binary
+          path: bin/api
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/globex/api:${{ github.sha }}
+            ghcr.io/globex/api:latest

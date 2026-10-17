@@ -66,6 +66,10 @@ run: build ## Generate the diagrams from $(CONFIG) into out/
 example: build ## Generate diagrams for the Acme example (7 linked repos) into out/acme/
 	./$(BINARY) -config examples/acme/pipeline-graph.yaml
 
+.PHONY: example-github
+example-github: build ## Generate diagrams for the GitHub Actions example (4 linked repos) into out/github/
+	./$(BINARY) -config examples/github/pipeline-graph.yaml
+
 .PHONY: docker-build
 docker-build: ## Build the pipeline-graph docker image
 	docker build -t $(BINARY):$(VERSION) .
