@@ -2,6 +2,17 @@
 
 Open `pipelines.html` in any browser; it needs no server and no network.
 
+- **Table.** The page opens on a table of every job and image: triggers, images
+  built or used, **Needs** (transitive upstream) and **Breaks** (transitive
+  downstream), sorted by blast radius. Click a header to sort; filter with `/`,
+  the *on commit* / *scheduled* chips, or *make targets*. `Enter` or a click
+  opens the row in **Focus**. `H` returns to the table.
+- **Focus.** One job's upstream and downstream, laid out on its own in a single
+  band ordered by dependency, so the chain of a change is not spread over every
+  repository lane. Open it with the table, the **◉ Focus** button or the
+  right-click menu. `Esc` returns to the table.
+- **Commit → prod.** Per repository (sidebar): every job a commit triggers and
+  everything downstream of it.
 - **Shareable URLs.** The address bar always holds the view and the selected
   node (`pipelines.html#overview/bt%3Aorders-service%2FImage`), so you can paste
   exactly what you are looking at. Browser Back/Forward step through views and
