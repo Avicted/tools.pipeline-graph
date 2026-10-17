@@ -92,7 +92,8 @@ func isMake(w string) bool {
 func stripPrefix(w []string) []string {
 	for len(w) > 0 {
 		switch {
-		case w[0] == "sudo" || w[0] == "time" || w[0] == "exec" || w[0] == "command" || w[0] == "nice" || w[0] == "!":
+		case w[0] == "sudo" || w[0] == "time" || w[0] == "exec" || w[0] == "command" || w[0] == "nice" || w[0] == "!" ||
+			w[0] == "then" || w[0] == "else" || w[0] == "do": // `if x; then make y; fi`
 			w = w[1:]
 		case w[0] == "env":
 			w = w[1:]
