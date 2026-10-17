@@ -8,7 +8,7 @@ repos:
     name: platform-base               # swimlane title; default: repo name from the URL
     teamcity_project_id: PlatformBase # TeamCity project the DSL is imported into; default: derived from name
     # teamcity_dir: .teamcity         # default below
-    # provider: teamcity              # CI system to read (teamcity); default: every supported one found in the repo
+    # provider: teamcity              # CI system to read (teamcity, github); default: every supported one found in the repo
   # local checkouts work too (no clone, analysed as-is)
   # - ../release-train
 

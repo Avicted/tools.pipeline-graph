@@ -177,3 +177,20 @@ func TestExplicitTeamCityDirAndMissingDir(t *testing.T) {
 		t.Errorf("an explicit provider with nothing to read must say so: %v", w)
 	}
 }
+
+func TestAliasesAnswerForAWholeWorkflow(t *testing.T) {
+	last := job("go/test", "lib/.github/workflows/go.yml#test")
+	last.Aliases = []string{"lib/.github/workflows/go.yml"}
+	steal := job("other/x", "lib/.github/workflows/other.yml#x")
+	steal.Aliases = []string{"lib/.github/workflows/go.yml"} // already taken: the first claimant keeps it
+	call := job("ci/checks", "app/.github/workflows/ci.yml#checks")
+	call.Deps = []ci.Dep{{Ref: ci.Ref{Global: "lib/.github/workflows/go.yml", Line: 4}}}
+	gh := stub{name: "github", marker: "wf.yml", pipes: map[string]*ci.Pipelines{
+		"lib": {Jobs: []*ci.Job{last, steal}},
+		"app": {Jobs: []*ci.Job{call}},
+	}}
+	g, w := Run([]Repo{repo(t, "lib", map[string]string{"wf.yml": ""}), repo(t, "app", map[string]string{"wf.yml": ""})}, Options{Providers: []ci.Provider{gh}})
+	if got := edges(g); got != "bt:lib/go/test>bt:app/ci/checks:snapshot" {
+		t.Errorf("edges: %s (warnings %v)", got, w)
+	}
+}

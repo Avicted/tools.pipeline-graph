@@ -1,7 +1,8 @@
 # pipeline-graph
 
-Maps how CI/CD pipelines across many git repositories link together (TeamCity
-today; other systems plug in through [one small interface](#adding-a-cicd-system)):
+Maps how CI/CD pipelines across many git repositories link together. TeamCity
+and GitHub Actions are supported, and other systems plug in through
+[one small interface](#adding-a-cicd-system):
 build configurations, snapshot/artifact dependencies and finish-build triggers
 (also across repos), the `make` targets each step runs, and the docker images
 flowing between pipelines.
@@ -55,8 +56,9 @@ cp pipeline-graph.example.yaml pipeline-graph.yaml   # list your repos
 make docker-run
 ```
 
-`make example` runs it on seven linked fictional repos in
-[`examples/acme`](examples/acme) and writes `out/acme/`. `make pages` builds
+`make example` runs it on seven linked fictional TeamCity repos in
+[`examples/acme`](examples/acme) and writes `out/acme/`. `make example-github`
+does the same for four GitHub Actions repos in [`examples/github`](examples/github). `make pages` builds
 the [live demo](https://avicted.github.io/tools.pipeline-graph/) from it into
 `out/pages/`.
 
@@ -111,6 +113,20 @@ their shapes. `pipelines.drawio` is the editable version for diagrams.net and
 Confluence.
 
 ## What is recognised
+
+**GitHub Actions** (`.github/workflows/*.yml|*.yaml`): every job is a node.
+
+- `needs:` becomes a dependency, and a `download-artifact` of what a needed job
+  `upload-artifact`s makes it an artifact dependency.
+- `uses: owner/repo/.github/workflows/x.yml@ref` (and `./.github/workflows/x.yml`)
+  links to the reusable workflow, which runs before the calling job. The called
+  workflow is represented by its last job.
+- `on:` `push`, `pull_request`, `schedule` and `workflow_dispatch` are shown as
+  triggers on the first jobs. `workflow_run` links to the workflow it follows.
+- `run:` steps are scanned like any script (`make`, `docker`, called scripts),
+  with `working-directory` and `${{ env.X }}` resolved. `docker/build-push-action`
+  is read as the `docker build`/`push` it runs, and `container:` and `services:`
+  images count as used.
 
 **TeamCity Kotlin DSL** (`.teamcity/**/*.kts|*.kt`):
 
@@ -174,10 +190,10 @@ type Provider interface {
 ```
 
 `Load` returns neutral `ci.Job`s: a unique `Key` within the repo, a `QualID`
-other repos refer to it by, its steps, dependencies (`ci.Ref` to a job in the
-same repo or by id across repos), triggers and artifact rules. For GitHub
-Actions that would be one job per workflow job, `needs:` as dependencies,
-`workflow_run` as a trigger and `owner/repo/workflow.yml#job` as the `QualID`.
+other repos refer to it by (plus `Aliases` for ids that name it too), its steps,
+dependencies (`ci.Ref` to a job in the same repo or by id across repos),
+triggers and artifact rules. [`internal/ci/github`](internal/ci/github/github.go)
+is a compact reference implementation.
 
 To add one: implement it in `internal/ci/<name>`, add it to `providers` in
 [`cmd/pipeline-graph/main.go`](cmd/pipeline-graph/main.go), and test it. A repo
@@ -252,6 +268,7 @@ internal/config      YAML config
 internal/fetch       shallow git clones (system git, BatchMode ssh)
 internal/ci          CI/CD provider interface (Provider, Job, Ref)
 internal/ci/teamcity TeamCity provider: reads the Kotlin DSL through internal/kts
+internal/ci/github   GitHub Actions provider: reads workflow yaml
 internal/kts         Kotlin tokenizer, tolerant parser, TeamCity DSL extraction
 internal/makefile    Makefile parser
 internal/shell       make/docker/script invocations in shell text
@@ -260,7 +277,8 @@ internal/model       graph types (nodes, edges, steps, triggers)
 internal/layout      layered left-to-right layout with repo swimlanes
 internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
 test/fixtures/repos  sample repos covering the recognised constructs
-examples/acme        larger fictional example (`make example`)
+examples/acme        larger fictional TeamCity example (`make example`)
+examples/github      fictional GitHub Actions example (`make example-github`)
 scripts              screenshots.mjs: regenerates docs/screenshots (`make screenshots`)
 ```
 

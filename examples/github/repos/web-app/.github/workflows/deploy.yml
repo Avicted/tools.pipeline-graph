@@ -1,0 +1,12 @@
+name: Web deploy
+on:
+  workflow_run:
+    workflows: [Web CI]
+    types: [completed]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish to the CDN
+        run: make publish

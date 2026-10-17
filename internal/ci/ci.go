@@ -20,7 +20,7 @@ import (
 type Repo struct {
 	Name      string // short repo name, the swimlane title
 	Root      string // local checkout
-	Dir       string // where the definitions live, relative to Root; "" means the provider's default
+	Dir       string // where the definitions live, relative to Root; "" means the provider's default. Providers with a fixed location ignore it
 	ProjectID string // namespace of the repo's job ids, for systems that have one; "" means derive it
 }
 
@@ -47,8 +47,9 @@ type Trigger struct {
 
 // Job is one unit of a pipeline: a TeamCity build configuration, a GitHub Actions job.
 type Job struct {
-	Key       string // unique within the repo
-	QualID    string // unique across repos, what other repos refer to it by
+	Key       string   // unique within the repo
+	QualID    string   // unique across repos, what other repos refer to it by
+	Aliases   []string // more ids that also name this job, e.g. a whole workflow that is called by its last job; the first claimant wins
 	Name      string
 	Project   string
 	Composite bool // only orchestrates other jobs

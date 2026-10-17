@@ -1,0 +1,31 @@
+name: Base images
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * 1" # weekly rebuild picks up OS patches
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io/globex
+
+jobs:
+  base-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/build-push-action@v6
+        with:
+          context: go
+          file: go/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/base-go:1.23
+            ${{ env.REGISTRY }}/base-go:latest
+
+  scan:
+    needs: base-go
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan for known CVEs
+        run: make scan IMAGE=${{ env.REGISTRY }}/base-go:latest
