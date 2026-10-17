@@ -38,6 +38,10 @@ type htmlLane struct {
 
 type htmlView struct {
 	ID    string     `json:"id"`
+	Kind  string     `json:"kind"` // map | focus | flow
+	Root  string     `json:"root,omitempty"`
+	Up    int        `json:"up,omitempty"`
+	Down  int        `json:"down,omitempty"`
 	Title string     `json:"title"`
 	W     float64    `json:"w"`
 	H     float64    `json:"h"`
@@ -75,8 +79,23 @@ func HTML(w io.Writer, g *model.Graph, views []View, warnings []string) error {
 	for _, k := range edgeOrder {
 		d.Styles = append(d.Styles, htmlEdgeStyle{string(k), edgeStyles[k]})
 	}
+	type extra struct {
+		View
+		kind, root string
+		up, down   int
+	}
+	var all []extra
 	for _, v := range views {
-		hv := htmlView{ID: v.ID, Title: v.Title, W: v.Layout.W, H: v.Layout.H}
+		all = append(all, extra{View: v, kind: "map"})
+	}
+	for _, v := range FlowViews(g) {
+		all = append(all, extra{View: v, kind: "flow"})
+	}
+	for _, f := range FocusViews(g) {
+		all = append(all, extra{View: f.View, kind: "focus", root: f.Root, up: f.Up, down: f.Down})
+	}
+	for _, v := range all {
+		hv := htmlView{ID: v.ID, Kind: v.kind, Root: v.root, Up: v.up, Down: v.down, Title: v.Title, W: v.Layout.W, H: v.Layout.H, Lanes: []htmlLane{}}
 		for _, l := range v.Layout.Lanes {
 			hv.Lanes = append(hv.Lanes, htmlLane{Name: l.Name, Box: [4]float64{l.Box.X, l.Box.Y, l.Box.W, l.Box.H}})
 		}
