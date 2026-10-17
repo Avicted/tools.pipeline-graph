@@ -1,0 +1,14 @@
+{
+  "name": "pipeline-graph",
+  "image": "mcr.microsoft.com/devcontainers/go:1.27-bookworm@sha256:dcd81a1635d65c211da280c5eb2edd55394c9b79dc77f287524c706ef1bf29ca",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  // Same path in the container as on the host: make passes it to the host
+  // Docker daemon as a bind-mount source, so the two must match.
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "customizations": {
+    "vscode": { "extensions": ["golang.go"] }
+  }
+}
