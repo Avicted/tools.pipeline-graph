@@ -41,14 +41,18 @@ func IsLocal(url string) bool {
 // offline skips network access and uses existing checkouts.
 func All(ctx context.Context, reqs []Request, cacheDir string, concurrency int, offline bool) []Result {
 	// identical requests share one checkout
-	unique := map[Request]*Result{}
+	results := map[Request]Result{}
+	var todo []Request
 	for _, r := range reqs {
-		unique[r] = nil
+		if _, dup := results[r]; !dup {
+			results[r] = Result{}
+			todo = append(todo, r)
+		}
 	}
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	for r := range unique {
+	for _, r := range todo {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -56,14 +60,14 @@ func All(ctx context.Context, reqs []Request, cacheDir string, concurrency int, 
 			defer func() { <-sem }()
 			res := one(ctx, r, cacheDir, offline)
 			mu.Lock()
-			unique[r] = &res
+			results[r] = res
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
 	out := make([]Result, len(reqs))
 	for i, r := range reqs {
-		out[i] = *unique[r]
+		out[i] = results[r]
 	}
 	return out
 }
