@@ -161,6 +161,29 @@
   .help .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
   .help .row span:last-child { white-space: nowrap; }
 
+  /* ---- table (landing page) ---------------------------------------------- */
+  #table { position: fixed; top: var(--top); right: 0; bottom: 0; left: var(--side); overflow: auto; padding: 16px 24px 40px; transition: left .18s ease; }
+  body.collapsed #table { left: 0; }
+  body:not(.tbl) #table, body.tbl #canvas, body.tbl #hint, body.tbl .zoom, body.tbl #fit, body.tbl #export, body.tbl #present { display: none; }
+  .t-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .t-bar input { flex: 1; min-width: 220px; max-width: 420px; height: 32px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 7px; padding: 0 10px; font: inherit; font-size: 13px; }
+  .t-bar .chip { cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+  .t-bar .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .t-bar .n { color: var(--muted); font-size: 12px; margin-left: auto; }
+  #table table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  #table th { position: sticky; top: -16px; background: var(--bg); text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 1; }
+  #table th button { all: unset; cursor: pointer; }
+  #table th button:hover, #table th button:focus-visible { color: var(--ink); }
+  #table th[aria-sort="ascending"] button::after { content: " ▲"; } #table th[aria-sort="descending"] button::after { content: " ▼"; }
+  #table td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  #table tbody tr { cursor: pointer; }
+  #table tbody tr:hover, #table tbody tr:focus-visible { background: var(--hover); }
+  #table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #table td small { display: block; color: var(--faint); font-size: 11px; }
+  #table .tg { display: inline-block; font-size: 11px; color: var(--badge-ink); background: var(--badge-bg); border-radius: 4px; padding: 0 5px; margin: 0 4px 2px 0; white-space: nowrap; }
+  #table .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--down); margin-right: 6px; vertical-align: middle; }
+  #table .empty { color: var(--muted); padding: 24px 10px; }
+
   /* ---- sidebar ----------------------------------------------------------- */
   #sidebar {
     position: fixed; top: var(--top); left: 0; bottom: 0; width: var(--side); background: var(--panel);
@@ -419,6 +442,8 @@
 <nav id="sidebar" aria-label="Views">
   <h4>Views</h4>
   <div class="nav" id="nav-views"></div>
+  <h4>Commit → prod</h4>
+  <div class="nav" id="nav-flows"></div>
   <h4>Repositories</h4>
   <div class="nav" id="nav-repos"></div>
   <h4>Nodes</h4>
@@ -429,6 +454,16 @@
   <button class="side-help" id="side-help">Keyboard shortcuts <kbd>?</kbd></button>
 </nav>
 
+<main id="table" aria-label="All jobs, targets and images">
+  <div class="t-bar" id="t-bar">
+    <input id="t-q" type="search" autocomplete="off" spellcheck="false" placeholder="Filter jobs, repos, triggers, images…  ( / )" aria-label="Filter the table">
+    <button class="chip" data-t="commit" aria-pressed="false" title="Only jobs that run on every commit">⎇ on commit</button>
+    <button class="chip" data-t="schedule" aria-pressed="false" title="Only scheduled jobs">⏱ scheduled</button>
+    <button class="chip" data-t="make" aria-pressed="false" title="Include make targets">make targets</button>
+    <span class="n" id="t-n"></span>
+  </div>
+  <table><thead id="t-head"></thead><tbody id="t-body"></tbody></table>
+</main>
 <div id="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline diagram"><defs id="defs"></defs><g id="vp"></g></svg></div>
 <aside id="panel" aria-label="Details">
   <div id="grip" title="Drag to resize"></div>
@@ -500,7 +535,11 @@ for (const v of DATA.views) {
   v.ids = new Set(v.nodes.map(n => n.id));
   v.byId = Object.fromEntries(v.nodes.map(n => [n.id, n]));
 }
-const viewsOf = id => DATA.views.filter(v => v.ids.has(id));
+const mapViews = DATA.views.filter(v => v.kind === "map");
+const viewsOf = id => mapViews.filter(v => v.ids.has(id)); // focus and flow views are reached through their own entry points
+const focusOf = Object.fromEntries(DATA.views.filter(v => v.kind === "focus").map(v => [v.root, v]));
+let tableOn = false;
+const tbl = { q: "", sort: "down", dir: -1, trig: "", make: false };
 
 // arrow markers, one per edge kind; colour via CSS so they follow the theme
 for (const s of DATA.edgeStyles) {
@@ -712,15 +751,18 @@ function readHash() {
   return { vid, nid: nid || null, to: to || null };
 }
 function writeHash(push) {
-  const h = "#" + encodeURIComponent(view.id) + (selected ? "/" + encodeURIComponent(selected) + (pathTo ? "/" + encodeURIComponent(pathTo) : "") : "");
+  const h = tableOn ? "#table" + (tbl.q ? "/" + encodeURIComponent(tbl.q) : "") : "#" + encodeURIComponent(view.id) + (selected ? "/" + encodeURIComponent(selected) + (pathTo ? "/" + encodeURIComponent(pathTo) : "") : "");
   if (location.hash !== h) history[push ? "pushState" : "replaceState"](null, "", h);
 }
 
 // show is the single entry point for changing what is on screen.
 // opts: push (new history entry), focus (centre the node), reveal (pan only if hidden behind the panel), to (path end)
 function show(vid, nid, opts = {}) {
-  const v = viewById[vid] || DATA.views[0];
-  if (v !== view) { render(v); }
+  if (vid === "table") return showTable(nid || "", opts);
+  const v = viewById[vid] || mapViews[0];
+  const wasTable = tableOn;
+  if (tableOn) { tableOn = false; document.body.classList.remove("tbl"); }
+  if (v !== view) { render(v); } else if (wasTable) fit(false);
   if (nid && !v.ids.has(nid)) nid = null;
   const fresh = nid && nid !== selected;
   if (nid !== selected) mode = null;
@@ -740,7 +782,9 @@ function show(vid, nid, opts = {}) {
   if (fresh) pulse(nid);
   writeHash(opts.push);
 }
-const clearSelection = () => selected && show(view.id, null, { push: true });
+// in a focus view the root stays selected: it is what the view is about
+const clearSelection = () => selected && (view.kind === "focus" ? selected !== view.root && show(view.id, view.root, { push: true }) : show(view.id, null, { push: true }));
+const openFocus = id => show("focus:" + id, id, { push: true });
 function pulse(id) {
   const g = vp.querySelector(`.node[data-id="${CSS.escape(id)}"]`);
   if (!g || reduceMotion.matches) return;
@@ -750,13 +794,15 @@ function pulse(id) {
 
 // jump to a node anywhere: stay in this view when it has the node
 function goTo(id, push = true) {
+  if (tableOn) return openFocus(id);
   const v = view.ids.has(id) ? view : viewsOf(id)[0];
   if (v) show(v.id, id, { push, focus: true });
 }
 
 function onLocation() {
   const { vid, nid, to } = readHash();
-  if (view && vid === view.id && nid === selected && to === pathTo) return;
+  if (tableOn && vid === "table" && (nid || "") === tbl.q) return;
+  if (!tableOn && view && vid === view.id && nid === selected && to === pathTo) return;
   show(vid, nid, { focus: !!nid, to });
 }
 window.addEventListener("popstate", onLocation);
@@ -826,6 +872,7 @@ function showPanel(id) {
   head += `<div class="actions">
     <button data-act="link" title="Copy a link to this node (L)">🔗 Copy link</button>
     <button data-act="mode" data-mode="both" aria-pressed="${mode === "both"}" title="Hide everything that is not upstream or downstream (I)">◎ Isolate</button>
+    ${view.kind === "focus" ? "" : `<button data-act="open-focus" title="Re-lay out just this job's upstream and downstream (Enter in the table)">◉ Focus</button>`}
     <button data-act="path" title="Highlight the route to another job (Shift+click a job)">⇢ Path to…</button>
     <button data-act="focus" title="Centre on this node (Enter)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5"/><path d="M8 1v4M8 11v4M1 8h4M11 8h4"/></svg> Zoom to</button>
   </div>
@@ -892,6 +939,7 @@ $("panel").addEventListener("click", ev => {
   else if (t.dataset.act === "mode") setMode(t.dataset.mode);
   else if (t.dataset.act === "path") openPalette(selected);
   else if (t.dataset.act === "clearpath") show(view.id, selected, { push: true });
+  else if (t.dataset.act === "open-focus") openFocus(selected);
   else if (t.dataset.act === "focus") focusNode(selected, Math.max(tf.k, 1));
 });
 $("panel").addEventListener("input", ev => {
@@ -1076,16 +1124,18 @@ $("side-toggle").onclick = () => setSidebar(document.body.classList.contains("co
 // keep the diagram fitted while the canvas grows or shrinks with the sidebar
 $("canvas").addEventListener("transitionend", ev => { if (ev.propertyName === "left" && view && !selected) fit(false); });
 
-DATA.views.forEach((v, i) => {
-  const repo = v.id.startsWith("repo-");
+function navButton(v, name, kbd, count, dot, into) {
   const b = document.createElement("button");
   b.dataset.id = v.id;
-  b.innerHTML = `${repo ? '<span class="dot"></span>' : ""}<span class="name">${esc(v.title)}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ""}<span class="count">${v.nodes.length}</span>`;
-  b.title = `${v.title}: ${v.nodes.length} nodes, ${v.edges.length} links`;
+  b.innerHTML = `${dot ? '<span class="dot"></span>' : ""}<span class="name">${esc(name)}</span>${kbd ? `<kbd>${kbd}</kbd>` : ""}<span class="count">${count}</span>`;
+  b.title = v.title;
   b.onclick = () => { show(v.id, null, { push: true }); if (narrow.matches) setSidebar(false); };
-  (repo ? $("nav-repos") : $("nav-views")).appendChild(b);
-});
-if (!$("nav-repos").children.length) { $("nav-repos").previousElementSibling.remove(); $("nav-repos").remove(); }
+  $(into).appendChild(b);
+}
+navButton({ id: "table", title: "Every job, sortable and filterable" }, "Table", "H", Object.keys(DATA.nodes).filter(id => DATA.nodes[id].kind !== "make").length, false, "nav-views");
+mapViews.forEach((v, i) => navButton(v, v.title, i < 9 ? i + 1 : "", v.nodes.length, v.id.startsWith("repo-"), v.id.startsWith("repo-") ? "nav-repos" : "nav-views"));
+DATA.views.filter(v => v.kind === "flow").forEach(v => navButton(v, v.id.slice(5), "", v.nodes.length, true, "nav-flows"));
+for (const id of ["nav-repos", "nav-flows"]) if (!$(id).children.length) { $(id).previousElementSibling.remove(); $(id).remove(); }
 
 const presentKinds = new Set(DATA.views.flatMap(v => v.nodes.map(n => n.kind)));
 for (const [k, label] of [["build", "build configuration"], ["composite", "composite build"], ["external", "build in another project"], ["make", "make target"], ["image", "docker image"]]) {
@@ -1214,6 +1264,86 @@ function exportSVG() {
 }
 $("export").onclick = exportSVG;
 
+// ---- table -------------------------------------------------------------------
+// One row per node; Needs / Breaks are the transitive upstream / downstream counts from its focus view.
+const rows = Object.values(DATA.nodes).map(n => {
+  const f = focusOf[n.id], name = id => (DATA.nodes[id] || { label: id }).label;
+  const trig = (n.triggers || []).filter(t => t.type !== "finishBuild").map(t => t.type === "vcs" ? "⎇ commit" : t.type === "schedule" ? "⏱ " + (t.detail || "schedule") : "⚡ " + t.type);
+  for (const e of DATA.edges) if (e.to === n.id && e.kind === "trigger") trig.push("← " + name(e.from));
+  const imgs = [];
+  for (const e of f ? f.edges : []) {
+    if (e.kind === "produces" && e.from === n.id) imgs.push("builds " + name(e.to));
+    else if (e.kind === "consumes" && e.to === n.id) imgs.push("uses " + name(e.from));
+  }
+  const r = { n, trig: [...new Set(trig)], imgs: [...new Set(imgs)], up: f?.up || 0, down: f?.down || 0 };
+  r.text = [n.label, n.sub, n.repo, kindName(n), ...r.trig, ...r.imgs].join(" ").toLowerCase();
+  return r;
+});
+const maxDown = Math.max(1, ...rows.map(r => r.down));
+const COLS = [["label", "Name"], ["kind", "Kind"], ["repo", "Repo"], ["trig", "Triggers"], ["imgs", "Images"], ["up", "Needs", 1], ["down", "Breaks", 1]];
+const sortKey = (r, k) => k === "label" ? r.n.label.toLowerCase() : k === "kind" ? kindName(r.n) : k === "repo" ? r.n.repo || "" : k === "trig" || k === "imgs" ? r[k].join() : r[k];
+function drawTable() {
+  const words = tbl.q.toLowerCase().split(/\s+/).filter(Boolean);
+  const list = rows.filter(r => (tbl.make || r.n.kind !== "make") && words.every(w => r.text.includes(w))
+    && (!tbl.trig || r.trig.some(t => t.startsWith(tbl.trig === "commit" ? "⎇" : "⏱"))));
+  list.sort((a, b) => {
+    const x = sortKey(a, tbl.sort), y = sortKey(b, tbl.sort);
+    return (x < y ? -1 : x > y ? 1 : 0) * tbl.dir || a.n.label.localeCompare(b.n.label);
+  });
+  $("t-head").innerHTML = `<tr>${COLS.map(([k, t, num]) => `<th${num ? ' style="text-align:right"' : ""} aria-sort="${tbl.sort === k ? (tbl.dir > 0 ? "ascending" : "descending") : "none"}"><button data-sort="${k}" title="Sort by ${t}">${t}</button></th>`).join("")}</tr>`;
+  $("t-body").innerHTML = list.map(r => `<tr tabindex="0" data-id="${esc(r.n.id)}"><td><b>${esc(r.n.label)}</b>${r.n.sub ? `<small>${esc(r.n.sub)}</small>` : ""}</td>
+    <td>${esc(kindName(r.n))}</td><td>${esc(r.n.repo || "—")}</td><td>${r.trig.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</td>
+    <td>${r.imgs.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</td><td class="num">${r.up || ""}</td>
+    <td class="num">${r.down ? `<span class="bar" style="width:${Math.max(2, Math.round(40 * r.down / maxDown))}px"></span>${r.down}` : ""}</td></tr>`).join("")
+    || `<tr><td class="empty" colspan="${COLS.length}">Nothing matches “${esc(tbl.q)}”.</td></tr>`;
+  $("t-n").textContent = `${list.length} of ${rows.length}`;
+  document.querySelectorAll("#t-bar .chip").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.t === "make" ? tbl.make : tbl.trig === c.dataset.t)));
+}
+function showTable(q, opts = {}) {
+  if (!view) render(mapViews[0]);
+  selected = null; mode = null; pathTo = null; tableOn = true;
+  document.body.classList.add("tbl");
+  closePanel(); hover(null);
+  tbl.q = q;
+  $("t-q").value = q;
+  document.querySelectorAll("#sidebar .nav button").forEach(b => b.classList.toggle("on", b.dataset.id === "table"));
+  document.title = "Table · Pipeline map";
+  $("crumb").textContent = "Table";
+  store.set("pg-view", "table");
+  drawTable();
+  writeHash(opts.push);
+}
+$("t-q").addEventListener("input", ev => { tbl.q = ev.target.value; drawTable(); writeHash(false); });
+$("t-q").addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && ev.target.value) { ev.stopPropagation(); ev.target.value = ""; ev.target.dispatchEvent(new Event("input")); }
+  else if (ev.key === "ArrowDown") { ev.preventDefault(); $("t-body").querySelector("tr")?.focus(); }
+});
+$("t-bar").addEventListener("click", ev => {
+  const c = ev.target.closest(".chip");
+  if (!c) return;
+  if (c.dataset.t === "make") tbl.make = !tbl.make; else tbl.trig = tbl.trig === c.dataset.t ? "" : c.dataset.t;
+  drawTable();
+});
+$("t-head").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-sort]");
+  if (!b) return;
+  const k = b.dataset.sort;
+  tbl.dir = tbl.sort === k ? -tbl.dir : (k === "up" || k === "down" ? -1 : 1);
+  tbl.sort = k;
+  drawTable();
+});
+$("t-body").addEventListener("click", ev => { const r = ev.target.closest("tr[data-id]"); if (r) openFocus(r.dataset.id); });
+$("t-body").addEventListener("keydown", ev => {
+  const r = ev.target.closest("tr[data-id]");
+  if (!r) return;
+  if (ev.key === "Enter") { ev.preventDefault(); openFocus(r.dataset.id); }
+  else if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault(); ev.stopPropagation();
+    const n = ev.key === "ArrowDown" ? r.nextElementSibling : r.previousElementSibling;
+    (n || (ev.key === "ArrowUp" ? $("t-q") : r)).focus();
+  }
+});
+
 // ---- search ------------------------------------------------------------------
 // Matches every node in every view; all words must match (label, ids, repo, scripts, params).
 const haystack = {};
@@ -1283,7 +1413,9 @@ const ACTIONS = [
   { group: "Selection", icon: "↗", title: () => "Open source at the analysed commit", when: () => selected && sourceURL(sel()), run: () => window.open(sourceURL(sel()), "_blank", "noopener"), ctx: 1 },
   { group: "Selection", icon: "⎘", title: () => "Copy link to this node", hint: "L", when: () => selected, run: copyLink, ctx: 1 },
   { group: "Selection", icon: "✕", title: () => "Clear selection", hint: "Esc", when: () => selected, run: clearSelection },
-  ...DATA.views.map((v, i) => ({ group: "Go to", icon: "▸", title: () => `Go to ${v.title}`, hint: i < 9 ? String(i + 1) : "", when: () => v !== view, run: () => show(v.id, null, { push: true }) })),
+  { group: "Selection", icon: "◉", title: () => `Focus on ${label()}`, when: () => selected && view.kind !== "focus", run: () => openFocus(selected), ctx: 1 },
+  { group: "Go to", icon: "▸", title: () => "Go to the table", hint: "H", when: () => !tableOn, run: () => show("table", null, { push: true }) },
+  ...DATA.views.filter(v => v.kind !== "focus").map(v => ({ group: "Go to", icon: "▸", title: () => `Go to ${v.title}`, hint: mapViews.indexOf(v) >= 0 && mapViews.indexOf(v) < 9 ? String(mapViews.indexOf(v) + 1) : "", when: () => v !== view || tableOn, run: () => show(v.id, null, { push: true }) })),
   { group: "View", icon: "⤢", title: () => "Fit to screen", hint: "F", when: () => true, run: () => fit() },
   { group: "View", icon: "1", title: () => "Zoom to 100%", hint: "0", when: () => true, run: () => zoomCenter(1 / tf.k) },
   { group: "View", icon: "◧", title: () => "Toggle sidebar", hint: "[", when: () => true, run: () => $("side-toggle").click() },
@@ -1417,7 +1549,7 @@ $("hint").hidden = !!store.get("pg-hint");
 const KEYS = [
   ["Navigate"],
   ["Search and commands", "/ · Ctrl/⌘+K"], ["Next / previous hit on the map", "N  ⇧N"],
-  ["Switch view", "1 – 9"], ["Back / forward", "Alt ← / →"],
+  ["Table of all jobs", "H"], ["Focus on selected job", "Enter in table · ◉ Focus"], ["Switch view", "1 – 9"], ["Back / forward", "Alt ← / →"],
   ["Clear selection, close", "Esc"], ["Toggle sidebar", "["],
   ["Canvas"],
   ["Pan", "scroll · drag · arrows"], ["Zoom", "pinch · Ctrl+scroll · + −"],
@@ -1447,6 +1579,7 @@ window.addEventListener("keydown", ev => {
     if (!$("help").hidden) return setHelp(false);
     if (!$("meta-pop").hidden) { $("meta-pop").hidden = true; return; }
     if (typing) return;
+    if (selected && view.kind === "focus" && selected === view.root) return show("table", null, { push: true });
     if (selected) return clearSelection();
     if (search.q) { $("search").value = ""; return runSearch(false); }
     if (panelOpen()) return closePanel();
@@ -1457,7 +1590,8 @@ window.addEventListener("keydown", ev => {
   if (!$("help").hidden) return;
   const pan = ev.shiftKey ? 240 : 80;
   const k = ev.key;
-  if (k === "/") { ev.preventDefault(); openPalette(); }
+  if (k === "/") { ev.preventDefault(); tableOn ? $("t-q").focus() : openPalette(); }
+  else if (k === "h" || k === "H") show("table", null, { push: true });
   else if (k === "?") setHelp(true);
   else if (k === "f" || k === "F") fit();
   else if (k === "0") zoomCenter(1 / tf.k);
@@ -1477,7 +1611,7 @@ window.addEventListener("keydown", ev => {
   else if (k === "n") nextHit(1);
   else if (k === "N") nextHit(-1);
   else if (k === "Enter" && selected && !ev.target.closest?.(".node, button, a")) focusNode(selected, Math.max(tf.k, 1));
-  else if (/^[1-9]$/.test(k) && DATA.views[+k - 1]) show(DATA.views[+k - 1].id, null, { push: true });
+  else if (/^[1-9]$/.test(k) && mapViews[+k - 1]) show(mapViews[+k - 1].id, null, { push: true });
 });
 
 // ---- start -------------------------------------------------------------------
@@ -1485,8 +1619,8 @@ setSidebar(store.get("pg-sidebar") !== "closed" && !narrow.matches);
 window.addEventListener("resize", () => view && (selected ? reveal(selected) : fit(false)));
 (function () {
   let { vid, nid, to } = readHash();
-  if (!viewById[vid]) { vid = store.get("pg-view"); nid = null; to = null; }
-  show(viewById[vid] ? vid : DATA.views[0].id, nid, { focus: !!nid, instant: true, to });
+  if (vid !== "table" && !viewById[vid]) { vid = store.get("pg-view") || "table"; nid = null; to = null; }
+  show(vid === "table" || viewById[vid] ? vid : "table", nid, { focus: !!nid && !/^focus:/.test(vid), instant: true, to });
 })();
 </script>
 </body>
