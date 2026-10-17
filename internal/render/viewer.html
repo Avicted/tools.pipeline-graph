@@ -194,6 +194,7 @@
   #sidebar h4 {
     margin: 16px 8px 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); font-weight: 700;
   }
+  body.tbl .map-only { display: none; }
   #sidebar h4:first-child { margin-top: 4px; }
   .nav button {
     display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: none; text-align: left;
@@ -451,10 +452,10 @@
   <div class="nav" id="nav-flows"></div>
   <h4>Repositories</h4>
   <div class="nav" id="nav-repos"></div>
-  <h4>Nodes</h4>
-  <div class="legend" id="node-legend"></div>
-  <h4>Edges <span style="text-transform:none;letter-spacing:0;font-weight:400">· click to hide</span></h4>
-  <div class="edges" id="edge-filters"></div>
+  <h4 class="map-only">Nodes</h4>
+  <div class="legend map-only" id="node-legend"></div>
+  <h4 class="map-only">Edges <span style="text-transform:none;letter-spacing:0;font-weight:400">· click to hide</span></h4>
+  <div class="edges map-only" id="edge-filters"></div>
   <div id="warn"></div>
   <button class="side-help" id="side-help">Keyboard shortcuts <kbd>?</kbd></button>
 </nav>
@@ -595,6 +596,7 @@ function render(v) {
     if (b.dataset.id === v.id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
   document.title = `${v.title} · Pipeline map`;
+  if (v.kind !== "map") document.body.classList.add("collapsed"); else document.body.classList.toggle("collapsed", store.get("pg-sidebar") === "closed" || narrow.matches);
   $("crumb").textContent = v.title;
   store.set("pg-view", v.id);
   const lanes = el("g", {}, vp), edges = el("g", {}, vp), labels = el("g", {}, vp), hits = el("g", {}, vp), nodes = el("g", {}, vp), tags = el("g", {}, vp);
@@ -702,9 +704,10 @@ function paint() {
     const id = g.dataset.id;
     const pd = path && id !== selected && path.has(id) ? path.dir : null; // a path takes the colour of its direction
     const up = !!lineage && id !== selected && lineage.up.has(id) || pd === "up", down = !!lineage && id !== selected && lineage.down.has(id) || pd === "down";
+    const tint = down && view.kind !== "focus" || pd === "down"; // in a focus view everything downstream is the lineage, so the tint says nothing
     g.classList.toggle("sel", id === selected);
     g.classList.toggle("up", up && !down);
-    g.classList.toggle("down", down);
+    g.classList.toggle("down", tint);
     g.classList.toggle("end", !!path && id === pathTo);
     g.classList.toggle("hit", hits.has(id));
     g.classList.toggle("cur", id === cur);
@@ -883,8 +886,8 @@ function showPanel(id) {
     <button data-act="focus" title="Centre on this node (Enter)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5"/><path d="M8 1v4M8 11v4M1 8h4M11 8h4"/></svg> Zoom to</button>
   </div>
   <div class="lineage">
-    <button class="lchip down" data-act="mode" data-mode="down" aria-pressed="${mode === "down"}" title="Show only what this affects downstream (B)">${down} affected downstream</button>
-    <button class="lchip up" data-act="mode" data-mode="up" aria-pressed="${mode === "up"}" title="Show only what must succeed first (D)">${up} ${up === 1 ? "dependency" : "dependencies"}</button>
+    <button class="lchip down" data-act="mode" data-mode="down" aria-pressed="${mode === "down"}" title="Show only what this affects downstream (B)">${down} downstream in total</button>
+    <button class="lchip up" data-act="mode" data-mode="up" aria-pressed="${mode === "up"}" title="Show only what must succeed first (D)">${up} upstream in total</button>
   </div>`;
   if (path) head += `<div class="pathbar"><span class="pill">Path</span> to <a data-go="${esc(pathTo)}">${esc(DATA.nodes[pathTo].label)}</a> · ${path.size} jobs <button class="copy" data-act="clearpath">× Clear</button></div>`;
 
@@ -898,8 +901,8 @@ function showPanel(id) {
   if (n.triggers && n.triggers.length) {
     h += sec(`<h3>Triggers</h3><ul>${n.triggers.map(t => `<li><b>${esc(t.type)}</b> ${esc(t.detail || "")}</li>`).join("")}</ul>`);
   }
-  h += sec(relSection("Needs (upstream)", neighbours(id, "in"), "--up"));
-  h += sec(relSection("Needed by (downstream)", neighbours(id, "out"), "--down"));
+  h += sec(relSection("Directly needs", neighbours(id, "in"), "--up"));
+  h += sec(relSection("Directly needed by", neighbours(id, "out"), "--down"));
   if (n.steps && n.steps.length) {
     h += `<section><h3>${n.kind === "make" ? "Recipe" : "Steps"} <span class="n">(${n.steps.length})</span></h3>`;
     n.steps.forEach((s, i) => {
@@ -1059,7 +1062,16 @@ function viewBox(v) {
   const y0 = Math.min(...v.lanes.map(l => l.box[1]));
   return { x: 0, y: y0, w: v.w, h: v.h - y0 };
 }
-function fit(animate = true) { if (view) fitBox(viewBox(view), animate, 16); }
+// Focus and flow chains are long: rather than shrink them past reading size, start at READ zoom on the root (or the left edge).
+const READ = 0.8;
+function fit(animate = true, all = false) {
+  if (!view) return;
+  const b = viewBox(view), a = area(), pad = 16;
+  if (!all && view.kind !== "map" && isFinite(b.w) && Math.min((a.w - 2 * pad) / b.w, (a.h - 2 * pad) / b.h) < READ) {
+    const root = view.byId[view.root], y = a.h / 2 - (b.y + b.h / 2) * READ;
+    animateTo({ k: READ, x: root ? a.w * 0.3 - (root.x + root.w / 2) * READ : pad - b.x * READ, y }, animate);
+  } else fitBox(b, animate, pad);
+}
 function zoomAt(f, cx, cy, animate = false) {
   const k = Math.min(4, Math.max(0.05, tf.k * f));
   animateTo({ x: cx - (cx - tf.x) * (k / tf.k), y: cy - (cy - tf.y) * (k / tf.k), k }, animate);
@@ -1115,7 +1127,7 @@ window.addEventListener("pointermove", ev => {
 window.addEventListener("pointerup", () => { drag = null; $("canvas").classList.remove("drag"); setTimeout(() => dragged = false, 0); });
 svg.addEventListener("click", () => { if (!dragged) clearSelection(); });
 svg.addEventListener("dblclick", ev => { const r = svg.getBoundingClientRect(); zoomAt(1.6, ev.clientX - r.left, ev.clientY - r.top, true); });
-$("fit").onclick = () => fit();
+$("fit").onclick = () => fit(true, true);
 $("zin").onclick = () => zoomCenter(1.25);
 $("zout").onclick = () => zoomCenter(0.8);
 $("zpct").onclick = () => zoomCenter(1 / tf.k);
@@ -1128,7 +1140,7 @@ function setSidebar(open) {
 }
 $("side-toggle").onclick = () => setSidebar(document.body.classList.contains("collapsed"));
 // keep the diagram fitted while the canvas grows or shrinks with the sidebar
-$("canvas").addEventListener("transitionend", ev => { if (ev.propertyName === "left" && view && !selected) fit(false); });
+$("canvas").addEventListener("transitionend", ev => { if (ev.propertyName === "left" && view && (!selected || view.kind !== "map")) fit(false); });
 
 function navButton(v, name, kbd, count, dot, into) {
   const b = document.createElement("button");
@@ -1172,7 +1184,7 @@ flowBox.innerHTML = `<input class="vis" type="checkbox" aria-label="Animate the 
   document.body.classList.toggle("flow", cb.checked);
   cb.addEventListener("change", () => { document.body.classList.toggle("flow", cb.checked); store.set("pg-flow", cb.checked ? "on" : "off"); toast(cb.checked ? "Flow animation on" : "Flow animation off"); });
   const wrap = document.createElement("div");
-  wrap.className = "edges"; wrap.appendChild(flowBox);
+  wrap.className = "edges map-only"; wrap.appendChild(flowBox);
   $("edge-filters").after(wrap);
 }
 if (DATA.warnings && DATA.warnings.length) {
@@ -1286,8 +1298,8 @@ const rows = Object.values(DATA.nodes).map(n => {
   return r;
 });
 const maxDown = Math.max(1, ...rows.map(r => r.down));
-const COLS = [["label", "Name"], ["kind", "Kind"], ["repo", "Repo"], ["trig", "Triggers"], ["imgs", "Images"], ["up", "Needs", 1], ["down", "Breaks", 1]];
-const sortKey = (r, k) => k === "label" ? r.n.label.toLowerCase() : k === "kind" ? kindName(r.n) : k === "repo" ? r.n.repo || "" : k === "trig" || k === "imgs" ? r[k].join() : r[k];
+const COLS = [["label", "Name"], ["repo", "Repo"], ["trig", "Triggers"], ["imgs", "Images"], ["up", "Needs", 1], ["down", "Breaks", 1]];
+const sortKey = (r, k) => k === "label" ? r.n.label.toLowerCase() : k === "repo" ? r.n.repo || "" : k === "trig" || k === "imgs" ? r[k].join() : r[k];
 function drawTable() {
   const words = tbl.q.toLowerCase().split(/\s+/).filter(Boolean);
   const list = rows.filter(r => (tbl.make || r.n.kind !== "make") && words.every(w => r.text.includes(w))
@@ -1297,8 +1309,8 @@ function drawTable() {
     return (x < y ? -1 : x > y ? 1 : 0) * tbl.dir || a.n.label.localeCompare(b.n.label);
   });
   $("t-head").innerHTML = `<tr>${COLS.map(([k, t, num]) => `<th${num ? ' style="text-align:right"' : ""} aria-sort="${tbl.sort === k ? (tbl.dir > 0 ? "ascending" : "descending") : "none"}"><button data-sort="${k}" title="Sort by ${t}">${t}</button></th>`).join("")}</tr>`;
-  $("t-body").innerHTML = list.map(r => `<tr tabindex="0" data-id="${esc(r.n.id)}"><td><b>${esc(r.n.label)}</b>${r.n.sub ? `<small>${esc(r.n.sub)}</small>` : ""}</td>
-    <td>${esc(kindName(r.n))}</td><td>${esc(r.n.repo || "—")}</td><td>${r.trig.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</td>
+  $("t-body").innerHTML = list.map(r => `<tr tabindex="0" data-id="${esc(r.n.id)}"><td><b>${esc(r.n.label)}</b>${r.n.kind === "build" && !r.n.composite ? "" : ` <span class="pill">${esc(kindName(r.n))}</span>`}${r.n.sub ? `<small>${esc(r.n.sub)}</small>` : ""}</td>
+    <td>${esc(r.n.repo || "—")}</td><td>${r.trig.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</td>
     <td>${r.imgs.map(t => `<span class="tg">${esc(t)}</span>`).join("")}</td><td class="num">${r.up || ""}</td>
     <td class="num">${r.down ? `<span class="bar" style="width:${Math.max(2, Math.round(40 * r.down / maxDown))}px"></span>${r.down}` : ""}</td></tr>`).join("")
     || `<tr><td class="empty" colspan="${COLS.length}">Nothing matches “${esc(tbl.q)}”.</td></tr>`;
@@ -1308,6 +1320,7 @@ function drawTable() {
 function showTable(q, opts = {}) {
   if (!view) render(mapViews[0]);
   selected = null; mode = null; pathTo = null; tableOn = true;
+  document.body.classList.toggle("collapsed", store.get("pg-sidebar") === "closed" || narrow.matches);
   document.body.classList.add("tbl");
   closePanel(); hover(null);
   tbl.q = q;
@@ -1422,7 +1435,7 @@ const ACTIONS = [
   { group: "Selection", icon: "◉", title: () => `Focus on ${label()}`, when: () => selected && view.kind !== "focus", run: () => openFocus(selected), ctx: 1 },
   { group: "Go to", icon: "▸", title: () => "Go to the table", hint: "H", when: () => !tableOn, run: () => show("table", null, { push: true }) },
   ...DATA.views.filter(v => v.kind !== "focus").map(v => ({ group: "Go to", icon: "▸", title: () => `Go to ${v.title}`, hint: mapViews.indexOf(v) >= 0 && mapViews.indexOf(v) < 9 ? String(mapViews.indexOf(v) + 1) : "", when: () => v !== view || tableOn, run: () => show(v.id, null, { push: true }) })),
-  { group: "View", icon: "⤢", title: () => "Fit to screen", hint: "F", when: () => true, run: () => fit() },
+  { group: "View", icon: "⤢", title: () => "Fit to screen", hint: "F", when: () => true, run: () => fit(true, true) },
   { group: "View", icon: "1", title: () => "Zoom to 100%", hint: "0", when: () => true, run: () => zoomCenter(1 / tf.k) },
   { group: "View", icon: "◧", title: () => "Toggle sidebar", hint: "[", when: () => true, run: () => $("side-toggle").click() },
   { group: "View", icon: "≋", title: () => "Toggle flowing edges", when: () => true, run: () => flowBox.click() },
@@ -1599,7 +1612,7 @@ window.addEventListener("keydown", ev => {
   if (k === "/") { ev.preventDefault(); tableOn ? $("t-q").focus() : openPalette(); }
   else if (k === "h" || k === "H") show("table", null, { push: true });
   else if (k === "?") setHelp(true);
-  else if (k === "f" || k === "F") fit();
+  else if (k === "f" || k === "F") fit(true, true);
   else if (k === "0") zoomCenter(1 / tf.k);
   else if (k === "+" || k === "=") zoomCenter(1.25);
   else if (k === "-" || k === "_") zoomCenter(0.8);
