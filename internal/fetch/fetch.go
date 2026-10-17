@@ -94,7 +94,7 @@ func one(ctx context.Context, r Request, cacheDir string, offline bool) Result {
 		if ref == "" {
 			ref = "HEAD"
 		}
-		if _, err := git(ctx, dir, "fetch", "--depth", "1", "--quiet", "origin", ref); err != nil {
+		if _, err := git(ctx, dir, "fetch", "--depth", "1", "--quiet", "--", "origin", ref); err != nil {
 			return Result{Err: err}
 		}
 		if _, err := git(ctx, dir, "reset", "--hard", "--quiet", "FETCH_HEAD"); err != nil {
@@ -111,7 +111,8 @@ func one(ctx context.Context, r Request, cacheDir string, offline bool) Result {
 		if r.Branch != "" {
 			args = append(args, "--branch", r.Branch)
 		}
-		args = append(args, r.URL, dir)
+		// "--" so a URL starting with "-" is never read as a git option
+		args = append(args, "--", r.URL, dir)
 		if _, err := git(ctx, "", args...); err != nil {
 			os.RemoveAll(dir)
 			return Result{Err: err}
