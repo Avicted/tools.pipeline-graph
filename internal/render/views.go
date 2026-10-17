@@ -198,16 +198,7 @@ func BuildViews(g *model.Graph, names []string) []View {
 // BuildViewsSized is BuildViews with a custom node size estimate, for
 // renderers whose target lays text out differently (see SizeVSDX).
 func BuildViewsSized(g *model.Graph, names []string, size func(*model.Node) (float64, float64)) []View {
-	var lanes []string
-	for _, r := range g.Repos {
-		lanes = append(lanes, r.Name)
-	}
-	lanes = append(lanes, ExternalLane)
-	opts := layout.DefaultOptions()
-	opts.TopOffset = 96
-	mk := func(id, title string, sub *model.Graph) View {
-		return View{ID: id, Title: title, Graph: sub, Layout: layout.Compute(sub, size, lanes, laneOf, opts)}
-	}
+	mk := func(id, title string, sub *model.Graph) View { return layoutView(g, id, title, sub, size) }
 	var views []View
 	for _, name := range names {
 		switch name {
@@ -226,6 +217,103 @@ func BuildViewsSized(g *model.Graph, names []string, size func(*model.Node) (flo
 		}
 	}
 	return views
+}
+
+func layoutView(g *model.Graph, id, title string, sub *model.Graph, size func(*model.Node) (float64, float64)) View {
+	var lanes []string
+	for _, r := range g.Repos {
+		lanes = append(lanes, r.Name)
+	}
+	lanes = append(lanes, ExternalLane)
+	opts := layout.DefaultOptions()
+	opts.TopOffset = 96
+	return View{ID: id, Title: title, Graph: sub, Layout: layout.Compute(sub, size, lanes, laneOf, opts)}
+}
+
+// compactView lays a lineage out in one lane, ordered by dependency alone: a
+// lineage crossing six repositories would otherwise be six mostly empty bands.
+func compactView(id, title string, sub *model.Graph) View {
+	opts := layout.DefaultOptions()
+	opts.TopOffset = 24
+	one := func(*model.Node) string { return "" }
+	l := layout.Compute(sub, Size, []string{""}, one, opts)
+	l.Lanes = nil // the single lane has no name worth drawing
+	return View{ID: id, Title: title, Graph: sub, Layout: l}
+}
+
+// reach returns the nodes reachable from the roots along edges (down) or against them (up), roots included.
+func reach(g *model.Graph, roots []string, down bool) map[string]bool {
+	next := map[string][]string{}
+	for _, e := range g.Edges {
+		if down {
+			next[e.From] = append(next[e.From], e.To)
+		} else {
+			next[e.To] = append(next[e.To], e.From)
+		}
+	}
+	seen := map[string]bool{}
+	stack := append([]string{}, roots...)
+	for len(stack) > 0 {
+		id := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if !seen[id] {
+			seen[id] = true
+			stack = append(stack, next[id]...)
+		}
+	}
+	return seen
+}
+
+// FocusView is a node's lineage laid out on its own, with the transitive counts.
+type FocusView struct {
+	View
+	Root     string
+	Up, Down int
+}
+
+// FocusViews lays out the upstream and downstream lineage of every node.
+// shortcut: one layout per node, fine for a few hundred nodes, upgrade to client-side layout beyond that.
+func FocusViews(g *model.Graph) []FocusView {
+	nomake := WithoutMake(g)
+	var out []FocusView
+	for _, n := range g.Nodes {
+		base := nomake
+		if n.Kind == model.KindMake {
+			base = g
+		}
+		up, down := reach(base, []string{n.ID}, false), reach(base, []string{n.ID}, true)
+		sub := base.Filter(func(x *model.Node) bool { return up[x.ID] || down[x.ID] })
+		out = append(out, FocusView{
+			View: compactView("focus:"+n.ID, n.Label, sub), Root: n.ID, Up: len(up) - 1, Down: len(down) - 1,
+		})
+	}
+	return out
+}
+
+// FlowViews lays out, per repository, everything downstream of its commit-triggered builds.
+func FlowViews(g *model.Graph) []View {
+	nomake := WithoutMake(g)
+	var out []View
+	for _, r := range g.Repos {
+		var roots []string
+		for _, n := range nomake.Nodes {
+			if n.Repo != r.Name || n.Kind != model.KindBuild {
+				continue
+			}
+			for _, t := range n.Triggers {
+				if t.Type == "vcs" {
+					roots = append(roots, n.ID)
+					break
+				}
+			}
+		}
+		if len(roots) == 0 {
+			continue
+		}
+		down := reach(nomake, roots, true)
+		out = append(out, compactView("flow:"+r.Name, r.Name+": commit → …", nomake.Filter(func(x *model.Node) bool { return down[x.ID] })))
+	}
+	return out
 }
 
 // WithoutMake hides make targets. Images produced or consumed inside make are
