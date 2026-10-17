@@ -68,7 +68,7 @@ repos:
         name: go test
         entry: go test ./...
         language: system
-        files: (\.go|\.html|\.golden|^go\.(mod|sum)|^test/fixtures/.*)$
+        always_run: true
         pass_filenames: false
 
       # Needs the network (vulnerability database), so not on every commit.
