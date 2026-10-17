@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # `make run` copies this file to pipeline-graph.yaml (gitignored) the first time.
 # As shipped it analyses the bundled Acme demo repos, so it works offline.
 
@@ -22,6 +23,21 @@ repos:
   - examples/acme/repos/web-frontend
   - examples/acme/repos/release-train
 # ▲▲▲ YOUR REPOS GO HERE ▲▲▲
+||||||| parent of f51b8fc (feat(html): add command palette, path finder and sticky lane tags)
+=======
+# Copy to pipeline-graph.yaml and list your repositories.
+repos:
+  # a bare string is enough...
+  - git@github.com:acme/service-a.git
+  # ...or a mapping with options
+  - url: git@github.com:acme/platform-base.git
+    branch: main                      # default: the remote's default branch
+    name: platform-base               # swimlane title; default: repo name from the URL
+    teamcity_project_id: PlatformBase # TeamCity project the DSL is imported into; default: derived from name
+    # teamcity_dir: .teamcity         # default below
+  # local checkouts work too (no clone, analysed as-is)
+  # - ../release-train
+>>>>>>> f51b8fc (feat(html): add command palette, path finder and sticky lane tags)
 
 # cache_dir: ~/.cache/pipeline-graph   # shallow clones are kept and refreshed here
 out_dir: out

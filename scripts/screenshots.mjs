@@ -54,6 +54,24 @@ const SCENES = [
     ],
   },
   {
+    file: "command-palette.png", theme: "dark", hash: "overview",
+    title: "One palette for jobs and commands",
+    caption: "`/` or `Ctrl/⌘ K` opens the palette: jobs, targets and images on top, matching commands below. Type `>` for commands only: blast radius, dependencies, copy a TeamCity id, switch view, export.",
+    steps: [
+      { key: "/" },
+      { type: "go" },
+      { check: "document.querySelectorAll('#results .r.act').length > 0 && document.querySelectorAll('#results .r:not(.act)').length > 0", msg: "jobs and commands listed" },
+    ],
+  },
+  {
+    file: "path-finder.png", theme: "light", hash: "overview/" + encodeURIComponent("bt:platform-images/BaseGo") + "/" + encodeURIComponent("bt:orders-service/Deploy_prod"),
+    title: "How does this reach production?",
+    caption: "Select a job, then `Shift+click` another (or pick it from the palette): only the routes between them stay, with the jobs on the path listed in order. The URL carries both ends.",
+    steps: [
+      { check: "document.querySelectorAll('.node.path').length > 0 && document.getElementById('svg').classList.contains('isolate')", msg: "path highlighted" },
+    ],
+  },
+  {
     file: "qa-test-job.png", theme: "light", hash: "repo-web-frontend/" + encodeURIComponent("bt:web-frontend/E2E"),
     title: "What does this test job actually run?",
     caption: "The per-repo view shows a repository together with its cross-repo neighbours. The side panel shows what triggers the E2E suite, what it waits for, what runs after it, the exact script, and the file and line that define it (a link to the analysed commit when the repo is on GitHub, GitLab, Bitbucket or Gitea).",
@@ -193,7 +211,7 @@ try {
       ] });
       // every scene starts from defaults: no remembered view, theme, sidebar or panel width
       await tab.send("Page.addScriptToEvaluateOnNewDocument", { source:
-        `try { localStorage.clear(); } catch (e) {}
+        `try { localStorage.clear(); localStorage.setItem("pg-hint", "1"); } catch (e) {}
          { const t = ${now}, D = Date; Date = class extends D { constructor(...a) { a.length ? super(...a) : super(t); } static now() { return t; } }; }` });
       const loaded = tab.once("Page.loadEventFired");
       await tab.send("Page.navigate", { url: pathToFileURL(html).href + "#" + s.hash });
