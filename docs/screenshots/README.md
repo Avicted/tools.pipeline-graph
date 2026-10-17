@@ -10,7 +10,7 @@ Seven repositories, their TeamCity build configurations, snapshot and artifact d
 
 ## Blast radius of a base image change
 
-A CVE lands in the Go base image: what rebuilds, what gets redeployed, and through which links? Clicking a node colours its upstream green and its downstream red. `I` hides everything else. The URL now points at this exact view, ready to paste into the incident channel.
+A CVE lands in the Go base image: what rebuilds, what gets redeployed, and through which links? Clicking a node rings what it needs in violet and what depends on it in magenta. `B`, `D` and `I` hide everything else. The URL now points at this exact view, ready to paste into the incident channel.
 
 ![Blast radius of a base image change](blast-radius.png)
 
