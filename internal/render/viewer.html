@@ -1018,7 +1018,7 @@ svg.addEventListener("wheel", ev => {
   const r = svg.getBoundingClientRect();
   const unit = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? r.height : 1;
   if (ev.ctrlKey || ev.metaKey) {
-    zoomAt(Math.exp(-Math.max(-50, Math.min(50, ev.deltaY * unit)) * 0.01), ev.clientX - r.left, ev.clientY - r.top);
+    zoomAt(Math.exp(-Math.max(-10, Math.min(10, ev.deltaY * unit)) * 0.01), ev.clientX - r.left, ev.clientY - r.top);
   } else {
     let dx = ev.deltaX * unit, dy = ev.deltaY * unit;
     if (ev.shiftKey && !dx) { dx = dy; dy = 0; }
