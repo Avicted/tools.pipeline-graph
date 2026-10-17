@@ -86,7 +86,7 @@ Open `pipelines.html` in any browser; it needs no server and no network.
 - **Lineage.** Click a node to colour everything upstream and downstream of it.
   `B` (blast radius) and `D` (dependencies) keep one direction, `I` both, and
   `Shift+click` on a second job keeps only the path between the two. Right-click
-  a job for these and copy-id / open-source actions. The side panel lists neighbours by link type,
+  a job for these and copy-id / open-source actions. The details panel (docked at the bottom, drag its top edge to resize) lists neighbours by link type,
   including ones outside the current view, plus steps, scripts, triggers, params
   and artifact rules, each with a copy button. When the repo is on GitHub,
   GitLab, Bitbucket Cloud or Gitea, `file:line` links to the analysed commit.

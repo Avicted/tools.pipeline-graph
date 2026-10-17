@@ -59,7 +59,7 @@
 
   /* ---- chrome ------------------------------------------------------------ */
   :root {
-    --side: 264px; --top: 56px; --panel-w: 440px;
+    --side: 264px; --top: 56px; --panel-h: 340px;
     --shadow-lg: 0 1px 2px rgba(0,0,0,.08), 0 12px 40px rgba(0,0,0,.25); --ease: cubic-bezier(.2,.8,.2,1);
     --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --monof: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -268,16 +268,23 @@
   #svg.far .node.one .t { display: block; white-space: nowrap; text-overflow: ellipsis; }
 
   /* ---- details panel ----------------------------------------------------- */
+  /* bottom dock: identity and actions on the left, the details flow into columns on the right */
   #panel {
-    position: fixed; top: var(--top); right: 0; bottom: 0; width: var(--panel-w); max-width: 100vw; background: var(--panel); border-left: 1px solid var(--line);
-    transform: translateX(100%); transition: transform .26s var(--ease); z-index: 18; display: flex; flex-direction: column;
+    position: fixed; left: var(--side); right: 0; bottom: 0; height: var(--panel-h); background: var(--panel); border-top: 1px solid var(--line);
+    transform: translateY(100%); transition: transform .26s var(--ease), left .18s ease; z-index: 18; display: flex;
   }
-  #panel.open { transform: none; box-shadow: -8px 0 30px rgba(0,0,0,.08); }
+  body.collapsed #panel, body.present #panel { left: 0; }
+  #panel.open { transform: none; box-shadow: 0 -8px 30px rgba(0,0,0,.08); }
   #panel.resizing { transition: none; user-select: none; }
-  #grip { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 2; }
-  #grip:hover, #panel.resizing #grip { background: linear-gradient(90deg, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px); }
-  #panel-head { padding: 16px 20px 10px; border-bottom: 1px solid var(--line); }
-  #panel-body { overflow-y: auto; padding: 4px 20px 40px; flex: 1; }
+  #grip { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; z-index: 2; }
+  #grip:hover, #panel.resizing #grip { background: linear-gradient(0deg, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px); }
+  #panel-head { width: 380px; flex: none; overflow-y: auto; padding: 14px 20px 14px; border-right: 1px solid var(--line); }
+  #panel-body { overflow-y: auto; padding: 0 52px 28px 28px; flex: 1; min-width: 0; }
+  #panel-body .cols { column-width: 320px; column-gap: 36px; }
+  #panel-body .cols section { break-inside: avoid; padding-bottom: 4px; }
+  #panel-body .cols section > h3:first-child { margin-top: 0; }
+  #panel-body .cols section { padding-top: 16px; }
+  body.panel-open #toast { bottom: calc(var(--panel-h) + 20px); }
   #panel h2 { font-size: 16px; margin: 0 0 4px; padding-right: 28px; word-break: break-word; }
   #panel .meta { color: var(--muted); font-size: 12px; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   #panel .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
@@ -366,6 +373,9 @@
     .palette-btn { width: 32px; padding: 0; justify-content: center; }
     .palette-btn span, .palette-btn kbd { display: none; }
     #hint { left: 12px; right: 12px; bottom: 12px; }
+    #panel { left: 0; flex-direction: column; }
+    #panel-head { width: auto; max-height: 40%; border-right: 0; border-bottom: 1px solid var(--line); }
+    #panel-body .cols { column-width: auto; columns: 1; }
   }
   @media print {
     header, #sidebar, #panel, #toast, #tip { display: none !important; }
@@ -826,35 +836,37 @@ function showPanel(id) {
   if (path) head += `<div class="pathbar"><span class="pill">Path</span> to <a data-go="${esc(pathTo)}">${esc(DATA.nodes[pathTo].label)}</a> · ${path.size} jobs <button class="copy" data-act="clearpath">× Clear</button></div>`;
 
   let h = "";
+  const sec = x => x ? `<section>${x}</section>` : ""; // a section never splits across columns
   if (path) {
     const pos = i => (view.byId[i] || { x: 0, y: 0 }); // shortcut: layout x approximates dependency order, upgrade to a topological sort if lanes ever stop flowing left to right
     const order = [...path].sort((a, b) => pos(a).x - pos(b).x || pos(a).y - pos(b).y);
-    h += `<h3>Path <span class="n">(${order.length} jobs, in order)</span></h3><ol class="plist">${order.map(i => `<li>${link(i)}</li>`).join("")}</ol>`;
+    h += sec(`<h3>Path <span class="n">(${order.length} jobs, in order)</span></h3><ol class="plist">${order.map(i => `<li>${link(i)}</li>`).join("")}</ol>`);
   }
   if (n.triggers && n.triggers.length) {
-    h += `<h3>Triggers</h3><ul>${n.triggers.map(t => `<li><b>${esc(t.type)}</b> ${esc(t.detail || "")}</li>`).join("")}</ul>`;
+    h += sec(`<h3>Triggers</h3><ul>${n.triggers.map(t => `<li><b>${esc(t.type)}</b> ${esc(t.detail || "")}</li>`).join("")}</ul>`);
   }
-  h += relSection("Needs (upstream)", neighbours(id, "in"), "--up");
-  h += relSection("Needed by (downstream)", neighbours(id, "out"), "--down");
+  h += sec(relSection("Needs (upstream)", neighbours(id, "in"), "--up"));
+  h += sec(relSection("Needed by (downstream)", neighbours(id, "out"), "--down"));
   if (n.steps && n.steps.length) {
-    h += `<h3>${n.kind === "make" ? "Recipe" : "Steps"} <span class="n">(${n.steps.length})</span></h3>`;
+    h += `<section><h3>${n.kind === "make" ? "Recipe" : "Steps"} <span class="n">(${n.steps.length})</span></h3>`;
     n.steps.forEach((s, i) => {
       if (n.kind !== "make") h += `<div class="step">${i + 1}. ${esc(s.name || s.type)} <small>${esc(s.type)}${s.workDir ? " · in " + esc(s.workDir) : ""}</small></div>`;
       if (s.script) h += `<div class="code">${copyBtn(s.script)}<pre>${esc(s.script)}</pre></div>`;
     });
+    h += "</section>";
   }
   if (n.artifacts && n.artifacts.length) {
     const a = n.artifacts.join("\n");
-    h += `<h3>Artifact rules</h3><div class="code">${copyBtn(a)}<pre>${esc(a)}</pre></div>`;
+    h += sec(`<h3>Artifact rules</h3><div class="code">${copyBtn(a)}<pre>${esc(a)}</pre></div>`);
   }
   const keys = n.params ? Object.keys(n.params).sort() : [];
   if (keys.length) {
-    h += `<h3>Parameters <span class="n">(${keys.length})</span></h3>`;
+    h += `<section><h3>Parameters <span class="n">(${keys.length})</span></h3>`;
     if (keys.length > 10) h += `<input class="filter" id="param-filter" type="search" placeholder="Filter parameters…" aria-label="Filter parameters">`;
-    h += `<table id="params">${keys.map(k => `<tr><td>${esc(k)}</td><td>${esc(n.params[k])}</td></tr>`).join("")}</table>`;
+    h += `<table id="params">${keys.map(k => `<tr><td>${esc(k)}</td><td>${esc(n.params[k])}</td></tr>`).join("")}</table></section>`;
   }
   $("panel-head").innerHTML = head;
-  $("panel-body").innerHTML = h;
+  $("panel-body").innerHTML = `<div class="cols">${h}</div>`;
   $("panel-body").scrollTop = 0;
   openPanel();
 }
@@ -867,8 +879,8 @@ function showWarnings() {
   openPanel();
 }
 
-function openPanel() { $("panel").classList.add("open"); }
-function closePanel() { $("panel").classList.remove("open"); }
+function openPanel() { $("panel").classList.add("open"); document.body.classList.add("panel-open"); }
+function closePanel() { $("panel").classList.remove("open"); document.body.classList.remove("panel-open"); }
 const panelOpen = () => $("panel").classList.contains("open");
 
 $("panel").addEventListener("click", ev => {
@@ -889,22 +901,22 @@ $("panel").addEventListener("input", ev => {
 });
 $("close").onclick = () => { selected ? clearSelection() : closePanel(); };
 
-// resizable panel
+// resizable panel (drag the top edge)
 (function () {
-  const w = parseInt(store.get("pg-panel-w"), 10);
-  if (w) document.documentElement.style.setProperty("--panel-w", w + "px");
+  const h = parseInt(store.get("pg-panel-h"), 10);
+  if (h) document.documentElement.style.setProperty("--panel-h", h + "px");
   $("grip").addEventListener("pointerdown", ev => {
     ev.preventDefault();
     const p = $("panel");
     p.classList.add("resizing");
     $("grip").setPointerCapture(ev.pointerId);
     const move = e => {
-      const nw = Math.round(Math.min(innerWidth * 0.75, Math.max(320, innerWidth - e.clientX)));
-      document.documentElement.style.setProperty("--panel-w", nw + "px");
+      const nh = Math.round(Math.min(innerHeight * 0.7, Math.max(160, innerHeight - e.clientY)));
+      document.documentElement.style.setProperty("--panel-h", nh + "px");
     };
     const up = () => {
       p.classList.remove("resizing");
-      store.set("pg-panel-w", parseInt(getComputedStyle(p).width, 10));
+      store.set("pg-panel-h", parseInt(getComputedStyle(p).height, 10));
       $("grip").removeEventListener("pointermove", move);
       $("grip").removeEventListener("pointerup", up);
     };
@@ -936,11 +948,11 @@ function toast(msg) {
 }
 
 // ---- pan & zoom --------------------------------------------------------------
-// The visible part of the canvas: the details panel covers its right side.
+// The visible part of the canvas: the details panel covers its bottom.
 function area() {
   const r = svg.getBoundingClientRect();
-  const pw = panelOpen() && !narrow.matches ? $("panel").getBoundingClientRect().width : 0;
-  return { w: Math.max(200, r.width - pw), h: r.height, left: r.left, top: r.top };
+  const ph = panelOpen() ? $("panel").getBoundingClientRect().height : 0;
+  return { w: r.width, h: Math.max(200, r.height - ph), left: r.left, top: r.top };
 }
 // Each lane tag sticks to the left and top of the visible area while its lane is on screen.
 function placeTags() {
