@@ -6,8 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Avicted/tools.pipeline-graph/internal/ci"
+	"github.com/Avicted/tools.pipeline-graph/internal/ci/teamcity"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
+
+var tc = []ci.Provider{teamcity.New()}
 
 func repo(t *testing.T, name string, files map[string]string) Repo {
 	t.Helper()
@@ -46,7 +50,7 @@ object Build : BuildType({
     }
 })
 `})
-	g, warnings := Run([]Repo{lib, app}, Options{ExternalIDs: map[string]string{"Mapped": "core-lib/Publish"}})
+	g, warnings := Run([]Repo{lib, app}, Options{Providers: tc, ExternalIDs: map[string]string{"Mapped": "core-lib/Publish"}})
 	want := strings.Join([]string{
 		"bt:core-lib/Publish>bt:app/Build:artifact",
 		"bt:core-lib/Publish>bt:app/Build:snapshot",
@@ -78,7 +82,7 @@ object App : BuildType({
 })`,
 		"build/Dockerfile": "FROM reg.io/base:42\nFROM alpine:3\n",
 	})
-	g, _ := Run([]Repo{base, app}, Options{})
+	g, _ := Run([]Repo{base, app}, Options{Providers: tc})
 	want := strings.Join([]string{
 		"bt:base/Img>mk:base/Makefile:image:runs",
 		"img:reg.io/base>bt:app/App:consumes",
@@ -104,11 +108,5 @@ func TestImageName(t *testing.T) {
 		if got := ImageName(in); got != want {
 			t.Errorf("ImageName(%q) = %q, want %q", in, got, want)
 		}
-	}
-}
-
-func TestDeriveProjectID(t *testing.T) {
-	if got := DeriveProjectID("service-a_api"); got != "ServiceAApi" {
-		t.Errorf("got %q", got)
 	}
 }
