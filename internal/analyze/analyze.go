@@ -1,5 +1,5 @@
 // Package analyze turns checked-out repositories into the pipeline graph:
-// TeamCity build configurations, the make targets they run, and the docker
+// the jobs a ci.Provider reads, the make targets they run, and the docker
 // images that flow between them.
 package analyze
 
@@ -13,31 +13,33 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Avicted/tools.pipeline-graph/internal/kts"
+	"github.com/Avicted/tools.pipeline-graph/internal/ci"
 	"github.com/Avicted/tools.pipeline-graph/internal/makefile"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
 	"github.com/Avicted/tools.pipeline-graph/internal/shell"
 )
 
 type Repo struct {
-	Name        string // short name, used as swimlane title
-	URL         string
-	Commit      string
-	Root        string // local checkout
-	TeamCityDir string // relative to Root, default ".teamcity"
-	ProjectID   string // TeamCity external id of the project the settings are imported into
+	Name      string // short name, used as swimlane title
+	URL       string
+	Commit    string
+	Root      string // local checkout
+	Provider  string // CI system (ci.Provider.Name); "" detects every supported one
+	ConfigDir string // where its definitions live, relative to Root; "" is the provider's default
+	ProjectID string // namespace of the repo's job ids; "" lets the provider derive it
 }
 
 type Options struct {
-	ExternalIDs map[string]string // absolute TeamCity id -> "repo/RelativeId"
+	Providers   []ci.Provider     // the CI systems that can be read
+	ExternalIDs map[string]string // absolute job id -> "repo/Key"
 }
 
 type analyzer struct {
 	opts      Options
 	g         *model.Graph
 	warnings  []string
-	byAbs     map[string]string   // absolute TeamCity id -> node id
-	byRel     map[string][]string // relative id -> node ids (all repos)
+	byAbs     map[string]string   // job QualID -> node id
+	byRel     map[string][]string // job key -> node ids (all repos)
 	makefiles map[string]*makefile.Makefile
 	expanded  map[string]bool
 	images    map[string]*imageUse
@@ -47,6 +49,12 @@ type imageUse struct {
 	producers map[string]bool
 	consumers map[string]bool
 	refs      map[string]bool
+}
+
+// loaded is one provider's reading of one repo.
+type loaded struct {
+	repo Repo
+	p    *ci.Pipelines
 }
 
 // Run analyses all repos and returns the graph plus human-readable warnings.
@@ -60,57 +68,32 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 		expanded:  map[string]bool{},
 		images:    map[string]*imageUse{},
 	}
-	type parsed struct {
-		repo Repo
-		s    *kts.Settings
-	}
-	var all []parsed
+	var all []loaded
 	for _, r := range repos {
 		a.g.Repos = append(a.g.Repos, model.Repo{Name: r.Name, URL: r.URL, Commit: r.Commit})
-		dir := r.TeamCityDir
-		if dir == "" {
-			dir = ".teamcity"
-		}
-		if _, err := os.Stat(filepath.Join(r.Root, dir)); err != nil {
-			a.warn(r.Name, "", 0, "no TeamCity settings directory %s", dir)
-			continue
-		}
-		s, err := kts.ParseDir(filepath.Join(r.Root, dir), r.Root)
+		cr := ci.Repo{Name: r.Name, Root: r.Root, Dir: r.ConfigDir, ProjectID: r.ProjectID}
+		provs, err := ci.Pick(opts.Providers, r.Provider, cr)
 		if err != nil {
-			a.warn(r.Name, "", 0, "reading TeamCity settings: %v", err)
+			a.warn(r.Name, "", 0, "%v", err)
 			continue
 		}
-		for _, w := range s.Warnings {
-			a.warnings = append(a.warnings, r.Name+": "+w)
+		if len(provs) == 0 {
+			a.warn(r.Name, "", 0, "no pipeline definitions found (looked for: %s)", providerNames(opts.Providers))
+			continue
 		}
-		if r.ProjectID == "" {
-			r.ProjectID = DeriveProjectID(r.Name)
-		}
-		all = append(all, parsed{r, s})
-		for _, b := range s.Builds {
-			id := buildNodeID(r.Name, b.Key)
-			abs := r.ProjectID + "_" + b.Key
-			a.byAbs[abs] = id
-			a.byRel[b.Key] = append(a.byRel[b.Key], id)
-			n := &model.Node{
-				ID: id, Kind: model.KindBuild, Repo: r.Name, Label: b.Name, Sub: abs,
-				Project: b.Project, Composite: b.Composite, Steps: b.Steps,
-				Source: fmt.Sprintf("%s:%d", b.File, b.Line),
+		for _, prov := range provs {
+			p, err := prov.Load(cr)
+			if err != nil {
+				a.warn(r.Name, "", 0, "%s: %v", prov.Name(), err)
+				continue
 			}
-			if len(b.Params) > 0 {
-				n.Params = b.Params
+			for _, w := range p.Warnings {
+				a.warnings = append(a.warnings, r.Name+": "+w)
 			}
-			for _, t := range b.Triggers {
-				if t.Ref == nil {
-					n.Triggers = append(n.Triggers, t.Trigger)
-				}
+			all = append(all, loaded{r, p})
+			for _, j := range p.Jobs {
+				a.addJob(r, j)
 			}
-			for _, l := range strings.Split(b.ArtifactRules, "\n") {
-				if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "-:") {
-					n.Artifacts = append(n.Artifacts, strings.TrimPrefix(l, "+:"))
-				}
-			}
-			a.g.AddNode(n)
 		}
 	}
 	for abs, target := range opts.ExternalIDs {
@@ -118,26 +101,26 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 		a.byAbs[abs] = buildNodeID(repo, rel)
 	}
 
-	for _, p := range all {
-		for _, b := range p.s.Builds {
-			to := buildNodeID(p.repo.Name, b.Key)
-			for _, d := range b.Deps {
-				a.depEdge(p.repo, p.s, d, to, b.File)
+	for _, l := range all {
+		for _, j := range l.p.Jobs {
+			to := buildNodeID(l.repo.Name, j.Key)
+			for _, d := range j.Deps {
+				a.depEdge(l, d, to, j.File)
 			}
-			for _, t := range b.Triggers {
-				if t.Ref == nil {
+			for _, t := range j.Triggers {
+				if t.From == nil {
 					continue
 				}
-				if from := a.resolve(p.repo, p.s, *t.Ref, b.File); from != "" {
+				if from := a.resolve(l, *t.From, j.File); from != "" {
 					a.g.AddEdge(model.Edge{From: from, To: to, Kind: model.EdgeTrigger, Label: t.Detail})
 					a.g.Node(to).Triggers = append(a.g.Node(to).Triggers, model.Trigger{Type: "finishBuild", Detail: a.g.Node(from).Label})
 				}
 			}
-			a.steps(p.repo, b, to)
+			a.steps(l.repo, j, to)
 		}
-		for _, cd := range p.s.CrossDeps {
-			if to := a.resolve(p.repo, p.s, cd.Target, cd.File); to != "" {
-				a.depEdge(p.repo, p.s, cd.Dep, to, cd.File)
+		for _, cd := range l.p.CrossDeps {
+			if to := a.resolve(l, cd.Target, cd.File); to != "" {
+				a.depEdge(l, cd.Dep, to, cd.File)
 			}
 		}
 	}
@@ -147,22 +130,36 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 	return a.g, slices.Compact(a.warnings)
 }
 
+func providerNames(ps []ci.Provider) string {
+	var n []string
+	for _, p := range ps {
+		n = append(n, p.Name())
+	}
+	return strings.Join(n, ", ")
+}
+
+func (a *analyzer) addJob(r Repo, j *ci.Job) {
+	id := buildNodeID(r.Name, j.Key)
+	a.byAbs[j.QualID] = id
+	a.byRel[j.Key] = append(a.byRel[j.Key], id)
+	n := &model.Node{
+		ID: id, Kind: model.KindBuild, Repo: r.Name, Label: j.Name, Sub: j.QualID,
+		Project: j.Project, Composite: j.Composite, Steps: j.Steps, Params: j.Params,
+		Artifacts: j.Artifacts, Source: fmt.Sprintf("%s:%d", j.File, j.Line),
+	}
+	for _, t := range j.Triggers {
+		if t.From == nil {
+			n.Triggers = append(n.Triggers, t.Trigger)
+		}
+	}
+	a.g.AddNode(n)
+}
+
 func buildNodeID(repo, key string) string { return "bt:" + repo + "/" + key }
 
 func normID(s string) string { return strings.ToLower(reWordSplit.ReplaceAllString(s, "")) }
 
 var reWordSplit = regexp.MustCompile(`[^A-Za-z0-9]+`)
-
-// DeriveProjectID mimics how TeamCity derives a project id from a name: "service-a" -> "ServiceA".
-func DeriveProjectID(name string) string {
-	var b strings.Builder
-	for _, w := range reWordSplit.Split(name, -1) {
-		if w != "" {
-			b.WriteString(strings.ToUpper(w[:1]) + w[1:])
-		}
-	}
-	return b.String()
-}
 
 func (a *analyzer) warn(repo, file string, line int, format string, args ...any) {
 	loc := repo
@@ -175,8 +172,8 @@ func (a *analyzer) warn(repo, file string, line int, format string, args ...any)
 	a.warnings = append(a.warnings, loc+": "+fmt.Sprintf(format, args...))
 }
 
-func (a *analyzer) depEdge(r Repo, s *kts.Settings, d kts.Dep, to, file string) {
-	from := a.resolve(r, s, d.Ref, file)
+func (a *analyzer) depEdge(l loaded, d ci.Dep, to, file string) {
+	from := a.resolve(l, d.Ref, file)
 	if from == "" {
 		return
 	}
@@ -187,69 +184,52 @@ func (a *analyzer) depEdge(r Repo, s *kts.Settings, d kts.Dep, to, file string) 
 	a.g.AddEdge(model.Edge{From: from, To: to, Kind: kind, Label: oneLine(d.Rules)})
 }
 
-// resolve maps a DSL reference to a node id, creating an external stub if needed.
-func (a *analyzer) resolve(r Repo, s *kts.Settings, ref kts.Ref, file string) string {
-	switch ref.Kind {
-	case kts.RefObject, kts.RefRelative:
-		if b := s.Lookup(ref); b != nil {
-			return buildNodeID(r.Name, b.Key)
-		}
-		if ref.Kind == kts.RefObject {
-			a.warn(r.Name, file, ref.Line, "reference to unknown build configuration %s", ref.Value)
-			return ""
-		}
+// resolve maps a job reference to a node id, creating an external stub if needed.
+func (a *analyzer) resolve(l loaded, ref ci.Ref, file string) string {
+	r := l.repo
+	if ref.Local != "" {
+		return buildNodeID(r.Name, ref.Local)
 	}
-	if id, ok := a.byAbs[ref.Value]; ok && a.g.Node(id) != nil {
+	if id, ok := a.byAbs[ref.Global]; ok && a.g.Node(id) != nil {
 		return id
 	}
-	// RelativeId inside a string, or an id without the root project prefix
-	if b := s.Lookup(kts.Ref{Kind: kts.RefRelative, Value: ref.Value}); b != nil {
-		return buildNodeID(r.Name, b.Key)
+	if ref.Alias != "" {
+		return buildNodeID(r.Name, ref.Alias)
 	}
-	// heuristic: unique build whose relative id is a suffix of the absolute id
+	// heuristic: unique job whose key is a suffix of the absolute id
 	// and whose repo name appears in the prefix (e.g. "Acme_ServiceA_Build" for repo service-a)
 	var cands []string
-	for rel, ids := range a.byRel {
-		prefix, ok := strings.CutSuffix(ref.Value, "_"+rel)
-		if !ok {
-			continue
-		}
-		for _, id := range ids {
-			if strings.HasSuffix(normID(prefix), normID(a.g.Node(id).Repo)) {
-				cands = append(cands, id)
+	if sep := l.p.IDSep; sep != "" {
+		for rel, ids := range a.byRel {
+			prefix, ok := strings.CutSuffix(ref.Global, sep+rel)
+			if !ok {
+				continue
+			}
+			for _, id := range ids {
+				if strings.HasSuffix(normID(prefix), normID(a.g.Node(id).Repo)) {
+					cands = append(cands, id)
+				}
 			}
 		}
 	}
 	if len(cands) == 1 {
-		a.warn(r.Name, file, ref.Line, "%s matched to %s by id suffix (set teamcity_project_id or external_ids to make this exact)", ref.Value, cands[0])
+		a.warn(r.Name, file, ref.Line, "%s matched to %s by id suffix (set teamcity_project_id or external_ids to make this exact)", ref.Global, cands[0])
 		return cands[0]
 	}
-	a.warn(r.Name, file, ref.Line, "build configuration %s not found in any analysed repo; shown as external", ref.Value)
-	id := "ext:" + ref.Value
-	a.g.AddNode(&model.Node{ID: id, Kind: model.KindExternal, Label: ref.Value, Sub: "not in analysed repos"})
+	a.warn(r.Name, file, ref.Line, "build configuration %s not found in any analysed repo; shown as external", ref.Global)
+	id := "ext:" + ref.Global
+	a.g.AddNode(&model.Node{ID: id, Kind: model.KindExternal, Label: ref.Global, Sub: "not in analysed repos"})
 	return id
 }
 
-var reParam = regexp.MustCompile(`%([A-Za-z0-9_.\-]+)%`)
-
-func substParams(s string, params map[string]string) string {
-	for i := 0; i < 3 && strings.Contains(s, "%"); i++ {
-		s = reParam.ReplaceAllStringFunc(s, func(m string) string {
-			if v, ok := params[m[1:len(m)-1]]; ok {
-				return v
-			}
-			return m
-		})
+// steps analyses the commands each job step runs.
+func (a *analyzer) steps(r Repo, j *ci.Job, owner string) {
+	expand := j.Expand
+	if expand == nil {
+		expand = func(s string) string { return s }
 	}
-	return s
-}
-
-// steps analyses the commands each build step runs.
-func (a *analyzer) steps(r Repo, b *kts.Build, owner string) {
-	for _, st := range b.Steps {
-		script := substParams(st.Script, b.Params)
-		label := st.Name
-		a.commands(r, script, cleanDir(substParams(st.WorkDir, b.Params)), owner, label, 0)
+	for _, st := range j.Steps {
+		a.commands(r, expand(st.Script), cleanDir(expand(st.WorkDir)), owner, st.Name, 0)
 	}
 }
 

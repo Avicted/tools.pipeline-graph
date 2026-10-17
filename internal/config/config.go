@@ -17,6 +17,7 @@ type Repo struct {
 	Branch      string `yaml:"branch"`              // default: remote HEAD
 	TeamCityDir string `yaml:"teamcity_dir"`        // default: top-level teamcity_dir
 	ProjectID   string `yaml:"teamcity_project_id"` // TeamCity project the settings are imported into; default derived from name
+	Provider    string `yaml:"provider"`            // CI system to read (e.g. teamcity); default: every supported one found in the repo
 }
 
 // UnmarshalYAML accepts either a mapping or a bare URL string.
