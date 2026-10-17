@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/Avicted/tools.pipeline-graph/internal/analyze"
+	"github.com/Avicted/tools.pipeline-graph/internal/ci"
+	"github.com/Avicted/tools.pipeline-graph/internal/ci/teamcity"
 	"github.com/Avicted/tools.pipeline-graph/internal/config"
 	"github.com/Avicted/tools.pipeline-graph/internal/fetch"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
@@ -23,6 +25,9 @@ import (
 )
 
 var version = "dev"
+
+// providers are the CI/CD systems that can be read; add new ones here.
+var providers = []ci.Provider{teamcity.New()}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -63,6 +68,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	for _, r := range cfg.Repos {
+		if _, err := ci.Pick(providers, r.Provider, ci.Repo{}); r.Provider != "" && err != nil {
+			fmt.Fprintf(stderr, "pipeline-graph: %s: %v\n", r.Name, err)
+			return 2
+		}
+	}
+
 	// 1. fetch
 	reqs := make([]fetch.Request, len(cfg.Repos))
 	for i, r := range cfg.Repos {
@@ -79,7 +91,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "pipeline-graph: %s: %v\n", r.Name, res.Err)
 			continue
 		}
-		repos = append(repos, analyze.Repo{Name: r.Name, URL: r.URL, Commit: res.Commit, Root: res.Dir, TeamCityDir: r.TeamCityDir, ProjectID: r.ProjectID})
+		repos = append(repos, analyze.Repo{Name: r.Name, URL: r.URL, Commit: res.Commit, Root: res.Dir, Provider: r.Provider, ConfigDir: r.TeamCityDir, ProjectID: r.ProjectID})
 	}
 	if len(repos) == 0 {
 		fmt.Fprintln(stderr, "pipeline-graph: no repository could be fetched")
@@ -87,7 +99,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	// 2. analyse
-	g, warnings := analyze.Run(repos, analyze.Options{ExternalIDs: cfg.ExternalIDs})
+	g, warnings := analyze.Run(repos, analyze.Options{Providers: providers, ExternalIDs: cfg.ExternalIDs})
 	g.Generated = generatedAt()
 
 	// 3. render

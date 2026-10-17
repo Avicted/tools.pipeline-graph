@@ -1,6 +1,7 @@
 # pipeline-graph
 
-Maps how TeamCity pipelines across many git repositories link together:
+Maps how CI/CD pipelines across many git repositories link together (TeamCity
+today; other systems plug in through [one small interface](#adding-a-cicd-system)):
 build configurations, snapshot/artifact dependencies and finish-build triggers
 (also across repos), the `make` targets each step runs, and the docker images
 flowing between pipelines.
@@ -157,6 +158,33 @@ build whose id ends in `_<relative id>` and whose prefix contains the repo name
 is accepted, with a warning. Anything still unresolved goes in the
 **External** lane; `external_ids` in the config pins a mapping by hand.
 
+## Adding a CI/CD system
+
+Everything that is the same for every system (cloning, cross-repo id
+resolution, scanning steps for `make`, `docker` and scripts, the graph and all
+renderers) lives behind [`ci.Provider`](internal/ci/ci.go). A provider only reads
+one system's definitions from a checkout:
+
+```go
+type Provider interface {
+    Name() string                       // `provider:` in the config
+    Detect(r ci.Repo) bool              // does the repo use this system?
+    Load(r ci.Repo) (*ci.Pipelines, error)
+}
+```
+
+`Load` returns neutral `ci.Job`s: a unique `Key` within the repo, a `QualID`
+other repos refer to it by, its steps, dependencies (`ci.Ref` to a job in the
+same repo or by id across repos), triggers and artifact rules. For GitHub
+Actions that would be one job per workflow job, `needs:` as dependencies,
+`workflow_run` as a trigger and `owner/repo/workflow.yml#job` as the `QualID`.
+
+To add one: implement it in `internal/ci/<name>`, add it to `providers` in
+[`cmd/pipeline-graph/main.go`](cmd/pipeline-graph/main.go), and test it. A repo
+that uses several systems is read by all of them; `provider: <name>` on a repo
+in the config picks exactly one. The [`analyze` tests](internal/analyze/provider_test.go)
+use a stub provider as a template.
+
 ## Limits
 
 Values only known when TeamCity runs the DSL stay as written, e.g. names built
@@ -169,7 +197,7 @@ applied.
 
 ```sh
 make          # menu of all targets
-make test     # unit tests + end-to-end test against the fixture repos (golden files)
+make test     # unit tests + end-to-end test against the fixture repos (golden files); `go test -cover ./...` for coverage
 make golden   # accept an intended output change, then review the diff in test/integration/testdata
 ```
 
@@ -222,10 +250,12 @@ make unhook             # remove the git hooks
 cmd/pipeline-graph   CLI
 internal/config      YAML config
 internal/fetch       shallow git clones (system git, BatchMode ssh)
+internal/ci          CI/CD provider interface (Provider, Job, Ref)
+internal/ci/teamcity TeamCity provider: reads the Kotlin DSL through internal/kts
 internal/kts         Kotlin tokenizer, tolerant parser, TeamCity DSL extraction
 internal/makefile    Makefile parser
 internal/shell       make/docker/script invocations in shell text
-internal/analyze     builds the graph and resolves cross-repo references
+internal/analyze     builds the graph from any provider's jobs; resolves cross-repo references
 internal/model       graph types (nodes, edges, steps, triggers)
 internal/layout      layered left-to-right layout with repo swimlanes
 internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
