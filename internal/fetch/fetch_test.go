@@ -122,6 +122,18 @@ func TestOneFailureDoesNotStopTheRest(t *testing.T) {
 	}
 }
 
+func TestURLIsNeverAnOption(t *testing.T) {
+	remotes, cache := setup(t)
+	marker := filepath.Join(remotes, "pwned")
+	res := All(context.Background(), []Request{{URL: "--upload-pack=touch " + marker}}, cache, 1, false)
+	if res[0].Err == nil {
+		t.Error("an option-looking URL must fail as a missing repository")
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("the URL was run as a git option")
+	}
+}
+
 func TestRefreshPicksUpNewCommits(t *testing.T) {
 	remotes, cache := setup(t)
 	src := remote(t, remotes, "svc", "one")
