@@ -265,16 +265,21 @@
   .node .lines { margin-top: 6px; }
   .node .b { margin-top: 5px; display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
   .node .b span { background: var(--badge-bg); color: var(--badge-ink); border-radius: 4px; padding: 0 5px; font-size: 10px; white-space: nowrap; }
-  .node:hover .card, .node:focus-visible .card { box-shadow: 0 0 0 calc(3px * var(--es)) var(--mark); }
+  /* rings are SVG strokes (.ring): a box-shadow would be clipped by the foreignObject and fill the rounded corners */
+  .ring { fill: none; pointer-events: none; stroke: var(--ring-c, transparent); stroke-width: calc(2 * var(--ring-w, 0px) * var(--es)); }
+  .node:hover, .node:focus-visible { --ring-c: var(--mark); --ring-w: 3px; }
   /* the fill tint keeps direction readable when zoomed out, where a ring thins to a hairline */
-  .node.up .card   { box-shadow: 0 0 0 calc(4px * var(--es)) var(--up); background: color-mix(in srgb, var(--up) 16%, var(--fill)); }
-  .node.down .card { box-shadow: 0 0 0 calc(4px * var(--es)) var(--down); background: color-mix(in srgb, var(--down) 16%, var(--fill)); }
-  .node.sel .card  { box-shadow: 0 0 0 calc(5px * var(--es)) var(--sel); }
-  .node.end.up .card   { box-shadow: 0 0 0 calc(6px * var(--es)) var(--up); }
-  .node.end.down .card { box-shadow: 0 0 0 calc(6px * var(--es)) var(--down); }
-  .node.pulse .card { animation: pulse .7s ease-out; }
-  .node.hit .card  { box-shadow: 0 0 0 calc(4px * var(--es)) var(--hit); }
-  .node.hit.cur .card { box-shadow: 0 0 0 calc(6px * var(--es)) var(--hit); }
+  .node.up   { --ring-c: var(--up);   --ring-w: 4px; }
+  .node.down { --ring-c: var(--down); --ring-w: 4px; }
+  .node.up .card   { background: color-mix(in srgb, var(--up) 16%, var(--fill)); }
+  .node.down .card { background: color-mix(in srgb, var(--down) 16%, var(--fill)); }
+  .node.end { --ring-w: 6px; }
+  .node.hit { --ring-c: var(--hit); --ring-w: 4px; }
+  .node.hit.cur { --ring-w: 6px; }
+  /* selected: an inverted card reads at any zoom and in compressed screen shares, plus a thick ring */
+  .node.sel { --ring-c: var(--sel); --ring-w: 6px; --ink-n: var(--bg); --muted: color-mix(in srgb, var(--bg) 78%, var(--ink)); --mono: var(--muted); --badge-bg: color-mix(in srgb, var(--bg) 22%, var(--ink)); --badge-ink: var(--bg); }
+  .node.sel .card { background: var(--ink); }
+  .node.pulse .ring { animation: pulse .7s ease-out; }
   .dim { opacity: .1; }
   #svg.isolate .dim { display: none; }
   #svg.hovering .node:not(.nb) { opacity: .35; }
@@ -377,7 +382,7 @@
 
   @keyframes pop-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
   @keyframes flow { to { stroke-dashoffset: -80; } }
-  @keyframes pulse { from { box-shadow: 0 0 0 calc(4px * var(--es)) var(--sel); } to { box-shadow: 0 0 0 calc(24px * var(--es)) transparent; } }
+  @keyframes pulse { from { stroke: var(--sel); stroke-width: calc(8px * var(--es)); } to { stroke: var(--sel); stroke-width: calc(48px * var(--es)); stroke-opacity: 0; } }
 
   /* ---- presentation mode -------------------------------------------------- */
   body.present #sidebar { transform: translateX(-100%); }
@@ -624,6 +629,7 @@ function render(v) {
     const lines = n.h >= 56 ? 2 : 1, fh = (n.h - 10) / (lines * 1.12);
     const g = el("g", { class: "node " + n.kind + (lines === 1 ? " one" : ""), transform: `translate(${n.x},${n.y})`, style: `--fh:${fh}px;--lines:${lines}`, tabindex: 0, role: "button", "aria-label": `${kindName(node)}: ${n.card.title}` }, nodes);
     g.dataset.id = n.id;
+    el("rect", { class: "ring", width: n.w, height: n.h, rx: n.kind === "image" ? 22 : n.kind === "make" ? 7 : 9 }, g);
     const fo = el("foreignObject", { width: n.w, height: n.h }, g);
     const c = n.card;
     fo.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" class="card">
