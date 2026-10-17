@@ -50,14 +50,17 @@ make screenshots
 ```
 
 This builds the example and drives headless Chromium through the scenes
-defined in `scripts/screenshots.mjs`, one per PNG, and rewrites the
+defined in `scripts/scenes.json`, one per PNG, and rewrites the
 gallery in `docs/screenshots/README.md`. It runs in Docker
 (`Dockerfile.screenshots`), so the browser, the fonts, and therefore the
 pixels, are the same on every machine, and the browser clock is frozen. A
 second run gives byte-identical files, so `git status` shows only what really
 changed. Each scene also checks the page reached the expected state and fails
 on any JavaScript error, so a broken viewer fails the run instead of producing
-a bad picture. To add a screenshot, add a scene to `SCENES` in the script.
+a bad picture. To add a screenshot, add a scene to `scripts/scenes.json`.
+`make shot SCENE=focus,table` renders only some scenes into `out/shots` (not
+committed); `HTML=` and `SCENES=` (paths inside the repo) point it at your own
+page or scene file.
 Without Docker, `node scripts/screenshots.mjs` (Node 22 or later) uses a local
 `chromium`, or the browser named in `$CHROME`.
 
@@ -99,5 +102,5 @@ internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
 test/fixtures/repos  sample repos covering the recognised constructs
 examples/acme        larger fictional TeamCity example (`make example`)
 examples/github      fictional GitHub Actions example (`make example-github`)
-scripts              screenshots.mjs: regenerates docs/screenshots (`make screenshots`)
+scripts              screenshots.mjs, scenes.json: regenerate docs/screenshots (`make screenshots`)
 ```

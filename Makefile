@@ -121,12 +121,20 @@ docker-run: run ## Alias for run
 ##@ Docs
 # Screenshots are taken in Docker (Dockerfile.screenshots) so that browser and
 # fonts, and therefore the pixels, are the same on every machine.
+SHOTS_RUN = docker build -q -t $(SHOTS_IMAGE) - < "$(ROOT_DIR)/Dockerfile.screenshots" >/dev/null && \
+  docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(ROOT_DIR)":/repo -w /repo $(SHOTS_IMAGE) node scripts/screenshots.mjs
+
 .PHONY: screenshots
 screenshots: build ## Regenerate the README screenshots in docs/screenshots from the Acme example
 	SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml
-	@docker build -q -t $(SHOTS_IMAGE) - < "$(ROOT_DIR)/Dockerfile.screenshots" >/dev/null
-	@docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(ROOT_DIR)":/repo -w /repo \
-	  $(SHOTS_IMAGE) node scripts/screenshots.mjs out/acme/pipelines.html docs/screenshots
+	@$(SHOTS_RUN) out/acme/pipelines.html docs/screenshots
+
+HTML   ?= out/acme/pipelines.html
+SCENES ?= scripts/scenes.json
+.PHONY: shot
+shot: build ## Render scenes into out/shots: make shot [SCENE=focus,table] [SCENES=file] [HTML=file] (paths inside the repo)
+	$(if $(filter out/acme/pipelines.html,$(HTML)),SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml)
+	@$(SHOTS_RUN) $(HTML) out/shots --scenes $(SCENES) $(if $(SCENE),--only $(SCENE))
 
 # The GitHub Pages demo: the Acme viewer as index.html, plus the other formats
 # as downloads. CI publishes out/pages (.github/workflows/pages.yml).
