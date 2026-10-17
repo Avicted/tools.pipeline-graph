@@ -31,8 +31,9 @@ HTML viewer for the [Acme example](examples/acme), rebuilt on every push.
 
 | | |
 |---|---|
-| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Click the image or its build: the upstream turns green, the downstream red, and `I` hides everything else. The URL points at exactly this view. | ![Blast radius of a base image change](docs/screenshots/blast-radius.png) |
+| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Click the image or its build: the upstream turns green, the downstream red. `B` keeps only the blast radius, `D` only the dependencies, `I` both. The URL points at exactly this view. | ![Blast radius of a base image change](docs/screenshots/blast-radius.png) |
 | **DevSecOps:** *where are images pushed and pulled?* `/` searches names, TeamCity ids, step scripts and parameters across every view. | ![Supply chain search](docs/screenshots/search-supply-chain.png) |
+| **Platform:** *how does a base image reach prod?* Select a job, then `Shift+click` another: only the routes between them stay, listed in order. The URL carries both ends. | ![Path between two jobs](docs/screenshots/path-finder.png) |
 | **QA:** *what does this test job actually run, what triggers it, and what waits for it?* | ![Details of a test job](docs/screenshots/qa-test-job.png) |
 | **Everyone:** *walk the team through the path to prod.* `P` is a presentation mode for screen sharing. | ![Presentation mode](docs/screenshots/present.png) |
 
@@ -83,19 +84,22 @@ Open `pipelines.html` in any browser; it needs no server and no network.
   exactly what you are looking at. Browser Back/Forward step through views and
   selections. `L` copies the link.
 - **Lineage.** Click a node to colour everything upstream and downstream of it.
-  `I` hides everything else. The side panel lists neighbours by link type,
+  `B` (blast radius) and `D` (dependencies) keep one direction, `I` both, and
+  `Shift+click` on a second job keeps only the path between the two. Right-click
+  a job for these and copy-id / open-source actions. The side panel lists neighbours by link type,
   including ones outside the current view, plus steps, scripts, triggers, params
   and artifact rules, each with a copy button. When the repo is on GitHub,
   GitLab, Bitbucket Cloud or Gitea, `file:line` links to the analysed commit.
-- **Search everything** with `/`. It matches names, TeamCity ids, scripts and
-  param names in every view. `↑`/`↓` and `Enter` jump to a node (switching views
+- **Search and commands** with `/` or `Ctrl`/`⌘`+`K`. It matches names, TeamCity
+  ids, scripts and param names in every view, and lists matching commands below
+  (`>` shows commands only). `↑`/`↓` and `Enter` jump to a node (switching views
   if needed), and `N`/`⇧N` steps through the hits on the map.
 - **Canvas.** Scroll or drag to pan; pinch or `Ctrl`+scroll to zoom. `F` fits,
   `0` is 100%, and double-click zooms in. When zoomed out, cards show only
   their titles, enlarged so they stay readable.
 - **Sharing.** `P` is a presentation mode for screen sharing (no chrome, bigger
   text). **SVG** downloads the current view, with its filters and highlights,
-  for slides and docs. `T` switches light/dark.
+  for slides and docs. `T` switches light/dark. The selected lineage's edges flow downstream; **Animate flow** in the sidebar turns that off (it is off by default with reduced motion).
 - `?` lists every shortcut.
 
 ### Importing into Miro

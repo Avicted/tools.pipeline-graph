@@ -20,6 +20,18 @@ A CVE lands in the Go base image: what rebuilds, what gets redeployed, and throu
 
 ![Supply chain questions in one search](search-supply-chain.png)
 
+## One palette for jobs and commands
+
+`/` or `Ctrl/⌘ K` opens the palette: jobs, targets and images on top, matching commands below. Type `>` for commands only: blast radius, dependencies, copy a TeamCity id, switch view, export.
+
+![One palette for jobs and commands](command-palette.png)
+
+## How does this reach production?
+
+Select a job, then `Shift+click` another (or pick it from the palette): only the routes between them stay, with the jobs on the path listed in order. The URL carries both ends.
+
+![How does this reach production?](path-finder.png)
+
 ## What does this test job actually run?
 
 The per-repo view shows a repository together with its cross-repo neighbours. The side panel shows what triggers the E2E suite, what it waits for, what runs after it, the exact script, and the file and line that define it (a link to the analysed commit when the repo is on GitHub, GitLab, Bitbucket or Gitea).
