@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -371,6 +372,24 @@ func TestAcmeExampleStillWorks(t *testing.T) {
 	edges, warnings := exampleGraph(t, "acme")
 	if len(edges) < 20 || strings.Count(warnings, "\n") != 0 || !strings.Contains(warnings, "Legacy_Billing_DeployProd") {
 		t.Errorf("%d edges, warnings:\n%s", len(edges), warnings)
+	}
+}
+
+// The README shows what `make run` prints for the shipped config, so it must still be true.
+func TestReadmeSampleOutput(t *testing.T) {
+	cfg, _ := filepath.Abs(filepath.Join("..", "..", "pipeline-graph.example.yaml"))
+	code, _, errs := cli(t, "-config", cfg, "-out", filepath.Join(t.TempDir(), "out"))
+	if code != 0 {
+		t.Fatalf("exit %d\n%s", code, errs)
+	}
+	summary := regexp.MustCompile(`pipeline-graph: \d+ repos, .* warnings`)
+	got := summary.FindString(errs)
+	readme, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := summary.FindString(string(readme)); got == "" || got != want {
+		t.Errorf("README.md's sample output is out of date; replace\n  %s\nwith\n  %s", want, got)
 	}
 }
 
