@@ -1,4 +1,10 @@
-//! Small helpers: forge links, percent-encoding for deep links, number formatting.
+//! Small helpers: forge links, percent-encoding for deep links, number formatting,
+//! and clickable text that never starts a selection.
+
+/// Text that acts as a link: a click target that never starts a text selection.
+pub fn link(ui: &mut egui::Ui, text: impl Into<egui::WidgetText>) -> egui::Response {
+    ui.add(egui::Label::new(text).selectable(false).sense(egui::Sense::click())).on_hover_cursor(egui::CursorIcon::PointingHand)
+}
 
 /// Where a repo's files live on the web, when its URL is a known forge.
 pub struct Forge {

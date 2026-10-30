@@ -226,14 +226,7 @@ impl Workspace {
                             }
                             let notes = df.notes.get(&v);
                             ui.horizontal(|ui| {
-                                if ui
-                                    .add(
-                                        egui::Label::new(RichText::new(g.node_label(v)).color(pal.accent).strong())
-                                            .sense(egui::Sense::click()),
-                                    )
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .clicked()
-                                {
+                                if util::link(ui, RichText::new(g.node_label(v)).color(pal.accent).strong()).clicked() {
                                     open = Some(v);
                                 }
                                 ui.label(RichText::new(format!("{} · {}", g.kind_name(v), g.node_repo(v))).small().color(pal.muted));

@@ -180,9 +180,6 @@ pub fn apply(ctx: &egui::Context, mode: Mode) {
         s.spacing.button_padding = egui::vec2(10.0, 5.0);
         s.spacing.interact_size.y = 26.0;
         s.spacing.scroll.bar_width = 8.0;
-        // Labels that act as buttons must not start a text selection on drag. Text worth
-        // copying (ids, sources, scripts) opts back in with `Label::selectable(true)`.
-        s.interaction.selectable_labels = false;
         s.text_styles = [
             (TextStyle::Heading, FontId::new(20.0, FontFamily::Proportional)),
             (TextStyle::Body, FontId::new(14.0, FontFamily::Proportional)),
