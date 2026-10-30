@@ -119,3 +119,11 @@ fn node_menu_draws_and_ctrl_c_copies_the_selected_id() {
         out.platform_output.commands
     );
 }
+
+#[test]
+fn the_window_title_names_the_screen_the_graph_and_the_app() {
+    use pgview::ui::app::window_title;
+    assert_eq!(window_title(Screen::Table, Path::new("out/acme/graph.json")), "Jobs & images · acme — badger-works/pipeline-graph");
+    assert_eq!(window_title(Screen::Map, Path::new("out/graph.json")), "Map · graph — badger-works/pipeline-graph");
+    assert_eq!(window_title(Screen::Snapshot, Path::new("graph.json")), "Snapshot · graph — badger-works/pipeline-graph");
+}
