@@ -377,6 +377,57 @@ impl Workspace {
         self.toast(format!("{what} copied"));
     }
 
+    /// What identifies `v` in the CI or registry: the CI id, image reference or make
+    /// location, falling back to the graph id.
+    pub fn ci_id(&self, v: u32) -> String {
+        let g = &self.m.g;
+        let sub = g.s(g.sub[v as usize]);
+        if sub.is_empty() { g.node_id(v) } else { sub }.to_string()
+    }
+
+    /// The right-click menu of a job, image or make target, on the map and in the table.
+    pub fn node_menu(&mut self, ui: &mut egui::Ui, v: u32) {
+        let m = self.m.clone();
+        let g = &m.g;
+        ui.label(RichText::new(g.node_label(v)).strong());
+        ui.separator();
+        if ui.button("Open lineage on its own").clicked() {
+            self.open_focus(v);
+            ui.close_menu();
+        }
+        if matches!(self.screen, Screen::Map | Screen::Prod) {
+            for (label, mode) in [
+                ("Keep only what it breaks", LineageMode::Down),
+                ("Keep only what it needs", LineageMode::Up),
+                ("Keep both", LineageMode::Both),
+            ] {
+                if ui.button(label).clicked() {
+                    self.select(Some(v));
+                    self.mode = mode;
+                    ui.close_menu();
+                }
+            }
+        }
+        ui.separator();
+        let source = g.s(g.source[v as usize]).to_string();
+        let mut copies = vec![("Copy name", g.node_label(v).to_string(), "Name"), ("Copy id", self.ci_id(v), "Id")];
+        if !source.is_empty() {
+            copies.push(("Copy source", source, "Source"));
+        }
+        for (label, text, what) in copies {
+            if ui.button(label).clicked() {
+                self.copy(ui.ctx(), text, what);
+                ui.close_menu();
+            }
+        }
+        if ui.button("Copy link").clicked() {
+            self.select(Some(v));
+            let l = self.link();
+            self.copy(ui.ctx(), l, "Link");
+            ui.close_menu();
+        }
+    }
+
     // ---- selection ----
 
     pub fn select(&mut self, v: Option<u32>) {
@@ -712,6 +763,14 @@ impl Workspace {
         }
         if pressed(Key::R) {
             self.start_reload(ctx);
+        }
+        // Ctrl+C copies selected text when there is some, otherwise the selected node's id.
+        let copy = ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Copy)));
+        if copy && !egui::text_selection::LabelSelectionState::load(ctx).has_selection() {
+            if let Some(v) = self.sel {
+                let id = self.ci_id(v);
+                self.copy(ctx, id, "Id");
+            }
         }
         if ctx.input(|i| i.key_pressed(Key::Questionmark)) {
             self.show_help = !self.show_help;
