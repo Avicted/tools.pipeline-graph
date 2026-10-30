@@ -262,7 +262,7 @@ func writeOutputs(cfg *config.Config, g *model.Graph, views, vsdxViews []render.
 }
 
 // writeHistory keeps a copy of graph.json under <out>/history, named by time and
-// content, so pgview can compare against an earlier run. A run that found the
+// content, so the viewer can compare against an earlier run. A run that found the
 // same graph as an existing snapshot adds nothing; it returns "" then.
 func writeHistory(outDir string, g *model.Graph) (string, error) {
 	var buf bytes.Buffer

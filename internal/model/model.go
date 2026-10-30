@@ -87,7 +87,7 @@ type Repo struct {
 	Commit string `json:"commit,omitempty"`
 }
 
-// SchemaVersion is bumped when graph.json changes shape; pgview checks it on load.
+// SchemaVersion is bumped when graph.json changes shape; the viewer checks it on load.
 const SchemaVersion = 1
 
 type Graph struct {

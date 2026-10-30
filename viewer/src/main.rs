@@ -1,12 +1,12 @@
-//! pgview: a native, snappy viewer for pipeline-graph's graph.json.
+//! pipeline-graph-viewer: a native, snappy viewer for pipeline-graph's graph.json.
 
-use pgview::ui::app::{App, Cli};
+use pipeline_graph_viewer::ui::app::{App, Cli};
 use std::path::PathBuf;
 
 const USAGE: &str =
-    "pgview [graph.json] [--compare older/graph.json] [--goto pgview://table?q=repo:orders] [--shot DIR] [--theme light|dark]
+    "pipeline-graph-viewer [graph.json] [--compare older/graph.json] [--goto pipeline-graph://table?q=repo:orders] [--shot DIR] [--theme light|dark]
 
-With no file, pgview opens ./out/graph.json (what `pipeline-graph` writes) or asks for one.";
+With no file, the viewer opens ./out/graph.json (what `pipeline-graph` writes) or asks for one.";
 
 fn main() -> eframe::Result {
     let mut cli = Cli { path: None, compare: None, goto: None, shot: None, theme: None };
@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
             "--shot" => cli.shot = args.next().map(PathBuf::from),
             "--theme" => cli.theme = args.next(),
             s if s.starts_with('-') => {
-                eprintln!("pgview: unknown option {s}\n{USAGE}");
+                eprintln!("pipeline-graph-viewer: unknown option {s}\n{USAGE}");
                 std::process::exit(2);
             }
             s => cli.path = Some(PathBuf::from(s)),
@@ -31,11 +31,11 @@ fn main() -> eframe::Result {
     let size = if cli.shot.is_some() { [1600.0, 1000.0] } else { [1480.0, 900.0] };
     let opts = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title(pgview::ui::app::APP_NAME)
+            .with_title(pipeline_graph_viewer::ui::app::APP_NAME)
             .with_inner_size(size)
             .with_min_inner_size([900.0, 560.0])
-            .with_app_id("pgview"),
+            .with_app_id("pipeline-graph"),
         ..Default::default()
     };
-    eframe::run_native("pgview", opts, Box::new(move |cc| Ok(Box::new(App::new(cc, cli)))))
+    eframe::run_native("pipeline-graph", opts, Box::new(move |cc| Ok(Box::new(App::new(cc, cli)))))
 }

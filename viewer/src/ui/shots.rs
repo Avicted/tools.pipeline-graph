@@ -1,4 +1,4 @@
-//! `pgview --shot DIR`: drives the app through its screens and saves a PNG of
+//! `pipeline-graph-viewer --shot DIR`: drives the app through its screens and saves a PNG of
 //! each, so the documentation pictures are generated, not hand-made.
 
 use super::app::{Screen, Workspace};
@@ -109,7 +109,7 @@ impl Workspace {
             let path = run.dir.join(format!("{}.png", run.name));
             match image::save_buffer(&path, &rgba, w, h, image::ColorType::Rgba8) {
                 Ok(()) => println!("{}", path.display()),
-                Err(e) => eprintln!("pgview: {}: {e}", path.display()),
+                Err(e) => eprintln!("pipeline-graph-viewer: {}: {e}", path.display()),
             }
             run.asked = false;
             run.step += 1;

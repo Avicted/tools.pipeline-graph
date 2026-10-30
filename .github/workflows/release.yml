@@ -1,4 +1,4 @@
-# Builds the native viewer (pgview) for Linux, Windows and macOS and attaches
+# Builds the native viewer (pipeline-graph-viewer) for Linux, Windows and macOS and attaches
 # the archives to a GitHub release when it is published. Uses only the runners'
 # own Rust toolchain and the gh CLI, so there are no third-party actions to pin.
 name: release
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  pgview:
+  pipeline-graph-viewer:
     strategy:
       fail-fast: false
       matrix:
@@ -32,16 +32,16 @@ jobs:
       - name: Package
         id: pack
         env:
-          NAME: pgview-${{ github.event.release.tag_name }}-${{ matrix.name }}
+          NAME: pipeline-graph-viewer-${{ github.event.release.tag_name }}-${{ matrix.name }}
         run: |
           mkdir "$NAME"
-          cp LICENSE docs/pgview.md "$NAME"/
+          cp LICENSE docs/pipeline-graph-viewer.md "$NAME"/
           if [ "$RUNNER_OS" = Windows ]; then
-            cp viewer/target/release/pgview.exe "$NAME"/
+            cp viewer/target/release/pipeline-graph-viewer.exe "$NAME"/
             7z a "$NAME.zip" "$NAME" >/dev/null
             echo "file=$NAME.zip" >> "$GITHUB_OUTPUT"
           else
-            cp viewer/target/release/pgview "$NAME"/
+            cp viewer/target/release/pipeline-graph-viewer "$NAME"/
             tar czf "$NAME.tar.gz" "$NAME"
             echo "file=$NAME.tar.gz" >> "$GITHUB_OUTPUT"
           fi

@@ -1,10 +1,10 @@
 //! Walks the whole interface on a real graph, headlessly, to catch panics:
 //! every screen, every scene, the palette, filters and a comparison.
 
-use pgview::core::graph::Kind;
-use pgview::ui::app::{LineageMode, Model, Screen};
-use pgview::ui::canvas::Scene;
-use pgview::ui::headless::Rig;
+use pipeline_graph_viewer::core::graph::Kind;
+use pipeline_graph_viewer::ui::app::{LineageMode, Model, Screen};
+use pipeline_graph_viewer::ui::canvas::Scene;
+use pipeline_graph_viewer::ui::headless::Rig;
 use std::path::Path;
 
 fn rig() -> Rig {
@@ -73,7 +73,7 @@ fn deep_links_round_trip() {
     let sel = r.ws.m.g.node_by_id("bt:orders-service/Image");
     r.ws.select(sel);
     let link = r.ws.link();
-    assert!(link.starts_with("pgview://table?"), "{link}");
+    assert!(link.starts_with("pipeline-graph://table?"), "{link}");
     let mut other = rig();
     other.ws.goto_link(&link);
     assert_eq!(other.ws.sel, sel);
@@ -120,8 +120,8 @@ fn node_menu_draws_and_ctrl_c_copies_the_selected_id() {
     r.ws.select(Some(v));
     r.settle();
     let raw = egui::RawInput { events: vec![egui::Event::Copy], ..Default::default() };
-    let pal = pgview::ui::theme::palette(pgview::ui::theme::Mode::Light);
-    let (mut mode, mut open) = (pgview::ui::theme::Mode::Light, None);
+    let pal = pipeline_graph_viewer::ui::theme::palette(pipeline_graph_viewer::ui::theme::Mode::Light);
+    let (mut mode, mut open) = (pipeline_graph_viewer::ui::theme::Mode::Light, None);
     let out = r.ctx.run(raw, |ctx| r.ws.frame(ctx, &pal, &mut mode, &mut open));
     let want = r.ws.ci_id(v);
     assert!(
@@ -133,7 +133,7 @@ fn node_menu_draws_and_ctrl_c_copies_the_selected_id() {
 
 #[test]
 fn the_window_title_names_the_screen_the_graph_and_the_app() {
-    use pgview::ui::app::window_title;
+    use pipeline_graph_viewer::ui::app::window_title;
     assert_eq!(window_title(Screen::Table, Path::new("out/acme/graph.json")), "Jobs & images · acme — badger-works/pipeline-graph");
     assert_eq!(window_title(Screen::Map, Path::new("out/graph.json")), "Map · graph — badger-works/pipeline-graph");
     assert_eq!(window_title(Screen::Snapshot, Path::new("graph.json")), "Snapshot · graph — badger-works/pipeline-graph");

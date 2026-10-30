@@ -33,7 +33,7 @@ to know it: `Name` is the `provider:` value and the key of its settings block,
 `Title` is for people ("GitHub Actions"), `Job` is what one job is called
 ("workflow job") and `ID` what its id is called ("job path"). They end up in
 graph.json (`systems`, and `system` on every job), in the analyzer's warnings
-and in pgview, which words its labels and help from them.
+and in the viewer, which words its labels and help from them.
 
 Settings are a `<name>:` block in the config, at the top (for every repo) and on
 a repo (which overrides it). Return a struct with `yaml` tags from `NewSettings`
@@ -134,18 +134,18 @@ scripts              screenshots.mjs, scenes.json: regenerate docs/screenshots (
 
 ## The native viewer
 
-`viewer/` is a separate Rust crate (`pgview`, egui) that reads `graph.json`; see
-[pgview](pgview.md) for what it does. `graph.json` is the whole contract between
+`viewer/` is a separate Rust crate (`pipeline-graph-viewer`, egui) that reads `graph.json`; see
+[the viewer docs](pipeline-graph-viewer.md) for what it does. `graph.json` is the whole contract between
 the two programs: when you add a node or edge kind in Go, bump
 `model.SchemaVersion` if the shape changes and teach `viewer/src/core/graph.rs`
 the new kind (`viewer/tests/contract.rs` fails on an edge kind it does not know).
 
 ```sh
-make viewer         # build viewer/target/release/pgview
+make viewer         # build viewer/target/release/pipeline-graph-viewer
 make view           # open out/graph.json
 make viewer-test    # unit, contract and smoke tests (the smoke tests drive every screen headlessly)
 make viewer-bench   # 48k-node graph: load, search, lineage, layout and frame budgets
-make viewer-shots   # regenerate docs/screenshots/pgview; opens a window, needs a desktop
+make viewer-shots   # regenerate docs/screenshots/pipeline-graph-viewer; opens a window, needs a desktop
 ```
 
 fmt, clippy (`-D warnings`) and the tests run in the pre-commit image with the

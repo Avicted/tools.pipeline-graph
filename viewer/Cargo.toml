@@ -1,5 +1,5 @@
 [package]
-name = "pgview"
+name = "pipeline-graph-viewer"
 version = "0.1.0"
 edition = "2021"
 description = "Native viewer for pipeline-graph's graph.json: a snapshot of what is actually built"
