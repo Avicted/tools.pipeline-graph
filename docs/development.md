@@ -9,14 +9,17 @@ it is the VS Code devcontainer in `.devcontainer/` (Go plus the host's Docker, s
 Everything that is the same for every system (cloning, cross-repo id
 resolution, scanning steps for `make`, `docker` and scripts, the graph and all
 renderers) lives behind [`ci.Provider`](internal/ci/ci.go). A provider only reads
-one system's definitions from a checkout:
+one system's definitions from a checkout, and says what it calls things:
 
 ```go
 type Provider interface {
-    Name() string                       // `provider:` in the config
+    System() ci.System                  // name, title, and what a job and its id are called
     Detect(r ci.Repo) bool              // does the repo use this system?
     Load(r ci.Repo) (*ci.Pipelines, error)
 }
+
+// optional: the provider has settings of its own
+type Configurable interface{ NewSettings() any }
 ```
 
 `Load` returns neutral `ci.Job`s: a unique `Key` within the repo, a `QualID`
@@ -25,10 +28,34 @@ dependencies (`ci.Ref` to a job in the same repo or by id across repos),
 triggers and artifact rules. [`internal/ci/github`](internal/ci/github/github.go)
 is a compact reference implementation.
 
-To add one: implement it in `internal/ci/<name>`, add it to `providers` in
-[`cmd/pipeline-graph/main.go`](cmd/pipeline-graph/main.go), and test it. A repo
-that uses several systems is read by all of them; `provider: <name>` on a repo
-in the config picks exactly one. The [`analyze` tests](internal/analyze/provider_test.go)
+`System()` is how the system shows up everywhere else, so no shared code needs
+to know it: `Name` is the `provider:` value and the key of its settings block,
+`Title` is for people ("GitHub Actions"), `Job` is what one job is called
+("workflow job") and `ID` what its id is called ("job path"). They end up in
+graph.json (`systems`, and `system` on every job), in the analyzer's warnings
+and in pgview, which words its labels and help from them.
+
+Settings are a `<name>:` block in the config, at the top (for every repo) and on
+a repo (which overrides it). Return a struct with `yaml` tags from `NewSettings`
+and it is filled from both, strictly: a typo is a config error. It arrives as
+`ci.Repo.Settings`; a provider without settings never sees any.
+
+```yaml
+teamcity:
+  dir: .teamcity            # for every repo
+repos:
+  - url: git@host:org/base.git
+    teamcity: {project_id: Base}
+```
+
+To add one:
+
+1. Implement it in `internal/ci/<name>`.
+2. Add it to `providers` in [`cmd/pipeline-graph/main.go`](cmd/pipeline-graph/main.go).
+3. Test it against fixture checkouts, and describe what it reads in [`docs/analysis.md`](analysis.md).
+
+A repo that uses several systems is read by all of them; `provider: <name>` on a
+repo in the config picks exactly one. The [`analyze` tests](internal/analyze/provider_test.go)
 use a stub provider as a template.
 
 ```sh

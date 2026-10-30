@@ -131,6 +131,12 @@ directly needs and what directly needs it (by kind of link), the **make
 targets it runs** as a tree you can open level by level, every step with its
 full script, parameters and artifact rules. Everything has a copy button.
 
+Jobs are named in the words of the CI system they come from, which
+`graph.json` records (`systems`): a TeamCity job is a *build configuration* with
+a *TeamCity id*, a GitHub Actions job a *workflow job* with a *job path*. The
+inspector also says which **System** it is. A `graph.json` from before that
+was recorded uses the generic wording.
+
 Any text that carries information can be selected with the mouse and copied
 with `Ctrl`+`C`: ids, sources, scripts, facts, warnings, compare notes. Text
 that acts as a link (a job name you click to open) is not selectable. In the
