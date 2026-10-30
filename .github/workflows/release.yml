@@ -1,0 +1,52 @@
+# Builds the native viewer (pgview) for Linux, Windows and macOS and attaches
+# the archives to a GitHub release when it is published. Uses only the runners'
+# own Rust toolchain and the gh CLI, so there are no third-party actions to pin.
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  pgview:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, name: linux-amd64 }
+          - { os: windows-2025, name: windows-amd64 }
+          - { os: macos-15, name: macos-arm64 }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        run: cargo build --release --locked --manifest-path viewer/Cargo.toml
+
+      - name: Package
+        id: pack
+        env:
+          NAME: pgview-${{ github.event.release.tag_name }}-${{ matrix.name }}
+        run: |
+          mkdir "$NAME"
+          cp LICENSE docs/pgview.md "$NAME"/
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp viewer/target/release/pgview.exe "$NAME"/
+            7z a "$NAME.zip" "$NAME" >/dev/null
+            echo "file=$NAME.zip" >> "$GITHUB_OUTPUT"
+          else
+            cp viewer/target/release/pgview "$NAME"/
+            tar czf "$NAME.tar.gz" "$NAME"
+            echo "file=$NAME.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ steps.pack.outputs.file }}" --clobber
