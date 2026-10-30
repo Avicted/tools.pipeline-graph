@@ -1,15 +1,15 @@
 # pipeline-graph
 
-Maps how CI/CD pipelines across many git repositories link together. TeamCity
-and GitHub Actions are supported, and other systems plug in through
-[one small interface](docs/development.md#adding-a-cicd-system):
-build configurations, snapshot/artifact dependencies and finish-build triggers
-(also across repos), the `make` targets each step runs, and the docker images
-flowing between pipelines.
+Maps how CI/CD pipelines across many git repositories link together.
 
-It is plain static analysis: a Kotlin DSL parser, a Makefile parser and a
-shell-command scanner. No TeamCity server access, no AI, and nothing from the
-repositories is executed.
+- **CI systems:** TeamCity (Kotlin DSL) and GitHub Actions. Others plug in
+  through [one interface](docs/development.md#adding-a-cicd-system).
+- **What is read:** build configurations and workflow jobs, snapshot/artifact
+  dependencies, finish-build triggers (also across repos), the `make` targets
+  each step runs, and the docker images built, pulled and run in.
+- **How:** static analysis only: a Kotlin DSL parser, a workflow YAML reader,
+  a Makefile parser and a shell-command scanner. No CI server access, no AI, nothing from the
+  repositories is executed.
 
 ```
 $ make run
@@ -44,7 +44,8 @@ make drill-down, edge tooltips and analysis warnings.
 
 ## Quick start
 
-You need Docker and make, nothing else.
+Requires Docker and make. The native viewer additionally needs a Rust
+toolchain (`cargo`).
 
 ```sh
 make run                      # first run: creates pipeline-graph.yaml with a demo and renders it
@@ -85,21 +86,37 @@ this project directory, since only it is visible to the container.
 | `pipelines.mmd` | Mermaid flowchart of the overview; renders in GitHub/GitLab markdown and Miro's Mermaid app. |
 | `pipelines.dot` / `.svg` | Graphviz source of the overview. The `.svg` is written only if `dot` is installed (the Docker image has it). |
 | `graph.json` | The full graph model (`schemaVersion` 1), for scripting, diffing runs and the native viewer. A dated copy of every changed graph is kept in `history/`. |
-| `warnings.txt` | Everything the analysis could not resolve. Nothing is dropped silently. |
+| `warnings.txt` | Every reference or file the analysis could not resolve. |
 
 ## The native viewer
 
-For a lot of pipelines (thousands of jobs, tens of thousands of make targets,
-layered images) there is the **pipeline-graph viewer**, a native app made for whoever decides how
-pipelines are built. It opens `graph.json` instantly, searches as you type, and
-is built around one question: *what is actually built?* A snapshot page per
-repository, a table of every job, the map, commit → prod, the image layers and
-which jobs run in them, and a comparison against an earlier run to see drift.
+`pipeline-graph-viewer` is a Rust/egui desktop app that opens `graph.json`.
+No server, browser or network. On a synthetic 48,000-node graph (3,000 jobs,
+45,000 make targets) it loads in about 0.3 s and uses about 30 MB; the budgets
+are checked by `make viewer-bench`.
 
-![pipeline-graph viewer](docs/screenshots/pipeline-graph-viewer/snapshot.png)
+![pipeline-graph viewer: Snapshot](docs/screenshots/pipeline-graph-viewer/snapshot.png)
+
+| Screen (key) | Shows |
+|---|---|
+| Snapshot (`1`) | Counts of jobs, images, make targets, images jobs run in, longest commit → prod chain and analysis warnings; **Worth a look** (load-bearing jobs, deploys with no test upstream, undefined builds, cycles, unused images, stand-alone jobs, make targets with no rule); how work starts; a card per repository. Every number opens the table filtered to what it counts. |
+| Jobs & images (`2`) | Every job, image and make target with stage, triggers, images, **Needs** (all upstream) and **Breaks** (all downstream). Sortable, filterable (`repo:`, `kind:`, `class:`, `trig:`, `is:`). |
+| Map (`3`) | Repositories, one repository, all jobs, or one job's lineage. Needs in violet, breaks in pink; `Shift`+click keeps the route between two jobs. |
+| Commit → prod (`4`) | Per repository, every job a commit starts and everything downstream, in dependency order. |
+| Images & layers (`5`) | Base → application image tree, who builds and uses each image, which jobs run inside it. |
+| Compare (`6`) | Jobs added, removed and changed (with the field) against an earlier `graph.json` from `out/history/`. |
+
+Selecting a job opens the inspector: CI system and id, source file and line,
+triggers, container, direct needs and dependents, make targets and steps.
+Jobs are named in the terms of their CI system. `Ctrl`/`⌘`+`K` searches and
+runs commands, and `?` shows shortcuts and a legend. The File menu opens,
+closes, reloads and saves a copy of a `graph.json`; the viewer never modifies it.
+
+![Table with the inspector](docs/screenshots/pipeline-graph-viewer/inspector.png)
 
 ```sh
 make run && make view
+make view GRAPH=out/acme/graph.json COMPARE=viewer/testdata/acme-previous.json
 ```
 
 See [the pipeline-graph viewer](docs/pipeline-graph-viewer.md).
