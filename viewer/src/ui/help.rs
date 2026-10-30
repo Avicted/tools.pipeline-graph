@@ -141,7 +141,7 @@ fn row(ui: &mut egui::Ui, mark: impl FnOnce(&mut egui::Ui), name: &str, text: &s
     });
 }
 
-fn legend(ui: &mut egui::Ui, pal: &Palette) {
+fn legend(ui: &mut egui::Ui, pal: &Palette, jobs: &str) {
     let dark = pal.dark;
     ui.columns(2, |cols| {
         let ui = &mut cols[0];
@@ -153,8 +153,9 @@ fn legend(ui: &mut egui::Ui, pal: &Palette) {
         ui.label(RichText::new("Read from the job's name and steps; hover a stage badge to see why.").small().color(pal.muted));
         ui.add_space(6.0);
         group_title(ui, pal, "What a node is");
+        let job = format!("one of the {jobs}");
         for (k, composite, name, text) in [
-            (Kind::Build, false, "job", "a build configuration or pipeline job"),
+            (Kind::Build, false, "job", job.as_str()),
             (Kind::Build, true, "composite", "bundles other jobs and runs nothing itself"),
             (Kind::Image, false, "image", "a Docker image built, pulled or run in"),
             (Kind::Make, false, "make", "a make target a step runs"),
@@ -226,7 +227,7 @@ impl Workspace {
                 if self.help_tab == 0 {
                     shortcuts(ui, pal);
                 } else {
-                    legend(ui, pal);
+                    legend(ui, pal, &self.m.g.jobs_name());
                 }
             });
         });
