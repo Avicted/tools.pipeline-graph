@@ -49,8 +49,17 @@ never run.
 
 **Images**: an image becomes a node when an analysed pipeline produces it.
 Every pipeline or target that builds `FROM` it, runs it or passes it as a build
-arg is linked as a consumer. Third-party base images such as `alpine` are left
-out.
+arg is linked as a consumer. Third-party base images such as `alpine` are not
+nodes; an image built `FROM` one records it in its `from` parameter.
+
+Two links describe how images are layered and used, and feed the native viewer's
+*Images & layers* page:
+
+- **`derives`**: an image built `FROM` another analysed image (`base → app`),
+  from the Dockerfile of the `docker build -t <image>` that makes it.
+- **`runsIn`**: a pipeline or make target that executes inside an image, from
+  `docker run <image>` and GitHub Actions `container:`. (TeamCity's Docker
+  wrapper is not read yet.)
 
 ## Cross-repo references
 

@@ -81,11 +81,29 @@ this project directory, since only it is visible to the container.
 | `pipelines.html` | Self-contained interactive viewer (no CDN). See [The HTML viewer](docs/viewer.md). |
 | `pipelines.mmd` | Mermaid flowchart of the overview; renders in GitHub/GitLab markdown and Miro's Mermaid app. |
 | `pipelines.dot` / `.svg` | Graphviz source of the overview. The `.svg` is written only if `dot` is installed (the Docker image has it). |
-| `graph.json` | The full graph model, for scripting or diffing runs. |
+| `graph.json` | The full graph model (`schemaVersion` 1), for scripting, diffing runs and the native viewer. A dated copy of every changed graph is kept in `history/`. |
 | `warnings.txt` | Everything the analysis could not resolve. Nothing is dropped silently. |
+
+## The native viewer
+
+For a lot of pipelines (thousands of jobs, tens of thousands of make targets,
+layered images) there is **pgview**, a native app made for whoever decides how
+pipelines are built. It opens `graph.json` instantly, searches as you type, and
+is built around one question: *what is actually built?* A snapshot page per
+repository, a table of every job, the map, commit → prod, the image layers and
+which jobs run in them, and a comparison against an earlier run to see drift.
+
+![pgview](docs/screenshots/pgview/snapshot.png)
+
+```sh
+make run && make view
+```
+
+See [pgview](docs/pgview.md).
 
 ## Docs
 
+- [pgview, the native viewer](docs/pgview.md): screens, search, comparing runs, budgets
 - [The HTML viewer](docs/viewer.md): shortcuts, lineage, sharing, Miro import
 - [What is analysed](docs/analysis.md): recognised constructs, cross-repo references, limits
 - [Development](docs/development.md): devcontainer, adding a CI/CD system, tests, quality gate, layout
