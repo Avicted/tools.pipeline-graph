@@ -99,6 +99,17 @@ fn comparing_with_the_current_snapshot_marks_changes() {
 }
 
 #[test]
+fn help_draws_both_tabs() {
+    let mut r = rig();
+    r.ws.show_help = true;
+    for tab in [0, 1] {
+        r.ws.help_tab = tab;
+        r.settle();
+        assert!(r.ws.show_help, "help closed by itself");
+    }
+}
+
+#[test]
 fn node_menu_draws_and_ctrl_c_copies_the_selected_id() {
     let mut r = rig();
     let v = r.ws.m.g.node_by_id("bt:orders-service/Image").expect("fixture node");
