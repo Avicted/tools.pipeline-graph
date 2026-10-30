@@ -194,3 +194,29 @@ func TestAliasesAnswerForAWholeWorkflow(t *testing.T) {
 		t.Errorf("edges: %s (warnings %v)", got, w)
 	}
 }
+
+func TestImageLayersAndContainers(t *testing.T) {
+	base := job("base", "acme/img#base")
+	base.Steps = []model.Step{{Name: "b", Type: "run", Script: "docker build -t reg.io/base -f base.Dockerfile ."}}
+	app := job("app", "acme/img#app")
+	app.Steps = []model.Step{
+		{Name: "a", Type: "run", Script: "docker build -t reg.io/app -f app.Dockerfile ."},
+		{Name: "c", Type: "run", Script: "docker run --rm reg.io/base make test"},
+	}
+	gh := stub{name: "github", marker: "wf.yml", pipes: map[string]*ci.Pipelines{"img": {Jobs: []*ci.Job{base, app}}}}
+	r := repo(t, "img", map[string]string{
+		"wf.yml":          "",
+		"base.Dockerfile": "FROM alpine:3.20\n",
+		"app.Dockerfile":  "FROM reg.io/base:1\n",
+	})
+	g, _ := Run([]Repo{r}, Options{Providers: []ci.Provider{gh}})
+	got := edges(g)
+	for _, want := range []string{"img:reg.io/base>img:reg.io/app:derives", "img:reg.io/base>bt:img/app:runsIn"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing edge %s in:\n%s", want, got)
+		}
+	}
+	if from := g.Node("img:reg.io/base").Params["from"]; from != "alpine" {
+		t.Errorf("third-party base = %q, want alpine", from)
+	}
+}

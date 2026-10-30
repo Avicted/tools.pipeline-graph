@@ -48,6 +48,8 @@ type analyzer struct {
 type imageUse struct {
 	producers map[string]bool
 	consumers map[string]bool
+	runners   map[string]bool // jobs/targets that run inside the image
+	bases     map[string]bool // image names this one is built FROM
 	refs      map[string]bool
 }
 
@@ -234,6 +236,9 @@ func (a *analyzer) steps(r Repo, j *ci.Job, owner string) {
 		expand = func(s string) string { return s }
 	}
 	for _, st := range j.Steps {
+		if st.Type == "container" {
+			a.runIn(strings.TrimPrefix(st.Script, "docker pull "), owner)
+		}
 		a.commands(r, expand(st.Script), cleanDir(expand(st.WorkDir)), owner, st.Name, 0)
 	}
 }
@@ -378,6 +383,11 @@ func firstLine(lines []string) string {
 }
 
 func (a *analyzer) docker(r Repo, d shell.Docker, dir, owner string) {
+	if d.Action == "run" || d.Action == "create" {
+		for _, img := range d.Consumed {
+			a.runIn(img, owner)
+		}
+	}
 	for _, img := range d.Images {
 		if d.Action == "pull" {
 			a.useImage(img, owner, false)
@@ -406,7 +416,29 @@ func (a *analyzer) docker(r Repo, d shell.Docker, dir, owner string) {
 	}
 	for _, img := range shell.DockerfileFrom(string(b), nil) {
 		a.useImage(img, owner, false)
+		for _, built := range d.Images {
+			if bn, base := ImageName(built), ImageName(img); bn != "" && base != "" && bn != base {
+				a.image(bn).bases[base] = true
+			}
+		}
 	}
+}
+
+// runIn records that owner executes inside a container of image ref.
+func (a *analyzer) runIn(ref, owner string) {
+	if name := ImageName(ref); name != "" {
+		a.useImage(ref, owner, false)
+		a.image(name).runners[owner] = true
+	}
+}
+
+func (a *analyzer) image(name string) *imageUse {
+	u := a.images[name]
+	if u == nil {
+		u = &imageUse{producers: map[string]bool{}, consumers: map[string]bool{}, runners: map[string]bool{}, bases: map[string]bool{}, refs: map[string]bool{}}
+		a.images[name] = u
+	}
+	return u
 }
 
 var reVarRef = regexp.MustCompile(`%[^%]*%|\$\([^)]*\)|\$\{[^}]*\}|\$[A-Za-z_]\w*`)
@@ -435,11 +467,7 @@ func (a *analyzer) useImage(ref, owner string, produce bool) {
 		}
 		return
 	}
-	u := a.images[name]
-	if u == nil {
-		u = &imageUse{producers: map[string]bool{}, consumers: map[string]bool{}, refs: map[string]bool{}}
-		a.images[name] = u
-	}
+	u := a.image(name)
 	u.refs[ref] = true
 	if produce {
 		u.producers[owner] = true
@@ -470,6 +498,27 @@ func (a *analyzer) imageNodes() {
 		for _, c := range keys(u.consumers) {
 			if !u.producers[c] {
 				a.g.AddEdge(model.Edge{From: id, To: c, Kind: model.EdgeConsumes})
+			}
+		}
+		for _, c := range keys(u.runners) {
+			a.g.AddEdge(model.Edge{From: id, To: c, Kind: model.EdgeRunsIn})
+		}
+	}
+	// layering: base image -> derived image; third-party bases are kept as a parameter
+	for _, name := range names {
+		u := a.images[name]
+		n := a.g.Node("img:" + name)
+		if n == nil {
+			continue
+		}
+		for _, base := range keys(u.bases) {
+			if a.g.Node("img:"+base) != nil {
+				a.g.AddEdge(model.Edge{From: "img:" + base, To: n.ID, Kind: model.EdgeDerives})
+			} else {
+				if n.Params == nil {
+					n.Params = map[string]string{}
+				}
+				n.Params["from"] = base
 			}
 		}
 	}
