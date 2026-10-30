@@ -119,6 +119,7 @@ pub struct Workspace {
     pub table: TableState,
     pub canvas: CanvasState,
     pub layouts: LayoutCache,
+    pub scene_limit: usize,
     pub images: ImagesState,
     pub compare: CompareState,
     pub palette: PaletteState,
@@ -286,6 +287,7 @@ impl Workspace {
             table: TableState::default(),
             canvas: CanvasState::default(),
             layouts: LayoutCache::default(),
+            scene_limit: super::canvas::DEFAULT_LIMIT,
             images: ImagesState::default(),
             compare: CompareState::default(),
             palette: PaletteState::default(),
@@ -360,6 +362,10 @@ impl Workspace {
             }
             self.hpos = self.history.len() - 1;
         }
+    }
+
+    pub fn dismiss_toast(&mut self) {
+        self.toast = None;
     }
 
     pub fn toast(&mut self, s: impl Into<String>) {

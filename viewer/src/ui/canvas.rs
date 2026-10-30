@@ -55,6 +55,8 @@ pub struct SceneLayout {
     egrid: Grid,
     pub index_of: HashMap<u32, u32>,
     pub aggregated: bool,
+    /// How many nodes the scene has before it was cut down to the limit.
+    pub total: usize,
     /// Title and sub line of aggregated nodes.
     pub agg_text: Vec<(String, String)>,
     pub kinds: Vec<Ek>,
@@ -72,7 +74,42 @@ fn card_size(m: &Model, v: u32) -> (f32, f32) {
     (w, h)
 }
 
-pub fn build_scene(m: &Model, scene: &Scene) -> SceneLayout {
+/// How many nodes a scene shows before it keeps only the nearest ones.
+pub const DEFAULT_LIMIT: usize = 500;
+
+/// The `limit` nodes closest to `roots`, walking up and/or down the flow, nearest first.
+fn nearest(net: &crate::core::graph::Net, roots: &[u32], up: bool, down: bool, limit: usize) -> Vec<u32> {
+    let mut seen: std::collections::HashSet<u32> = roots.iter().copied().collect();
+    let mut out: Vec<u32> = roots.to_vec();
+    let mut qs: [std::collections::VecDeque<u32>; 2] = [roots.iter().copied().collect(), roots.iter().copied().collect()];
+    let dirs = [(down, true), (up, false)];
+    'outer: loop {
+        let mut progressed = false;
+        for (qi, &(on, downward)) in dirs.iter().enumerate() {
+            if !on {
+                continue;
+            }
+            if let Some(v) = qs[qi].pop_front() {
+                progressed = true;
+                for &w in net.adj(downward).nb(v) {
+                    if seen.insert(w) {
+                        out.push(w);
+                        qs[qi].push_back(w);
+                        if out.len() >= limit {
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+        }
+        if !progressed {
+            break;
+        }
+    }
+    out
+}
+
+pub fn build_scene(m: &Model, scene: &Scene, limit: usize) -> SceneLayout {
     let (g, d) = (&m.g, &m.d);
     let n_repo = g.repos.len() as u32;
     let mut members: Vec<u32> = vec![];
@@ -181,6 +218,41 @@ pub fn build_scene(m: &Model, scene: &Scene) -> SceneLayout {
         }
     }
 
+    let total = members.len();
+    if !aggregated && total > limit {
+        let importance = |v: &u32| std::cmp::Reverse(d.down[*v as usize] + d.up[*v as usize]);
+        let mut keep: Vec<u32> = match scene {
+            Scene::Focus(v) => nearest(g.net_for(*v), &[*v], true, true, limit),
+            Scene::Flow(r) => {
+                let roots: Vec<u32> = (0..g.len() as u32)
+                    .filter(|&v| g.kind[v as usize] == Kind::Build && d.repo_of[v as usize] == *r && d.entry[v as usize] & ENTRY_VCS != 0)
+                    .collect();
+                nearest(&g.flow, &roots, false, true, limit)
+            }
+            Scene::Repo(r) => {
+                let (mut own, mut other): (Vec<u32>, Vec<u32>) = members.iter().partition(|&&v| d.repo_of[v as usize] == *r);
+                own.sort_by_key(importance);
+                other.sort_by_key(importance);
+                own.truncate(limit);
+                other.truncate(limit.saturating_sub(own.len()).max(limit / 5));
+                own.extend(other);
+                own
+            }
+            _ => {
+                let mut all = members.clone();
+                all.sort_by_key(importance);
+                all.truncate(limit);
+                all
+            }
+        };
+        keep.sort_unstable();
+        keep.dedup();
+        members = keep;
+        index_of.clear();
+        for (i, &x) in members.iter().enumerate() {
+            index_of.insert(x, i as u32);
+        }
+    }
     if !aggregated {
         let net = match scene {
             Scene::Focus(v) => g.net_for(*v),
@@ -262,6 +334,7 @@ pub fn build_scene(m: &Model, scene: &Scene) -> SceneLayout {
         egrid,
         index_of,
         aggregated,
+        total: total.max(members.len()),
         agg_text,
         kinds,
     }
@@ -269,9 +342,9 @@ pub fn build_scene(m: &Model, scene: &Scene) -> SceneLayout {
 
 #[derive(Default)]
 pub struct LayoutCache {
-    map: HashMap<Scene, Arc<SceneLayout>>,
-    order: Vec<Scene>,
-    pending: HashMap<Scene, Job<Arc<SceneLayout>>>,
+    map: HashMap<(Scene, usize), Arc<SceneLayout>>,
+    order: Vec<(Scene, usize)>,
+    pending: HashMap<(Scene, usize), Job<Arc<SceneLayout>>>,
 }
 
 #[derive(Clone, Copy)]
@@ -292,6 +365,7 @@ pub struct CanvasState {
     pub fit_all: bool,
     pub center_on: Option<u32>,
     fitted: Option<Scene>,
+    limit_for: Option<Scene>,
     anim: Option<Anim>,
     seen_n: Vec<u32>,
     seen_e: Vec<u32>,
@@ -303,7 +377,7 @@ pub struct CanvasState {
 
 impl Workspace {
     pub fn poll_layouts(&mut self) {
-        let done: Vec<Scene> = self
+        let done: Vec<(Scene, usize)> = self
             .layouts
             .pending
             .iter()
@@ -329,13 +403,14 @@ impl Workspace {
     }
 
     pub fn layout_for(&mut self, ctx: &egui::Context, scene: &Scene) -> Option<Arc<SceneLayout>> {
-        if let Some(l) = self.layouts.map.get(scene) {
+        let key = (scene.clone(), self.scene_limit);
+        if let Some(l) = self.layouts.map.get(&key) {
             return Some(l.clone());
         }
-        if !self.layouts.pending.contains_key(scene) {
+        if !self.layouts.pending.contains_key(&key) {
             let m = self.m.clone();
-            let s = scene.clone();
-            self.layouts.pending.insert(scene.clone(), Job::spawn(ctx, move || Arc::new(build_scene(&m, &s))));
+            let (s, limit) = key.clone();
+            self.layouts.pending.insert(key, Job::spawn(ctx, move || Arc::new(build_scene(&m, &s, limit))));
         }
         None
     }
@@ -423,6 +498,10 @@ impl Workspace {
 
     /// Draws a scene filling the remaining space and handles all pointer input on it.
     pub fn canvas_view(&mut self, ui: &mut egui::Ui, pal: &Palette, scene: &Scene) {
+        if self.canvas.fitted.as_ref() != Some(scene) && self.canvas.limit_for.as_ref() != Some(scene) {
+            self.scene_limit = DEFAULT_LIMIT;
+        }
+        self.canvas.limit_for = Some(scene.clone());
         let Some(lay) = self.layout_for(ui.ctx(), scene) else {
             ui.centered_and_justified(|ui| {
                 ui.vertical_centered(|ui| {
@@ -550,7 +629,7 @@ impl Workspace {
         let (vis_n, vis_e) = (std::mem::take(&mut cv.vis_n), std::mem::take(&mut cv.vis_e));
 
         // pointer
-        let hover_pos = resp.hover_pos();
+        let hover_pos = if self.shot.is_some() { None } else { resp.hover_pos() };
         let hover_w = hover_pos.map(|p| [(p.x - origin.x - pan.x) / k, (p.y - origin.y - pan.y) / k]);
         let mut hover_node: Option<u32> = None;
         if let Some(w) = hover_w {
@@ -811,6 +890,28 @@ impl Workspace {
                 });
             });
 
+        // the scene was cut down to the nearest nodes
+        if lay.total > lay.nodes.len() {
+            egui::Area::new(egui::Id::new("scene-limit"))
+                .order(egui::Order::Foreground)
+                .fixed_pos(rect.left_top() + Vec2::new(12.0, 10.0))
+                .show(ui.ctx(), |ui| {
+                    egui::Frame::popup(ui.style()).inner_margin(egui::Margin::symmetric(10, 6)).corner_radius(10).show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(format!(
+                                "Showing the {} nearest of {} nodes",
+                                super::util::num(lay.nodes.len() as u32),
+                                super::util::num(lay.total as u32)
+                            ));
+                            if ui.button("Show more").on_hover_text("Three times as many; large layouts take a moment").clicked() {
+                                self.scene_limit = (self.scene_limit * 3).min(lay.total.max(self.scene_limit));
+                                self.canvas.fit_pending = true;
+                            }
+                        });
+                    });
+                });
+        }
+
         // legend
         if !lay.aggregated && !lay.kinds.is_empty() {
             let mut y = rect.max.y - 14.0;
@@ -843,6 +944,10 @@ impl Workspace {
 
     fn start_anim(&mut self, to_pan: Vec2, to_k: f32, now: f64) {
         let c = &mut self.canvas;
+        if self.shot.is_some() {
+            (c.pan, c.k, c.anim) = (to_pan, to_k, None);
+            return;
+        }
         c.anim = Some(Anim { from_pan: c.pan, from_k: c.k, to_pan, to_k, t0: now });
     }
 }
@@ -1085,7 +1190,7 @@ fn near_polyline(pts: &[[f32; 2]], p: Pos2, to_screen: &impl Fn([f32; 2]) -> Pos
 }
 
 impl LayoutCache {
-    pub fn get(&self, s: &Scene) -> Option<Arc<SceneLayout>> {
-        self.map.get(s).cloned()
+    pub fn get(&self, s: &Scene, limit: usize) -> Option<Arc<SceneLayout>> {
+        self.map.get(&(s.clone(), limit)).cloned()
     }
 }

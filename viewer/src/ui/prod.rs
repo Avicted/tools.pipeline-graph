@@ -76,6 +76,6 @@ impl Workspace {
 
     fn layouts_for_prod(&mut self) -> Option<std::sync::Arc<super::canvas::SceneLayout>> {
         let s = Scene::Flow(self.prod_repo as u32);
-        self.layouts.get(&s)
+        self.layouts.get(&s, self.scene_limit)
     }
 }
