@@ -166,6 +166,12 @@ palette you can narrow with:
 Every state has a link: `L` copies a `pipeline-graph://…` link to exactly this view,
 and `--goto` opens one.
 
+## Menus
+
+**File** has Open, Close, Save as (writes a copy of the open `graph.json`),
+Reload and Quit. Save is greyed out: the viewer never changes the file.
+**Help** opens the shortcuts and legend, and an About dialog with the version.
+
 ## Keyboard and help
 
 `?` opens the help: every shortcut grouped by what you want to do, and
@@ -189,6 +195,7 @@ the lines on the map and the change markers.
 | `Alt` `←` `→` | back, forward |
 | `Ctrl` `C`, right-click | copy the selection, or the selected job's id; copy menu |
 | `L` `T` `R` `?` | copy link, light/dark, reload, help |
+| `Ctrl`/`⌘` `O` `W` `Shift`+`S` `Q` | open, close, save a copy, quit |
 
 ## How the facts are derived
 
