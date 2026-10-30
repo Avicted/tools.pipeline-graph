@@ -170,6 +170,7 @@ pub struct App {
     mode: Mode,
     cli: Cli,
     applied_mode: Option<Mode>,
+    show_about: bool,
 }
 
 impl App {
@@ -181,7 +182,7 @@ impl App {
             _ if cc.egui_ctx.theme() == egui::Theme::Dark => Mode::Dark,
             _ => Mode::Light,
         };
-        let mut app = App { phase: Phase::Welcome(None), mode, cli, applied_mode: None };
+        let mut app = App { phase: Phase::Welcome(None), mode, cli, applied_mode: None, show_about: false };
         let path = app.cli.path.clone().or_else(|| ["out/graph.json", "graph.json"].iter().map(PathBuf::from).find(|p| p.exists()));
         if let Some(p) = path {
             app.open(&cc.egui_ctx, p);
@@ -204,6 +205,20 @@ impl eframe::App for App {
         let pal = theme::palette(self.mode);
         let mut next: Option<Phase> = None;
         let mut open: Option<PathBuf> = None;
+        let mut act = self.menu_bar(ctx, &pal);
+        if let Some(p) = act.open.take() {
+            open = Some(p);
+        }
+        if act.close {
+            next = Some(Phase::Welcome(None));
+        }
+        if let (true, Phase::Ready(ws)) = (act.save_as, &mut self.phase) {
+            ws.save_copy();
+        }
+        if let (true, Phase::Ready(ws)) = (act.reload, &mut self.phase) {
+            ws.start_reload(ctx);
+        }
+        self.about(ctx, &pal);
         match &mut self.phase {
             Phase::Welcome(err) => {
                 welcome(ctx, &pal, err.as_deref(), &mut open);
@@ -253,6 +268,117 @@ impl eframe::App for App {
         }
         if let Some(n) = next {
             self.phase = n;
+        }
+    }
+}
+
+#[derive(Default)]
+struct MenuAct {
+    open: Option<PathBuf>,
+    close: bool,
+    save_as: bool,
+    reload: bool,
+}
+
+impl App {
+    /// The File and Help menus, and their shortcuts: Ctrl+O, Ctrl+W, Ctrl+Shift+S, Ctrl+Q.
+    fn menu_bar(&mut self, ctx: &egui::Context, pal: &Palette) -> MenuAct {
+        use egui::{Key, KeyboardShortcut, Modifiers};
+        let (o, w, sa, q) = (
+            KeyboardShortcut::new(Modifiers::COMMAND, Key::O),
+            KeyboardShortcut::new(Modifiers::COMMAND, Key::W),
+            KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, Key::S),
+            KeyboardShortcut::new(Modifiers::COMMAND, Key::Q),
+        );
+        let ready = matches!(self.phase, Phase::Ready(_));
+        let mut act = MenuAct::default();
+        let (mut do_open, mut do_close, mut do_save_as, mut do_quit) =
+            ctx.input_mut(|i| (i.consume_shortcut(&o), i.consume_shortcut(&w), i.consume_shortcut(&sa), i.consume_shortcut(&q)));
+        egui::TopBottomPanel::top("menubar")
+            .frame(egui::Frame::new().fill(pal.panel).inner_margin(egui::Margin::symmetric(8, 2)).stroke(theme::stroke(1.0, pal.line)))
+            .show(ctx, |ui| {
+                egui::menu::bar(ui, |ui| {
+                    ui.menu_button("File", |ui| {
+                        let item = |ui: &mut egui::Ui, text: &str, sc: &KeyboardShortcut, on: bool| {
+                            ui.add_enabled(on, egui::Button::new(text).shortcut_text(ctx.format_shortcut(sc))).clicked()
+                        };
+                        if item(ui, "Open…", &o, true) {
+                            do_open = true;
+                            ui.close_menu();
+                        }
+                        if item(ui, "Close", &w, ready) {
+                            do_close = true;
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        ui.add_enabled(false, egui::Button::new("Save")).on_disabled_hover_text(
+                            "pgview only reads graph.json, so there is never anything to save. Use Save as… for a copy.",
+                        );
+                        if item(ui, "Save as…", &sa, ready) {
+                            do_save_as = true;
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.add_enabled(ready, egui::Button::new("Reload").shortcut_text("R")).clicked() {
+                            act.reload = true;
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if item(ui, "Quit", &q, true) {
+                            do_quit = true;
+                            ui.close_menu();
+                        }
+                    });
+                    ui.menu_button("Help", |ui| {
+                        if ui.add_enabled(ready, egui::Button::new("Keyboard shortcuts and legend").shortcut_text("?")).clicked() {
+                            if let Phase::Ready(ws) = &mut self.phase {
+                                ws.show_help = true;
+                            }
+                            ui.close_menu();
+                        }
+                        if ui.button(format!("About {APP_NAME}")).clicked() {
+                            self.show_about = true;
+                            ui.close_menu();
+                        }
+                    });
+                });
+            });
+        if do_open {
+            act.open = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).pick_file();
+        }
+        act.close = do_close && ready;
+        act.save_as = do_save_as && ready;
+        if do_quit {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        act
+    }
+
+    fn about(&mut self, ctx: &egui::Context, pal: &Palette) {
+        if !self.show_about {
+            return;
+        }
+        let r = egui::Modal::new(egui::Id::new("about")).show(ctx, |ui| {
+            ui.set_width(360.0);
+            ui.vertical_centered(|ui| {
+                brand(ui, pal, 24.0);
+                ui.label(RichText::new(format!("pgview {}", env!("CARGO_PKG_VERSION"))).color(pal.muted));
+                ui.add_space(8.0);
+                ui.label("A native viewer for the graph.json that pipeline-graph writes: a snapshot of what your pipelines actually do.");
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new("Read-only static analysis: nothing is executed and nothing talks to a CI server.").color(pal.muted),
+                );
+                ui.add_space(6.0);
+                ui.label(RichText::new(format!("License: {}", env!("CARGO_PKG_LICENSE"))).small().color(pal.muted));
+                ui.add_space(10.0);
+                if ui.button("Close").clicked() {
+                    self.show_about = false;
+                }
+            });
+        });
+        if r.should_close() {
+            self.show_about = false;
         }
     }
 }
@@ -683,6 +809,19 @@ impl Workspace {
         }
         self.poll_compare();
         self.poll_layouts();
+    }
+
+    /// File → Save as: a copy of the open graph.json (the viewer never changes it).
+    pub fn save_copy(&mut self) {
+        let src = self.m.path.clone();
+        let name = src.file_name().map_or_else(|| "graph.json".into(), |n| n.to_string_lossy().into_owned());
+        let Some(dest) = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).set_file_name(name).save_file() else {
+            return;
+        };
+        match std::fs::copy(&src, &dest) {
+            Ok(_) => self.toast(format!("Saved a copy to {}", dest.display())),
+            Err(e) => self.toast(format!("Save failed: {e}")),
+        }
     }
 
     pub fn start_reload(&mut self, ctx: &egui::Context) {
