@@ -5,3 +5,4 @@
 //! `ui` holds the egui application.
 
 pub mod core;
+pub mod ui;
