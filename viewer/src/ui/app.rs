@@ -36,6 +36,16 @@ impl Model {
     }
 }
 
+/// The product name, shown in the window title, the top bar and the help.
+pub const APP_NAME: &str = "badger-works/pipeline-graph";
+
+/// The window title: the screen, which graph is open, and the app.
+pub fn window_title(screen: Screen, path: &Path) -> String {
+    let dir = path.parent().and_then(Path::file_name).filter(|d| *d != "out" && *d != ".");
+    let graph = dir.or_else(|| path.file_stem()).map(|s| s.to_string_lossy()).unwrap_or_default();
+    format!("{} · {graph} — {APP_NAME}", screen.title())
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Screen {
     Snapshot,
@@ -126,6 +136,7 @@ pub struct Workspace {
     pub show_inspector: bool,
     pub show_nav: bool,
     pub show_help: bool,
+    title: String,
     pub show_warnings: bool,
     pub warn_filter: String,
     pub scratch: Scratch,
@@ -249,7 +260,11 @@ fn welcome(ctx: &egui::Context, pal: &Palette, err: Option<&str>, open: &mut Opt
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(ui.available_height() * 0.28);
-            ui.label(RichText::new("pgview").size(34.0).strong());
+            ui.horizontal(|ui| {
+                let w = ui.painter().layout_no_wrap(APP_NAME.to_string(), egui::FontId::proportional(34.0), pal.text).size().x;
+                ui.add_space((ui.available_width() - w) / 2.0);
+                brand(ui, pal, 34.0);
+            });
             ui.label(RichText::new("A snapshot of what your pipelines actually do").color(pal.muted));
             ui.add_space(18.0);
             if let Some(e) = err {
@@ -294,6 +309,7 @@ impl Workspace {
             show_inspector: true,
             show_nav: true,
             show_help: false,
+            title: String::new(),
             show_warnings: false,
             warn_filter: String::new(),
             scratch: Scratch::new(n),
@@ -585,6 +601,11 @@ impl Workspace {
     pub fn frame(&mut self, ctx: &egui::Context, pal: &Palette, mode: &mut Mode, open: &mut Option<PathBuf>) {
         self.refresh_lineage();
         self.poll_background(ctx);
+        let title = window_title(self.screen, &self.m.path);
+        if title != self.title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.title = title;
+        }
         self.shortcuts(ctx, mode);
         if std::mem::take(&mut self.theme_toggle) {
             *mode = if *mode == Mode::Dark { Mode::Light } else { Mode::Dark };
@@ -800,7 +821,7 @@ impl Workspace {
                     self.forward();
                 }
             });
-            ui.label(RichText::new("Pipeline map").strong().size(16.0));
+            brand(ui, pal, 16.0);
             ui.label(RichText::new("/").color(pal.muted));
             ui.label(RichText::new(self.screen.title()).size(15.0));
             let g = &self.m.g;
@@ -967,6 +988,15 @@ impl Workspace {
 
 pub fn util_tint(c: Color32, alpha: u8) -> Color32 {
     theme::with_alpha(c, alpha)
+}
+
+/// "badger-works/" muted, then "pipeline-graph" bold.
+fn brand(ui: &mut egui::Ui, pal: &Palette, size: f32) {
+    let (org, name) = APP_NAME.split_once('/').unwrap_or(("", APP_NAME));
+    let gap = std::mem::replace(&mut ui.spacing_mut().item_spacing.x, 0.0);
+    ui.label(RichText::new(format!("{org}/")).size(size).color(pal.muted));
+    ui.spacing_mut().item_spacing.x = gap;
+    ui.label(RichText::new(name).size(size).strong());
 }
 
 fn section(ui: &mut egui::Ui, pal: &Palette, title: &str) {

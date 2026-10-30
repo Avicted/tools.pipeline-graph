@@ -31,7 +31,7 @@ fn main() -> eframe::Result {
     let size = if cli.shot.is_some() { [1600.0, 1000.0] } else { [1480.0, 900.0] };
     let opts = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("pgview")
+            .with_title(pgview::ui::app::APP_NAME)
             .with_inner_size(size)
             .with_min_inner_size([900.0, 560.0])
             .with_app_id("pgview"),
