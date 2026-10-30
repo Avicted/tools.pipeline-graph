@@ -218,11 +218,26 @@ impl Workspace {
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 let (up, down) = (d.up[vi], d.down[vi]);
-                for (n, label, col, mode) in [(down, "breaks", pal.down, LineageMode::Down), (up, "needs", pal.up, LineageMode::Up)] {
+                for (n, label, col, mode, tip) in [
+                    (
+                        down,
+                        "breaks",
+                        pal.down,
+                        LineageMode::Down,
+                        "Jobs and images downstream that go stale if this one fails: its blast radius. Click to keep only them on the map (B).",
+                    ),
+                    (
+                        up,
+                        "needs",
+                        pal.up,
+                        LineageMode::Up,
+                        "Jobs and images upstream that must run first for this one to get fresh input. Click to keep only them on the map (D).",
+                    ),
+                ] {
                     let b = egui::Button::new(RichText::new(format!("{} {label}", util::num(n))).color(col))
                         .stroke(super::theme::stroke(1.0, col))
                         .fill(theme::with_alpha(col, 22));
-                    if ui.add(b).on_hover_text("Keep only this on the map").clicked() {
+                    if util::hint(ui.add(b), &format!("{} {label}", util::num(n)), tip).clicked() {
                         acts.mode = Some(mode);
                     }
                 }

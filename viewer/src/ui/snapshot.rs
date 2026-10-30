@@ -7,7 +7,7 @@ use super::util;
 use crate::core::derive::{Class, RepoStats};
 use egui::{Color32, RichText, Sense};
 
-fn big_stat(ui: &mut egui::Ui, pal: &Palette, value: &str, label: &str, color: Color32) -> bool {
+fn big_stat(ui: &mut egui::Ui, pal: &Palette, value: &str, label: &str, color: Color32, tip: &str) -> bool {
     let size = egui::vec2(150.0, 74.0);
     let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
     let hovered = resp.hovered();
@@ -26,22 +26,38 @@ fn big_stat(ui: &mut egui::Ui, pal: &Palette, value: &str, label: &str, color: C
         egui::FontId::proportional(12.5),
         pal.muted,
     );
-    resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked()
+    util::hint(resp.on_hover_cursor(egui::CursorIcon::PointingHand), label, tip).clicked()
 }
 
-/// A coloured count that opens the table when clicked.
-fn fact(ui: &mut egui::Ui, pal: &Palette, n: u32, text: &str, tone: Option<Color32>) -> bool {
+/// A coloured count and what it means; opens the table when clicked.
+fn fact(ui: &mut egui::Ui, pal: &Palette, n: u32, text: &str, tone: Option<Color32>, tip: (&str, &str)) -> bool {
     let col = if n == 0 { pal.muted } else { tone.unwrap_or(pal.text) };
-    let mut clicked = false;
     ui.horizontal(|ui| {
         let num = RichText::new(util::num(n)).strong().color(col);
         let text = RichText::new(text).color(if n == 0 { pal.muted } else { pal.text });
-        let (r, t) = if n > 0 { (util::link(ui, num), util::link(ui, text)) } else { (ui.label(num), ui.label(text)) };
-        if n > 0 && (r.clicked() || t.clicked()) {
-            clicked = true;
-        }
-    });
-    clicked
+        let (a, b) = if n > 0 { (util::link(ui, num), util::link(ui, text)) } else { (ui.label(num), ui.label(text)) };
+        let a = util::hint(a, tip.0, tip.1);
+        let b = util::hint(b, tip.0, tip.1);
+        n > 0 && (a.clicked() || b.clicked())
+    })
+    .inner
+}
+
+/// A count in a pill: "7 on a commit".
+fn chip(ui: &mut egui::Ui, pal: &Palette, n: u32, text: &str, tip: (&str, &str)) -> bool {
+    let col = if n == 0 { pal.muted } else { pal.accent };
+    let b = egui::Button::new(RichText::new(format!("{} {text}", util::num(n))).color(col))
+        .fill(theme::with_alpha(col, 18))
+        .stroke(theme::stroke(1.0, theme::with_alpha(col, 70)))
+        .corner_radius(12);
+    let r = ui.add_enabled(n > 0, b);
+    util::hint(r, tip.0, tip.1).on_hover_cursor(egui::CursorIcon::PointingHand).clicked()
+}
+
+enum Look {
+    Table(&'static str),
+    Make,
+    Warnings,
 }
 
 fn class_bar(ui: &mut egui::Ui, pal: &Palette, classes: &[u32; 8], width: f32) {
@@ -97,7 +113,7 @@ impl Workspace {
                 ui.add_space(14.0);
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(12.0, 12.0);
-                    if big_stat(ui, pal, &util::num(t.builds), "pipeline jobs", pal.accent) {
+                    if big_stat(ui, pal, &util::num(t.builds), "pipeline jobs", pal.accent, STAT_TIPS[0]) {
                         self.filter_table("kind:build");
                     }
                     if big_stat(
@@ -106,6 +122,7 @@ impl Workspace {
                         &util::num(t.images),
                         "docker images",
                         theme::kind_color(crate::core::graph::Kind::Image, false, pal.dark),
+                        STAT_TIPS[1],
                     ) {
                         self.filter_table("kind:image");
                     }
@@ -115,20 +132,28 @@ impl Workspace {
                         &util::num(t.makes),
                         "make targets",
                         theme::kind_color(crate::core::graph::Kind::Make, false, pal.dark),
+                        STAT_TIPS[2],
                     ) {
                         self.table.kinds[2] = true;
                         self.filter_table("kind:make");
                     }
-                    if big_stat(ui, pal, &util::num(t.containers), "images jobs run in", pal.up) {
+                    if big_stat(ui, pal, &util::num(t.containers), "images jobs run in", pal.up, STAT_TIPS[3]) {
                         self.filter_table("is:container");
                     }
-                    if big_stat(ui, pal, &t.longest.to_string(), "longest chain", pal.down) {
+                    if big_stat(ui, pal, &t.longest.to_string(), "longest chain", pal.down, STAT_TIPS[4]) {
                         if let Some(r) = (0..d.repos.len()).max_by_key(|&i| d.repos[i].longest) {
                             self.prod_repo = r;
                             self.go(super::app::Screen::Prod);
                         }
                     }
-                    if big_stat(ui, pal, &util::num(t.warnings), "analysis warnings", if t.warnings > 0 { pal.warn } else { pal.muted }) {
+                    if big_stat(
+                        ui,
+                        pal,
+                        &util::num(t.warnings),
+                        "analysis warnings",
+                        if t.warnings > 0 { pal.warn } else { pal.muted },
+                        STAT_TIPS[5],
+                    ) {
                         self.show_warnings = true;
                     }
                 });
@@ -153,59 +178,22 @@ impl Workspace {
                 }
 
                 ui.add_space(18.0);
-                ui.label(RichText::new("Across all repositories").size(16.0).strong());
-                ui.add_space(4.0);
-                egui::Frame::new().fill(pal.card).corner_radius(10).stroke(super::theme::stroke(1.0, pal.line)).inner_margin(14).show(
-                    ui,
-                    |ui| {
-                        ui.set_width(ui.available_width().min(900.0));
-                        if fact(ui, pal, t.vcs, "jobs start on a commit", None) {
-                            self.filter_table("trig:vcs");
+                self.worth_a_look(ui, pal);
+                ui.add_space(14.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new("How work starts").size(16.0).strong());
+                    ui.add_space(8.0);
+                    for (n, text, tip, q) in [
+                        (t.vcs, "on a commit", TRIG_TIPS[0], "trig:vcs"),
+                        (t.scheduled, "on a schedule", TRIG_TIPS[1], "trig:scheduled"),
+                        (t.chained, "when another job finishes", TRIG_TIPS[2], "trig:chained"),
+                        (t.manual, "by hand", TRIG_TIPS[3], "trig:manual"),
+                    ] {
+                        if chip(ui, pal, n, text, tip) {
+                            self.filter_table(q);
                         }
-                        if fact(ui, pal, t.scheduled, "run on a schedule", None) {
-                            self.filter_table("trig:scheduled");
-                        }
-                        if fact(ui, pal, t.chained, "start when another job finishes", None) {
-                            self.filter_table("trig:chained");
-                        }
-                        if fact(ui, pal, t.manual, "are started by hand", None) {
-                            self.filter_table("trig:manual");
-                        }
-                        ui.add_space(4.0);
-                        if fact(
-                            ui,
-                            pal,
-                            t.deploys_no_test,
-                            &format!("of {} deploy jobs have no test job anywhere upstream", t.deploys),
-                            Some(pal.changed),
-                        ) {
-                            self.filter_table("is:notest");
-                        }
-                        if fact(
-                            ui,
-                            pal,
-                            t.isolated,
-                            "jobs are stand-alone: nothing upstream or downstream, found by the analysis",
-                            Some(pal.changed),
-                        ) {
-                            self.filter_table("is:isolated");
-                        }
-                        if fact(
-                            ui,
-                            pal,
-                            t.undefined_make,
-                            "make targets are invoked but have no rule in any makefile found",
-                            Some(pal.changed),
-                        ) {
-                            self.table.kinds[2] = true;
-                            self.filter_table("is:undefined");
-                        }
-                        if fact(ui, pal, t.externals, "referenced builds were not found in any analysed repository", Some(pal.warn)) {
-                            self.filter_table("kind:external");
-                        }
-                    },
-                );
-
+                    }
+                });
                 ui.add_space(18.0);
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Repositories").size(16.0).strong());
@@ -240,7 +228,8 @@ impl Workspace {
             ui.set_width(372.0);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if util::link(ui, RichText::new(name).size(18.0).strong()).clicked() {
+                    if util::link(ui, RichText::new(name).size(18.0).strong()).on_hover_text("List everything in this repository").clicked()
+                    {
                         self.filter_table(&format!("repo:{name}"));
                     }
                     let c = g.s(info.commit);
@@ -274,29 +263,38 @@ impl Workspace {
                 let q = |extra: &str| format!("repo:{name} {extra}");
                 let mut go: Option<String> = None;
                 ui.horizontal_wrapped(|ui| {
-                    for (n, label, trig) in [
-                        (r.vcs, "on commit", "trig:vcs"),
-                        (r.scheduled, "scheduled", "trig:scheduled"),
-                        (r.chained, "chained", "trig:chained"),
-                        (r.manual, "manual", "trig:manual"),
+                    for (n, label, tip, trig) in [
+                        (r.vcs, "on commit", TRIG_TIPS[0], "trig:vcs"),
+                        (r.scheduled, "scheduled", TRIG_TIPS[1], "trig:scheduled"),
+                        (r.chained, "chained", TRIG_TIPS[2], "trig:chained"),
+                        (r.manual, "manual", TRIG_TIPS[3], "trig:manual"),
                     ] {
-                        if n > 0 && util::link(ui, RichText::new(format!("{n} {label}")).color(pal.accent)).clicked() {
+                        if n > 0
+                            && util::hint(util::link(ui, RichText::new(format!("{n} {label}")).color(pal.accent)), tip.0, tip.1).clicked()
+                        {
                             go = Some(q(trig));
                         }
                     }
                 });
                 if r.deploys_no_test > 0
-                    && fact(ui, pal, r.deploys_no_test, &format!("of {} deploys with no test upstream", r.deploys), Some(pal.changed))
+                    && fact(
+                        ui,
+                        pal,
+                        r.deploys_no_test,
+                        &format!("of {} deploys with no test upstream", r.deploys),
+                        Some(pal.changed),
+                        LOOK_TIPS[0],
+                    )
                 {
                     go = Some(q("is:notest"));
                 }
-                if r.isolated > 0 && fact(ui, pal, r.isolated, "stand-alone", Some(pal.changed)) {
+                if r.isolated > 0 && fact(ui, pal, r.isolated, "stand-alone", Some(pal.changed), LOOK_TIPS[1]) {
                     go = Some(q("is:isolated"));
                 }
-                if r.containers > 0 && fact(ui, pal, r.containers, "images jobs run in", None) {
+                if r.containers > 0 && fact(ui, pal, r.containers, "images jobs run in", None, ("Images jobs run in", STAT_TIPS[3])) {
                     go = Some(q("is:container"));
                 }
-                if r.warnings > 0 && fact(ui, pal, r.warnings, "analysis warnings", Some(pal.warn)) {
+                if r.warnings > 0 && fact(ui, pal, r.warnings, "analysis warnings", Some(pal.warn), ("Analysis warnings", STAT_TIPS[5])) {
                     self.show_warnings = true;
                     self.warn_filter = format!("{name}:");
                 }
@@ -306,7 +304,8 @@ impl Workspace {
                 if r.longest > 0 {
                     ui.add_space(6.0);
                     ui.horizontal_wrapped(|ui| {
-                        ui.label(RichText::new(format!("Longest commit → prod chain: {} jobs", r.longest)).color(pal.muted));
+                        let l = ui.label(RichText::new(format!("Longest commit → prod chain: {} jobs", r.longest)).color(pal.muted));
+                        util::hint(l, "Longest commit → prod chain", STAT_TIPS[4]);
                         if ui.link("Show").clicked() {
                             self.prod_repo = i;
                             self.go(super::app::Screen::Prod);
@@ -316,4 +315,95 @@ impl Workspace {
             });
         });
     }
+
+    /// The facts a pipeline designer would want to check, the ones that occur first.
+    fn worth_a_look(&mut self, ui: &mut egui::Ui, pal: &Palette) {
+        let t = self.m.d.totals.clone();
+        let mut rows = vec![
+            (
+                t.deploys_no_test,
+                format!("of {} deploy jobs have no test job anywhere upstream", t.deploys),
+                LOOK_TIPS[0],
+                Look::Table("is:notest"),
+            ),
+            (t.isolated, "jobs are stand-alone: nothing upstream or downstream".into(), LOOK_TIPS[1], Look::Table("is:isolated")),
+            (t.undefined_make, "make targets are invoked but no makefile found has a rule for them".into(), LOOK_TIPS[2], Look::Make),
+            (
+                t.externals,
+                "referenced builds are not defined in any analysed repository".into(),
+                LOOK_TIPS[3],
+                Look::Table("kind:external"),
+            ),
+            (
+                t.warnings,
+                "analysis warnings: references or files that could not be resolved".into(),
+                ("Analysis warnings", STAT_TIPS[5]),
+                Look::Warnings,
+            ),
+        ];
+        rows.sort_by_key(|r| r.0 == 0);
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Worth a look").size(16.0).strong());
+            ui.label(RichText::new("descriptive, not a verdict: hover for why each matters").small().color(pal.muted));
+        });
+        ui.add_space(4.0);
+        let mut go = None;
+        egui::Frame::new().fill(pal.card).corner_radius(10).stroke(theme::stroke(1.0, pal.line)).inner_margin(14).show(ui, |ui| {
+            ui.set_width(ui.available_width().min(900.0));
+            if rows.iter().all(|r| r.0 == 0) {
+                ui.label(RichText::new("Nothing stands out in this snapshot.").color(pal.muted));
+            }
+            for (n, text, tip, look) in rows {
+                let tone = if matches!(look, Look::Warnings | Look::Table("kind:external")) { pal.warn } else { pal.changed };
+                if fact(ui, pal, n, &text, Some(tone), tip) {
+                    go = Some(look);
+                }
+            }
+        });
+        match go {
+            Some(Look::Table(q)) => self.filter_table(q),
+            Some(Look::Make) => {
+                self.table.kinds[2] = true;
+                self.filter_table("is:undefined");
+            }
+            Some(Look::Warnings) => self.show_warnings = true,
+            None => {}
+        }
+    }
 }
+
+/// What each headline number counts and why it matters.
+const STAT_TIPS: [&str; 6] = [
+    "Build configurations and pipeline jobs defined in the analysed repositories. Click to list them.",
+    "Docker images built, pulled or run in, from Dockerfiles and CI steps. Click to list them.",
+    "Make targets CI steps run, directly or through other targets. Click to list them.",
+    "Images that job steps run inside, such as build containers. What is in them shapes every job that runs there. Click to list them.",
+    "The most jobs one commit passes through on its way to a deploy. Every link is one more place to wait or fail. Click to open that chain.",
+    "References, files and settings the analysis could not resolve. They are listed, never dropped silently. Click to read them.",
+];
+
+const TRIG_TIPS: [(&str, &str); 4] = [
+    ("Start on a commit", "Jobs with a VCS trigger: every push to a watched branch starts them. Click to list them."),
+    ("Run on a schedule", "Jobs with a schedule trigger. Their result can be up to one period old. Click to list them."),
+    ("Chained", "Jobs started by a finish-build trigger when another job completes. Click to list them."),
+    ("Started by hand", "No trigger of their own and no job starts them: someone has to. Click to list them."),
+];
+
+const LOOK_TIPS: [(&str, &str); 4] = [
+    (
+        "Deploys with no test upstream",
+        "No job classified as a test runs anywhere before these deploys in their dependency chain. They may be tested in a way the analysis cannot see; worth confirming. Click to list them.",
+    ),
+    (
+        "Stand-alone jobs",
+        "Nothing they need and nothing needs them. Often leftovers, or wired up through something the analysis does not read. Click to list them.",
+    ),
+    (
+        "Make targets with no rule",
+        "A step runs make with a target no analysed makefile defines. The step fails, or the rule comes from a file outside the analysis. Click to list them.",
+    ),
+    (
+        "Builds not found",
+        "Dependencies or triggers point at build ids that no analysed repository defines: another repository, a deleted job, or a typo. Click to list them.",
+    ),
+];
