@@ -132,6 +132,8 @@ pub struct RepoStats {
     pub longest: u32,
     pub longest_path: Vec<u32>,
     pub containers: u32, // images some job runs inside
+    pub cyclic: u32,     // jobs that wait on each other, directly or through others
+    pub unused: u32,     // images nothing runs in, derives from or consumes
 }
 
 pub struct Derived {
@@ -143,6 +145,12 @@ pub struct Derived {
     pub no_test_up: Vec<bool>,
     /// Images some job or target runs inside.
     pub container: Vec<bool>,
+    /// On a dependency cycle: waits (transitively) on itself, so it has no start order.
+    pub cyclic: Vec<bool>,
+    /// Images with nothing downstream: no job runs in them and no image derives from them.
+    pub unused: Vec<bool>,
+    /// The load-bearing jobs: the builds that the most others transitively depend on, most first.
+    pub hubs: Vec<u32>,
     pub depth: Vec<u32>, // longest downstream chain starting here, in jobs
     pub next: Vec<u32>,  // the next job on that chain
     pub repo_of: Vec<u32>,
@@ -168,6 +176,69 @@ fn topo(net: &Net, n: usize) -> Vec<u32> {
         }
     }
     order
+}
+
+/// How many load-bearing jobs are listed, and the fewest jobs that must hang off one to count.
+pub const HUBS: usize = 10;
+pub const HUB_MIN: u32 = 3;
+
+/// Nodes on a cycle of the flow graph: members of a strongly connected component of
+/// two or more nodes, or with an edge to themselves (Tarjan, iterative).
+fn cycles(net: &Net, n: usize) -> Vec<bool> {
+    const UNSEEN: u32 = u32::MAX;
+    let mut index = vec![UNSEEN; n];
+    let mut low = vec![0u32; n];
+    let mut on = vec![false; n];
+    let mut stack: Vec<u32> = Vec::new();
+    let mut out = vec![false; n];
+    let mut counter = 0u32;
+    for root in 0..n as u32 {
+        if index[root as usize] != UNSEEN {
+            continue;
+        }
+        let mut work: Vec<(u32, usize)> = vec![(root, 0)];
+        index[root as usize] = counter;
+        low[root as usize] = counter;
+        counter += 1;
+        stack.push(root);
+        on[root as usize] = true;
+        while let Some(&mut (v, ref mut i)) = work.last_mut() {
+            let nb = net.out.nb(v);
+            if *i < nb.len() {
+                let w = nb[*i];
+                *i += 1;
+                if w == v {
+                    out[v as usize] = true;
+                }
+                if index[w as usize] == UNSEEN {
+                    index[w as usize] = counter;
+                    low[w as usize] = counter;
+                    counter += 1;
+                    stack.push(w);
+                    on[w as usize] = true;
+                    work.push((w, 0));
+                } else if on[w as usize] {
+                    low[v as usize] = low[v as usize].min(index[w as usize]);
+                }
+            } else {
+                work.pop();
+                if let Some(&(parent, _)) = work.last() {
+                    low[parent as usize] = low[parent as usize].min(low[v as usize]);
+                }
+                if low[v as usize] == index[v as usize] {
+                    let top = stack.iter().rposition(|&x| x == v).unwrap_or(0);
+                    let members = stack.split_off(top);
+                    for &m in &members {
+                        on[m as usize] = false;
+                        if members.len() > 1 {
+                            out[m as usize] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 impl Derived {
@@ -240,6 +311,11 @@ impl Derived {
             }
         }
         let no_test_up: Vec<bool> = (0..n).map(|v| class[v] == Class::Deploy && !test_up[v]).collect();
+        let cyclic = cycles(&g.flow, n);
+        let unused: Vec<bool> = (0..n as u32).map(|v| g.kind[v as usize] == Kind::Image && g.full.out.nb(v).is_empty()).collect();
+        let mut hubs: Vec<u32> = (0..n as u32).filter(|&v| g.kind[v as usize] == Kind::Build && down[v as usize] >= HUB_MIN).collect();
+        hubs.sort_by_key(|&v| (std::cmp::Reverse(down[v as usize]), v));
+        hubs.truncate(HUBS);
 
         // statistics
         let mut containers = vec![false; n];
@@ -273,6 +349,7 @@ impl Derived {
                     r.isolated += isolated[v] as u32;
                     r.deploys += (class[v] == Class::Deploy) as u32;
                     r.deploys_no_test += no_test_up[v] as u32;
+                    r.cyclic += cyclic[v] as u32;
                 }
                 Kind::Make => {
                     r.makes += 1;
@@ -281,6 +358,7 @@ impl Derived {
                 Kind::Image => {
                     r.images += 1;
                     r.containers += containers[v] as u32;
+                    r.unused += unused[v] as u32;
                 }
                 Kind::External => r.externals += 1,
             };
@@ -316,7 +394,23 @@ impl Derived {
             }
         }
         totals.longest = repos.iter().map(|r| r.longest).max().unwrap_or(0);
-        Derived { class, up, down, entry, isolated, no_test_up, container: containers, depth, next, repo_of, repos, totals }
+        Derived {
+            class,
+            up,
+            down,
+            entry,
+            isolated,
+            no_test_up,
+            container: containers,
+            cyclic,
+            unused,
+            hubs,
+            depth,
+            next,
+            repo_of,
+            repos,
+            totals,
+        }
     }
 }
 
@@ -371,5 +465,25 @@ mod tests {
         assert_eq!(r1.warnings, 1);
         assert!(r1.longest >= 5, "Lint -> Base -> img -> App -> Deploy");
         assert_eq!(g.node_label(*r1.longest_path.last().unwrap()), "Deploy prod");
+    }
+
+    #[test]
+    fn finds_cycles_hubs_and_unused() {
+        let g = sample();
+        let d = Derived::compute(&g);
+        assert!(d.cyclic.iter().all(|&c| !c), "the sample graph is acyclic");
+        let id = |s: &str| g.node_by_id(s).unwrap();
+        assert_eq!(d.hubs.first(), Some(&id("bt:r1/Lint")), "Lint has the most jobs downstream");
+        assert!(!d.hubs.contains(&id("bt:r2/Deploy")), "a leaf has nothing depending on it");
+    }
+
+    #[test]
+    fn tarjan_marks_only_cycle_members() {
+        // 0 -> 1 -> 2 -> 1, 2 -> 3, 4 -> 4
+        let edges = [(0u32, 1u32), (1, 2), (2, 1), (2, 3), (4, 4)];
+        let from: Vec<u32> = edges.iter().map(|e| e.0).collect();
+        let to: Vec<u32> = edges.iter().map(|e| e.1).collect();
+        let net = Net::build(5, from, to, vec![Ek::Snapshot; 5], vec![Sym(0); 5]);
+        assert_eq!(cycles(&net, 5), [false, true, true, false, true]);
     }
 }

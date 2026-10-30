@@ -48,6 +48,10 @@ want to check, the ones that occur listed first:
 - **analysis warnings**
 - **stand-alone jobs** with nothing upstream or downstream
 - **make targets that are invoked but have no rule**
+- **jobs in a cycle**: they wait on each other, so none has a start order
+- **load-bearing jobs**: the ten with the most jobs transitively depending on
+  them (at least three); a click lists them
+- **images nothing uses**: not run in, derived from or consumed
 
 After that, **how work starts** (on a commit, on a schedule, when another job
 finishes, by hand), and a card per repository with its mix of stages (build,
@@ -157,7 +161,7 @@ palette you can narrow with:
 | `kind:` | `kind:image` | `build`, `image`, `make`, `external` |
 | `class:` | `class:deploy` | the stage: `build lint test scan package publish deploy other` |
 | `trig:` | `trig:commit` | `commit`, `schedule`, `chained`, `manual` |
-| `is:` | `is:notest` | `isolated`, `notest`, `container`, `undefined` |
+| `is:` | `is:notest` | `isolated`, `notest`, `container`, `undefined`, `cycle`, `unused`, `hub` |
 
 Every state has a link: `L` copies a `pgview://…` link to exactly this view,
 and `--goto` opens one.

@@ -24,6 +24,9 @@ pub enum Flag {
     NoTest,
     Container,
     Undefined,
+    Cycle,
+    Unused,
+    Hub,
 }
 
 #[derive(Default, Clone, PartialEq, Debug)]
@@ -67,6 +70,9 @@ impl Query {
                         "notest" => Some(Flag::NoTest),
                         "container" => Some(Flag::Container),
                         "undefined" => Some(Flag::Undefined),
+                        "cycle" | "cyclic" => Some(Flag::Cycle),
+                        "unused" => Some(Flag::Unused),
+                        "hub" | "loadbearing" => Some(Flag::Hub),
                         _ => None,
                     }
                 }
@@ -157,6 +163,9 @@ impl SearchIndex {
                 Flag::NoTest => d.no_test_up[vi],
                 Flag::Container => d.container[vi],
                 Flag::Undefined => g.s(g.sub[vi]).ends_with("(no rule)"),
+                Flag::Cycle => d.cyclic[vi],
+                Flag::Unused => d.unused[vi],
+                Flag::Hub => d.hubs.contains(&v),
             })
             && f.repo.as_ref().is_none_or(|r| g.node_repo(v).to_lowercase().contains(r.as_str()))
     }
@@ -256,6 +265,8 @@ mod tests {
         assert_eq!(find(&g, &d, &ix, "class:deploy"), ["Deploy prod"]);
         assert_eq!(find(&g, &d, &ix, "trig:vcs"), ["Lint"]);
         assert_eq!(find(&g, &d, &ix, "is:isolated"), ["Lonely"]);
+        assert_eq!(find(&g, &d, &ix, "is:hub")[0], "Lint");
+        assert!(find(&g, &d, &ix, "is:cycle").is_empty());
         assert_eq!(find(&g, &d, &ix, "a=1"), ["App build & test"], "parameters are searched");
         assert!(find(&g, &d, &ix, "zzzz").is_empty());
         assert_eq!(find(&g, &d, &ix, "repo:").len(), g.len(), "an unfinished filter keeps everything");
