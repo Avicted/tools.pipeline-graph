@@ -20,13 +20,12 @@ import (
 )
 
 type Repo struct {
-	Name      string // short name, used as swimlane title
-	URL       string
-	Commit    string
-	Root      string // local checkout
-	Provider  string // CI system (ci.Provider.Name); "" detects every supported one
-	ConfigDir string // where its definitions live, relative to Root; "" is the provider's default
-	ProjectID string // namespace of the repo's job ids; "" lets the provider derive it
+	Name     string // short name, used as swimlane title
+	URL      string
+	Commit   string
+	Root     string         // local checkout
+	Provider string         // CI system (ci.Provider.Name); "" detects every supported one
+	Settings map[string]any // each provider's settings for this repo, by ci.System.Name; a provider without an entry gets none
 }
 
 type Options struct {
@@ -43,6 +42,7 @@ type analyzer struct {
 	makefiles map[string]*makefile.Makefile
 	expanded  map[string]bool
 	images    map[string]*imageUse
+	systems   map[string]ci.System // the systems that loaded at least one repo, by name
 }
 
 type imageUse struct {
@@ -56,6 +56,7 @@ type imageUse struct {
 // loaded is one provider's reading of one repo.
 type loaded struct {
 	repo Repo
+	sys  ci.System
 	p    *ci.Pipelines
 }
 
@@ -69,11 +70,12 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 		makefiles: map[string]*makefile.Makefile{},
 		expanded:  map[string]bool{},
 		images:    map[string]*imageUse{},
+		systems:   map[string]ci.System{},
 	}
 	var all []loaded
 	for _, r := range repos {
 		a.g.Repos = append(a.g.Repos, model.Repo{Name: r.Name, URL: r.URL, Commit: r.Commit})
-		cr := ci.Repo{Name: r.Name, Root: r.Root, Dir: r.ConfigDir, ProjectID: r.ProjectID}
+		cr := ci.Repo{Name: r.Name, Root: r.Root}
 		provs, err := ci.Pick(opts.Providers, r.Provider, cr)
 		if err != nil {
 			a.warn(r.Name, "", 0, "%v", err)
@@ -84,17 +86,21 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 			continue
 		}
 		for _, prov := range provs {
-			p, err := prov.Load(cr)
+			sys := prov.System()
+			pr := cr
+			pr.Settings = r.Settings[sys.Name]
+			p, err := prov.Load(pr)
 			if err != nil {
-				a.warn(r.Name, "", 0, "%s: %v", prov.Name(), err)
+				a.warn(r.Name, "", 0, "%s: %v", sys.Name, err)
 				continue
 			}
+			a.systems[sys.Name] = sys
 			for _, w := range p.Warnings {
 				a.warnings = append(a.warnings, r.Name+": "+w)
 			}
-			all = append(all, loaded{r, p})
+			all = append(all, loaded{r, sys, p})
 			for _, j := range p.Jobs {
-				a.addJob(r, j)
+				a.addJob(r, sys, j)
 			}
 		}
 	}
@@ -127,6 +133,10 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 		}
 	}
 	a.imageNodes()
+	for _, sys := range a.systems {
+		a.g.Systems = append(a.g.Systems, sys)
+	}
+	slices.SortFunc(a.g.Systems, func(x, y model.System) int { return strings.Compare(x.Name, y.Name) })
 	a.g.Sort()
 	sort.Strings(a.warnings)
 	return a.g, slices.Compact(a.warnings)
@@ -135,12 +145,12 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 func providerNames(ps []ci.Provider) string {
 	var n []string
 	for _, p := range ps {
-		n = append(n, p.Name())
+		n = append(n, p.System().Name)
 	}
 	return strings.Join(n, ", ")
 }
 
-func (a *analyzer) addJob(r Repo, j *ci.Job) {
+func (a *analyzer) addJob(r Repo, sys ci.System, j *ci.Job) {
 	id := buildNodeID(r.Name, j.Key)
 	a.byAbs[j.QualID] = id
 	for _, al := range j.Aliases {
@@ -153,6 +163,7 @@ func (a *analyzer) addJob(r Repo, j *ci.Job) {
 		ID: id, Kind: model.KindBuild, Repo: r.Name, Label: j.Name, Sub: j.QualID,
 		Project: j.Project, Composite: j.Composite, Steps: j.Steps, Params: j.Params,
 		Artifacts: j.Artifacts, Source: fmt.Sprintf("%s:%d", j.File, j.Line),
+		System: sys.Name,
 	}
 	for _, t := range j.Triggers {
 		if t.From == nil {
@@ -220,12 +231,12 @@ func (a *analyzer) resolve(l loaded, ref ci.Ref, file string) string {
 		}
 	}
 	if len(cands) == 1 {
-		a.warn(r.Name, file, ref.Line, "%s matched to %s by id suffix (set teamcity_project_id or external_ids to make this exact)", ref.Global, cands[0])
+		a.warn(r.Name, file, ref.Line, "%s matched to %s by id suffix (set %s.project_id or external_ids to make this exact)", ref.Global, cands[0], l.sys.Name)
 		return cands[0]
 	}
-	a.warn(r.Name, file, ref.Line, "build configuration %s not found in any analysed repo; shown as external", ref.Global)
+	a.warn(r.Name, file, ref.Line, "%s %s not found in any analysed repo; shown as external", l.sys.Job, ref.Global)
 	id := "ext:" + ref.Global
-	a.g.AddNode(&model.Node{ID: id, Kind: model.KindExternal, Label: ref.Global, Sub: "not in analysed repos"})
+	a.g.AddNode(&model.Node{ID: id, Kind: model.KindExternal, Label: ref.Global, Sub: "not in analysed repos", System: l.sys.Name})
 	return id
 }
 

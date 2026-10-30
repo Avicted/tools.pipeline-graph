@@ -39,8 +39,8 @@ func load(t *testing.T, workflows map[string]string) (*ci.Pipelines, map[string]
 
 func TestDetect(t *testing.T) {
 	g := New()
-	if g.Name() != "github" {
-		t.Errorf("name %q", g.Name())
+	if g.System().Name != "github" {
+		t.Errorf("name %q", g.System().Name)
 	}
 	if !g.Detect(checkout(t, map[string]string{"ci.yml": "jobs: {}"})) || !g.Detect(checkout(t, map[string]string{"ci.yaml": "jobs: {}"})) {
 		t.Error(".yml and .yaml workflows are detected")

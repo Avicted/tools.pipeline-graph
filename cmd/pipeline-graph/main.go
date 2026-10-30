@@ -1,5 +1,6 @@
-// Command pipeline-graph clones git repositories, statically analyses their
-// TeamCity Kotlin DSL and Makefiles, and renders a map of how all pipelines link together.
+// Command pipeline-graph clones git repositories, statically analyses their CI
+// pipelines (TeamCity Kotlin DSL, GitHub Actions workflows, ...) and Makefiles,
+// and renders a map of how all pipelines link together.
 package main
 
 import (
@@ -32,6 +33,33 @@ var version = "dev"
 
 // providers are the CI/CD systems that can be read; add new ones here.
 var providers = []ci.Provider{teamcity.New(), github.New()}
+
+// settingsBlocks are the names of the providers that take settings, which are the
+// keys a config may have besides its own fields.
+func settingsBlocks() []string {
+	var names []string
+	for _, p := range providers {
+		if _, ok := p.(ci.Configurable); ok {
+			names = append(names, p.System().Name)
+		}
+	}
+	return names
+}
+
+// providerSettings decodes every configurable provider's settings for repo i.
+func providerSettings(cfg *config.Config, i int) (map[string]any, error) {
+	out := map[string]any{}
+	for _, p := range providers {
+		if c, ok := p.(ci.Configurable); ok {
+			v := c.NewSettings()
+			if err := cfg.Settings(i, p.System().Name, v); err != nil {
+				return nil, err
+			}
+			out[p.System().Name] = v
+		}
+	}
+	return out, nil
+}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -85,6 +113,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
+	if err := cfg.CheckBlocks(settingsBlocks()); err != nil {
+		fmt.Fprintln(stderr, "pipeline-graph:", err)
+		return 2
+	}
+	settings := make([]map[string]any, len(cfg.Repos))
+	for i := range cfg.Repos {
+		var err error
+		if settings[i], err = providerSettings(cfg, i); err != nil {
+			fmt.Fprintln(stderr, "pipeline-graph:", err)
+			return 2
+		}
+	}
+	for _, n := range cfg.Notices {
+		fmt.Fprintln(stderr, "pipeline-graph: warning:", n)
+	}
 
 	// 1. fetch
 	reqs := make([]fetch.Request, len(cfg.Repos))
@@ -102,7 +145,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "pipeline-graph: %s: %v\n", r.Name, res.Err)
 			continue
 		}
-		repos = append(repos, analyze.Repo{Name: r.Name, URL: r.URL, Commit: res.Commit, Root: res.Dir, Provider: r.Provider, ConfigDir: r.TeamCityDir, ProjectID: r.ProjectID})
+		repos = append(repos, analyze.Repo{Name: r.Name, URL: r.URL, Commit: res.Commit, Root: res.Dir, Provider: r.Provider, Settings: settings[i]})
 	}
 	if len(repos) == 0 {
 		fmt.Fprintln(stderr, "pipeline-graph: no repository could be fetched")
@@ -136,7 +179,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	for _, n := range g.Nodes {
 		counts[n.Kind]++
 	}
-	fmt.Fprintf(stderr, "pipeline-graph: %d repos, %d build configurations, %d make targets, %d images, %d external, %d links, %d warnings (see %s)\n",
+	fmt.Fprintf(stderr, "pipeline-graph: %d repos, %d jobs, %d make targets, %d images, %d external, %d links, %d warnings (see %s)\n",
 		len(repos), counts[model.KindBuild], counts[model.KindMake], counts[model.KindImage], counts[model.KindExternal],
 		len(g.Edges), len(warnings), filepath.Join(cfg.OutDir, "warnings.txt"))
 	switch {

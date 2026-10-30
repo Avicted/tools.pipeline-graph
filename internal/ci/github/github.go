@@ -26,7 +26,9 @@ type Provider struct{}
 
 func New() Provider { return Provider{} }
 
-func (Provider) Name() string { return "github" }
+func (Provider) System() ci.System {
+	return ci.System{Name: "github", Title: "GitHub Actions", Job: "workflow job", ID: "job path"}
+}
 
 func workflowFiles(root string) []string {
 	var out []string

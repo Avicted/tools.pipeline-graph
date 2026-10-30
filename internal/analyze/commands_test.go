@@ -3,6 +3,8 @@ package analyze
 import (
 	"strings"
 	"testing"
+
+	"github.com/Avicted/tools.pipeline-graph/internal/ci/teamcity"
 )
 
 func run1(t *testing.T, files map[string]string) (string, string) {
@@ -167,7 +169,7 @@ func TestExternalIDsOverride(t *testing.T) {
 
 func TestProjectIDFromConfigMakesIDsExact(t *testing.T) {
 	a := repo(t, "lib", map[string]string{".teamcity/s.kts": `object Pub : BuildType({ name = "Pub" })`})
-	a.ProjectID = "Acme_Libs_Core"
+	a.Settings = map[string]any{"teamcity": &teamcity.Settings{ProjectID: "Acme_Libs_Core"}}
 	b := repo(t, "app", map[string]string{".teamcity/s.kts": `object B : BuildType({ name = "B"
     dependencies { snapshot(AbsoluteId("Acme_Libs_Core_Pub")) {} } })`})
 	g, w := Run([]Repo{a, b}, Options{Providers: tc})

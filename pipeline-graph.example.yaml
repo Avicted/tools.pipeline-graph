@@ -9,8 +9,9 @@ repos:
   #   branch: main                                #   default: the remote's default branch
   #   name: base                                  #   swimlane title; default: repo name from the URL
   #   provider: teamcity                          #   teamcity | github; default: every one found in the repo
-  #   teamcity_project_id: Base                   #   default: derived from name
-  #   teamcity_dir: .teamcity                     #   default: the global teamcity_dir below
+  #   teamcity:                                   #   a CI system's own settings; see the teamcity block below
+  #     project_id: Base                          #     default: derived from name
+  #     dir: .teamcity                            #     default: the global teamcity.dir below
   # - ./relative/path/to/checkout                 # local checkouts need no clone (must be inside this directory)
 
   # --- demo repos: delete these when you add your own ---
@@ -25,12 +26,16 @@ repos:
 
 # cache_dir: ~/.cache/pipeline-graph   # shallow clones are kept and refreshed here
 out_dir: out
-teamcity_dir: .teamcity
 views: [overview, full, per-repo]       # draw.io pages / HTML tabs
 formats: [drawio, vsdx, html, mermaid, dot, json]
 concurrency: 4
 
-# Absolute TeamCity ids referenced from the DSL that the tool cannot map by
+# Settings of one CI system, for every repo (a repo's own block overrides them).
+# Only TeamCity has any so far; GitHub Actions is read from .github/workflows.
+teamcity:
+  dir: .teamcity
+
+# Absolute job ids (TeamCity ids, GitHub job paths) that the tool cannot map by
 # itself (see warnings.txt), mapped to "<repo name>/<relative id>".
 external_ids:
   # Acme_Legacy_PlatformBase_BuildBaseImage: platform-base/BuildBaseImage

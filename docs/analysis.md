@@ -65,7 +65,7 @@ Two links describe how images are layered and used, and feed the native viewer's
 
 A string id like `AbsoluteId("ServiceA_Deploy_staging")` is matched against
 `<project id>_<relative id>` of every analysed build. The project id is
-`teamcity_project_id` from the config, or derived from the repo name the way
+`teamcity: {project_id: ...}` from the config, or derived from the repo name the way
 TeamCity does it (`service-a` → `ServiceA`). Without an exact match, a unique
 build whose id ends in `_<relative id>` and whose prefix contains the repo name
 is accepted, with a warning. Anything still unresolved goes in the
