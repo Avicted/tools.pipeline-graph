@@ -12,7 +12,7 @@ ROOT_DIR  := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BINARY    := pipeline-graph
 GO        := go
 DIST      := dist
-VERSION   ?= dev
+VERSION   ?= $(shell cat "$(ROOT_DIR)/VERSION")
 LDFLAGS   := -s -w -X main.version=$(VERSION)
 PLATFORMS := linux/amd64 linux/arm64 windows/amd64 darwin/arm64
 CONFIG    ?= pipeline-graph.yaml
@@ -261,6 +261,55 @@ pre-commit-image: ## Build the pre-commit image (cached, fast when unchanged)
 shell: pre-commit-image ## Open a shell in the pre-commit image
 	@docker run --rm -it --user "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(ROOT_DIR)":/repo \
 	  -v "$(CACHE_DIR)":/cache --entrypoint bash $(PC_IMAGE)
+
+##@ Release
+# VERSION is the one place the version lives: the binary's -version, the docker
+# image tag and the viewer's About dialog derive from it. The viewer reads it
+# from viewer/Cargo.toml, which new-version keeps equal. Publishing the GitHub
+# release for the tag runs .github/workflows/release.yml.
+BUMP ?=
+CARGO_TOML := viewer/Cargo.toml
+CARGO_LOCK := viewer/Cargo.lock
+.PHONY: new-version
+new-version: ## Bump VERSION on master, commit and tag vX.Y.Z: make new-version BUMP=<major|minor|patch>
+	@case "$(BUMP)" in major|minor|patch) ;; \
+		"") echo "new-version: specify the bump: make new-version BUMP=<major|minor|patch>"; exit 1;; \
+		*) echo "new-version: BUMP must be major, minor or patch, not '$(BUMP)'"; exit 1;; esac
+	@[ "$$(git rev-parse --abbrev-ref HEAD)" = master ] || { echo "new-version: releases are tagged from master only"; exit 1; }
+	@git diff --quiet HEAD || { echo "new-version: the tree has uncommitted changes"; exit 1; }
+	@old=$$(cat VERSION); \
+	major=$${old%%.*}; rest=$${old#*.}; minor=$${rest%%.*}; patch=$${rest#*.}; \
+	case "$(BUMP)" in \
+		major) major=$$((major + 1)); minor=0; patch=0;; \
+		minor) minor=$$((minor + 1)); patch=0;; \
+		patch) patch=$$((patch + 1));; \
+	esac; \
+	new=$$major.$$minor.$$patch; tag=v$$new; \
+	if git rev-parse -q --verify "refs/tags/$$tag" >/dev/null; then echo "new-version: tag $$tag already exists"; exit 1; fi; \
+	echo "$$new" > VERSION; \
+	sed -i '/^\[package\]/,/^\[/s/^version = ".*"/version = "'"$$new"'"/' $(CARGO_TOML); \
+	sed -i '/^name = "pipeline-graph-viewer"$$/{n;s/^version = ".*"/version = "'"$$new"'"/}' $(CARGO_LOCK); \
+	grep -q '^version = "'"$$new"'"' $(CARGO_TOML) && grep -A1 '^name = "pipeline-graph-viewer"$$' $(CARGO_LOCK) | grep -q '^version = "'"$$new"'"' \
+		|| { echo "new-version: could not write $$new into $(CARGO_TOML) and $(CARGO_LOCK)"; git checkout -- VERSION $(CARGO_TOML) $(CARGO_LOCK); exit 1; }; \
+	git commit -q -m "chore(release): $$tag" VERSION $(CARGO_TOML) $(CARGO_LOCK) && \
+	git tag -a "$$tag" -m "pipeline-graph $$new" && \
+	printf "$(CYAN)$$old -> $$new, tagged $$tag.$(RESET) Release it with: git push origin HEAD $$tag && gh release create $$tag --generate-notes\n"
+
+.PHONY: undo-version
+undo-version: ## Undo the last new-version (drops its commit and tag) while it is unpushed
+	@[ "$$(git rev-parse --abbrev-ref HEAD)" = master ] || { echo "undo-version: run it on master"; exit 1; }
+	@git diff --quiet HEAD || { echo "undo-version: the tree has uncommitted changes"; exit 1; }
+	@tag=v$$(cat VERSION); \
+	[ "$$(git rev-parse -q --verify "refs/tags/$$tag^{commit}")" = "$$(git rev-parse HEAD)" ] \
+		|| { echo "undo-version: tag $$tag does not point at HEAD, so HEAD is not a release"; exit 1; }; \
+	[ "$$(git log -1 --format=%s)" = "chore(release): $$tag" ] \
+		|| { echo "undo-version: HEAD is not the 'chore(release): $$tag' commit"; exit 1; }; \
+	if git rev-parse -q --verify '@{upstream}' >/dev/null && git merge-base --is-ancestor HEAD '@{upstream}'; then \
+		echo "undo-version: $$tag is already pushed; revert it instead"; exit 1; fi; \
+	if git ls-remote --exit-code --tags origin "refs/tags/$$tag" >/dev/null 2>&1; then \
+		echo "undo-version: tag $$tag is on origin; delete it there first"; exit 1; fi; \
+	git tag -d "$$tag" >/dev/null && git reset -q --hard HEAD~1 && \
+	printf "$(CYAN)removed $$tag;$(RESET) VERSION is back to $$(cat VERSION)\n"
 
 ##@ Cleanup
 .PHONY: clean
