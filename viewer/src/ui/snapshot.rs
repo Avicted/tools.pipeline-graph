@@ -34,22 +34,11 @@ fn fact(ui: &mut egui::Ui, pal: &Palette, n: u32, text: &str, tone: Option<Color
     let col = if n == 0 { pal.muted } else { tone.unwrap_or(pal.text) };
     let mut clicked = false;
     ui.horizontal(|ui| {
-        let r = ui.add(egui::Label::new(RichText::new(util::num(n)).strong().color(col)).sense(if n > 0 {
-            Sense::click()
-        } else {
-            Sense::hover()
-        }));
-        let t = ui.add(egui::Label::new(RichText::new(text).color(if n == 0 { pal.muted } else { pal.text })).sense(if n > 0 {
-            Sense::click()
-        } else {
-            Sense::hover()
-        }));
+        let num = RichText::new(util::num(n)).strong().color(col);
+        let text = RichText::new(text).color(if n == 0 { pal.muted } else { pal.text });
+        let (r, t) = if n > 0 { (util::link(ui, num), util::link(ui, text)) } else { (ui.label(num), ui.label(text)) };
         if n > 0 && (r.clicked() || t.clicked()) {
             clicked = true;
-        }
-        if n > 0 {
-            r.on_hover_cursor(egui::CursorIcon::PointingHand);
-            t.on_hover_cursor(egui::CursorIcon::PointingHand);
         }
     });
     clicked
@@ -251,11 +240,7 @@ impl Workspace {
             ui.set_width(372.0);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui
-                        .add(egui::Label::new(RichText::new(name).size(18.0).strong()).sense(Sense::click()))
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .clicked()
-                    {
+                    if util::link(ui, RichText::new(name).size(18.0).strong()).clicked() {
                         self.filter_table(&format!("repo:{name}"));
                     }
                     let c = g.s(info.commit);
@@ -295,12 +280,7 @@ impl Workspace {
                         (r.chained, "chained", "trig:chained"),
                         (r.manual, "manual", "trig:manual"),
                     ] {
-                        if n > 0
-                            && ui
-                                .add(egui::Label::new(RichText::new(format!("{n} {label}")).color(pal.accent)).sense(Sense::click()))
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
-                        {
+                        if n > 0 && util::link(ui, RichText::new(format!("{n} {label}")).color(pal.accent)).clicked() {
                             go = Some(q(trig));
                         }
                     }

@@ -727,6 +727,7 @@ impl Workspace {
 
     fn top_bar(&mut self, ui: &mut egui::Ui, pal: &Palette, mode: &mut Mode, open: &mut Option<PathBuf>) {
         ui.horizontal_centered(|ui| {
+            ui.style_mut().interaction.selectable_labels = false;
             if ui.add(egui::Button::new("☰").frame(false)).on_hover_text("Show or hide the sidebar").clicked() {
                 self.show_nav = !self.show_nav;
             }

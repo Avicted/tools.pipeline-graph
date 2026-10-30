@@ -22,7 +22,7 @@ struct Acts {
 fn link(ui: &mut egui::Ui, m: &Model, pal: &Palette, v: u32, acts: &mut Acts) {
     let g = &m.g;
     ui.horizontal(|ui| {
-        let r = ui.add(egui::Label::new(RichText::new(g.node_label(v)).color(pal.accent)).sense(egui::Sense::click()));
+        let r = util::link(ui, RichText::new(g.node_label(v)).color(pal.accent));
         if r.clicked() {
             acts.jump = Some(v);
         }
@@ -64,11 +64,7 @@ fn code(ui: &mut egui::Ui, pal: &Palette, text: &str) {
         .inner_margin(egui::Margin::symmetric(10, 8))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.add(
-                egui::Label::new(RichText::new(text.trim_end()).monospace().color(Color32::from_rgb(0xE5, 0xE7, 0xEB)))
-                    .wrap()
-                    .selectable(true),
-            );
+            ui.add(egui::Label::new(RichText::new(text.trim_end()).monospace().color(Color32::from_rgb(0xE5, 0xE7, 0xEB))).wrap());
         });
 }
 
@@ -82,7 +78,7 @@ fn make_tree(ui: &mut egui::Ui, m: &Model, pal: &Palette, v: u32, depth: usize, 
     if kids.is_empty() || depth >= 8 || path.contains(&v) {
         ui.horizontal(|ui| {
             ui.add_space(14.0);
-            if ui.add(egui::Label::new(title.color(pal.accent)).sense(egui::Sense::click())).clicked() {
+            if util::link(ui, title.color(pal.accent)).clicked() {
                 acts.jump = Some(v);
             }
             if undefined {
@@ -97,7 +93,7 @@ fn make_tree(ui: &mut egui::Ui, m: &Model, pal: &Palette, v: u32, depth: usize, 
     let id = ui.make_persistent_id(("mk", v, depth, path.len()));
     egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, depth < 1)
         .show_header(ui, |ui| {
-            if ui.add(egui::Label::new(title.color(pal.accent)).sense(egui::Sense::click())).clicked() {
+            if util::link(ui, title.color(pal.accent)).clicked() {
                 acts.jump = Some(v);
             }
             if !recipe.is_empty() {
@@ -161,7 +157,7 @@ impl Workspace {
                 if !sub.is_empty() {
                     ui.label(RichText::new(if g.kind[vi] == Kind::Build { "CI id" } else { "Where" }).color(pal.muted));
                     ui.horizontal(|ui| {
-                        ui.add(egui::Label::new(RichText::new(sub).monospace()).selectable(true));
+                        ui.label(RichText::new(sub).monospace());
                         copy_btn(ui, &mut acts, sub, "Id");
                     });
                     ui.end_row();
@@ -179,7 +175,7 @@ impl Workspace {
                                 }
                             }
                             None => {
-                                ui.add(egui::Label::new(RichText::new(src).monospace()).selectable(true));
+                                ui.label(RichText::new(src).monospace());
                             }
                         }
                         copy_btn(ui, &mut acts, src, "Source");
@@ -196,7 +192,7 @@ impl Workspace {
                                 }
                             }
                             None => {
-                                ui.add(egui::Label::new(RichText::new(util::short(g.s(r.commit))).monospace()).selectable(true));
+                                ui.label(RichText::new(util::short(g.s(r.commit))).monospace());
                             }
                         });
                         ui.end_row();

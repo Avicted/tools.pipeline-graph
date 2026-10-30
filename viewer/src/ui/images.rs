@@ -158,8 +158,7 @@ fn image_row(
     path.push(v);
     state
         .show_header(ui, |ui| {
-            let r = ui.add(egui::Label::new(RichText::new(g.node_label(v)).strong().color(accent)).sense(egui::Sense::click()));
-            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
+            let r = util::link(ui, RichText::new(g.node_label(v)).strong().color(accent));
             if r.clicked() {
                 *jump = Some(v);
             }
@@ -189,11 +188,7 @@ fn image_row(
                 for &n in list.iter().take(30) {
                     ui.horizontal(|ui| {
                         ui.add_space(8.0);
-                        if ui
-                            .add(egui::Label::new(RichText::new(g.node_label(n)).color(pal.accent)).sense(egui::Sense::click()))
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                        {
+                        if util::link(ui, RichText::new(g.node_label(n)).color(pal.accent)).clicked() {
                             *jump = Some(n);
                         }
                         ui.label(RichText::new(g.node_repo(n)).small().color(pal.muted));

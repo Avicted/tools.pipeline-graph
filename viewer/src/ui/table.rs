@@ -2,6 +2,7 @@
 
 use super::app::{Screen, Workspace};
 use super::theme::{self, Palette};
+use super::util;
 use crate::core::derive::{Class, ENTRY_CHAINED, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS};
 use crate::core::diff::Change;
 use crate::core::graph::{Ek, Kind};
@@ -269,6 +270,8 @@ impl Workspace {
         let sel = self.sel;
 
         egui::Frame::new().inner_margin(egui::Margin::symmetric(16, 0)).show(ui, |ui| {
+            // A whole row is the click target; a selectable label would swallow the click.
+            ui.style_mut().interaction.selectable_labels = false;
             let mut tb = TableBuilder::new(ui)
                 .striped(false)
                 .resizable(true)
@@ -314,12 +317,8 @@ impl Workspace {
                             ""
                         };
                         let text = RichText::new(format!("{name}{arrow}")).small().strong().color(pal.muted);
-                        if ui
-                            .add(egui::Label::new(text).sense(if sortable { Sense::click() } else { Sense::hover() }))
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                            && sortable
-                        {
+                        let r = if sortable { util::link(ui, text) } else { ui.label(text) };
+                        if r.clicked() && sortable {
                             new_sort = Some(*col);
                         }
                     });
