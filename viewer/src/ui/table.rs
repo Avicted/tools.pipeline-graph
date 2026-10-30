@@ -277,12 +277,12 @@ impl Workspace {
                 .column(Column::initial(250.0).at_least(160.0).clip(true))
                 .column(Column::initial(120.0).at_least(70.0).clip(true))
                 .column(Column::initial(72.0).at_least(56.0))
-                .column(Column::initial(170.0).at_least(80.0).clip(true))
-                .column(Column::remainder().at_least(150.0).clip(true))
+                .column(Column::initial(190.0).at_least(80.0).clip(true))
+                .column(Column::initial(230.0).at_least(100.0).clip(true))
                 .column(Column::initial(56.0).at_least(48.0))
-                .column(Column::initial(110.0).at_least(80.0));
+                .column(if show_change { Column::initial(110.0).at_least(80.0) } else { Column::remainder().at_least(100.0) });
             if show_change {
-                tb = tb.column(Column::initial(80.0).at_least(60.0));
+                tb = tb.column(Column::remainder().at_least(70.0));
             }
             if let Some(i) = scroll_to {
                 tb = tb.scroll_to_row(i, Some(egui::Align::Center));
