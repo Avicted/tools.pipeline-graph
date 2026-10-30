@@ -231,6 +231,7 @@ impl Workspace {
                                         egui::Label::new(RichText::new(g.node_label(v)).color(pal.accent).strong())
                                             .sense(egui::Sense::click()),
                                     )
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
                                     .clicked()
                                 {
                                     open = Some(v);

@@ -314,7 +314,10 @@ impl Workspace {
                             ""
                         };
                         let text = RichText::new(format!("{name}{arrow}")).small().strong().color(pal.muted);
-                        if ui.add(egui::Label::new(text).sense(if sortable { Sense::click() } else { Sense::hover() })).clicked()
+                        if ui
+                            .add(egui::Label::new(text).sense(if sortable { Sense::click() } else { Sense::hover() }))
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
                             && sortable
                         {
                             new_sort = Some(*col);
@@ -395,7 +398,7 @@ impl Workspace {
                             }
                         });
                     }
-                    let r = row.response();
+                    let r = row.response().on_hover_cursor(egui::CursorIcon::PointingHand);
                     if r.clicked() {
                         clicked = Some(v);
                     }
