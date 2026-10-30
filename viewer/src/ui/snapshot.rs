@@ -101,12 +101,14 @@ impl Workspace {
             egui::Frame::new().inner_margin(egui::Margin::symmetric(24, 18)).show(ui, |ui| {
                 ui.label(RichText::new("What is actually built").size(24.0).strong());
                 let gen = g.s(g.generated);
+                // a screenshot leaves out the load time, which differs from run to run
+                let read = if self.shot.is_some() { String::new() } else { format!(" · read in {} ms", m.load_ms) };
                 ui.label(
                     RichText::new(format!(
-                        "{} · {} repositories · read in {} ms from {}",
+                        "{} · {} repositories{} from {}",
                         if gen.is_empty() { "undated".to_string() } else { gen.to_string() },
                         g.repos.len(),
-                        m.load_ms,
+                        read,
                         m.path.display()
                     ))
                     .color(pal.muted),

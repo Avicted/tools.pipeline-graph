@@ -11,11 +11,15 @@ pub struct ShotRun {
     wait: u32,
     asked: bool,
     name: String,
+    resizing: u32,
 }
+
+/// Every picture is this many pixels, whatever the display scaling.
+const SHOT_PX: egui::Vec2 = egui::vec2(2000.0, 1250.0);
 
 impl ShotRun {
     pub fn new(dir: PathBuf) -> ShotRun {
-        ShotRun { dir, step: 0, wait: 0, asked: false, name: String::new() }
+        ShotRun { dir, step: 0, wait: 0, asked: false, name: String::new(), resizing: 0 }
     }
 }
 
@@ -93,6 +97,7 @@ impl Workspace {
         ctx.set_pixels_per_point(1.0);
         ctx.style_mut(|st| {
             st.animation_time = 0.0;
+            st.scroll_animation = egui::style::ScrollAnimation::none();
             st.visuals.text_cursor.blink = false;
         });
         self.dismiss_toast();
@@ -120,6 +125,26 @@ impl Workspace {
             ctx.request_repaint();
             return true;
         }
+        // once pixels_per_point 1.0 is in effect, sizes in points are sizes in pixels,
+        // the window's and the one the resize command asks for
+        let have = ctx.screen_rect().size().round();
+        if ctx.pixels_per_point() != 1.0 || have != SHOT_PX {
+            if run.resizing % 20 == 1 {
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(SHOT_PX));
+            }
+            run.resizing += 1;
+            if run.resizing > 120 {
+                eprintln!(
+                    "pipeline-graph-viewer: the window is {}×{}, the screenshots need {}×{} (let the window float)",
+                    have.x, have.y, SHOT_PX.x, SHOT_PX.y
+                );
+                std::process::exit(1);
+            }
+            self.shot = Some(run);
+            ctx.request_repaint();
+            return true;
+        }
+        run.resizing = 0;
         if run.wait == 0 {
             // pick the next step that applies to this graph
             while run.step < STEPS.len() {
