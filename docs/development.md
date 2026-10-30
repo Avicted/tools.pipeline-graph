@@ -104,3 +104,24 @@ examples/acme        larger fictional TeamCity example (`make example`)
 examples/github      fictional GitHub Actions example (`make example-github`)
 scripts              screenshots.mjs, scenes.json: regenerate docs/screenshots (`make screenshots`)
 ```
+
+## The native viewer
+
+`viewer/` is a separate Rust crate (`pgview`, egui) that reads `graph.json`; see
+[pgview](pgview.md) for what it does. `graph.json` is the whole contract between
+the two programs: when you add a node or edge kind in Go, bump
+`model.SchemaVersion` if the shape changes and teach `viewer/src/core/graph.rs`
+the new kind (`viewer/tests/contract.rs` fails on an edge kind it does not know).
+
+```sh
+make viewer         # build viewer/target/release/pgview
+make view           # open out/graph.json
+make viewer-test    # unit, contract and smoke tests (the smoke tests drive every screen headlessly)
+make viewer-bench   # 48k-node graph: load, search, lineage, layout and frame budgets
+make viewer-shots   # regenerate docs/screenshots/pgview; opens a window, needs a desktop
+```
+
+fmt, clippy (`-D warnings`) and the tests run in the pre-commit image with the
+rest of the gate. Fonts are bundled (`viewer/assets/fonts`: Fira Sans under the
+SIL OFL, DejaVu Sans under its own free licence) so arrows and symbols in job
+names render the same everywhere.
