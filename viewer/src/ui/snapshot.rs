@@ -320,7 +320,22 @@ impl Workspace {
     /// The facts a pipeline designer would want to check, the ones that occur first.
     fn worth_a_look(&mut self, ui: &mut egui::Ui, pal: &Palette) {
         let t = self.m.d.totals.clone();
+        let hubs = self.m.d.hubs.len() as u32;
+        let busiest = self.m.d.hubs.first().map_or(0, |&v| self.m.d.down[v as usize]);
         let mut rows = vec![
+            (
+                t.cyclic,
+                "jobs wait on each other in a cycle, so none of them has a start order".into(),
+                LOOK_TIPS[4],
+                Look::Table("is:cycle"),
+            ),
+            (
+                hubs,
+                format!("load-bearing jobs: the busiest has {} other jobs depending on it", util::num(busiest)),
+                LOOK_TIPS[5],
+                Look::Table("is:hub"),
+            ),
+            (t.unused, "images are never run in, derived from or consumed".into(), LOOK_TIPS[6], Look::Table("is:unused")),
             (
                 t.deploys_no_test,
                 format!("of {} deploy jobs have no test job anywhere upstream", t.deploys),
@@ -355,8 +370,12 @@ impl Workspace {
                 ui.label(RichText::new("Nothing stands out in this snapshot.").color(pal.muted));
             }
             for (n, text, tip, look) in rows {
-                let tone = if matches!(look, Look::Warnings | Look::Table("kind:external")) { pal.warn } else { pal.changed };
-                if fact(ui, pal, n, &text, Some(tone), tip) {
+                let tone = match look {
+                    Look::Warnings | Look::Table("kind:external" | "is:cycle") => Some(pal.warn),
+                    Look::Table("is:hub") => None,
+                    _ => Some(pal.changed),
+                };
+                if fact(ui, pal, n, &text, tone, tip) {
                     go = Some(look);
                 }
             }
@@ -397,7 +416,7 @@ const TRIG_TIPS: [(&str, &str); 4] = [
     ("Started by hand", "No trigger of their own and no job starts them: someone has to. Click to list them."),
 ];
 
-const LOOK_TIPS: [(&str, &str); 4] = [
+const LOOK_TIPS: [(&str, &str); 7] = [
     (
         "Deploys with no test upstream",
         "No job classified as a test runs anywhere before these deploys in their dependency chain. They may be tested in a way the analysis cannot see; worth confirming. Click to list them.",
@@ -413,5 +432,17 @@ const LOOK_TIPS: [(&str, &str); 4] = [
     (
         "Builds not found",
         "Dependencies or triggers point at build ids that no analysed repository defines: another repository, a deleted job, or a typo. Click to list them.",
+    ),
+    (
+        "Jobs in a cycle",
+        "Each of these needs another job in the group, directly or through others, that needs it back. Nothing can start first, so the layout and the “longest chain” leave them out of order. Click to list them.",
+    ),
+    (
+        "Load-bearing jobs",
+        "The ten jobs with the most other jobs transitively depending on them (at least three). When one of these breaks or slows down, everything downstream waits. Click to list them, or open one and press B to see what it breaks.",
+    ),
+    (
+        "Images nothing uses",
+        "Docker images that no job runs inside and no other image is built from, and nothing consumes. Often a leftover, or used by something outside the analysis. Click to list them.",
     ),
 ];
