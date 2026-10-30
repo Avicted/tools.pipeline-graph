@@ -13,15 +13,16 @@ Maps how CI/CD pipelines across many git repositories link together.
 
 ```
 $ make run
-pipeline-graph: fetching 3 repositories into ~/.cache/pipeline-graph
+pipeline-graph: fetching 7 repositories into ~/.cache/pipeline-graph
 out/pipelines.drawio
 out/pipelines.vsdx
 out/pipelines.html
 out/pipelines.mmd
 out/pipelines.dot
 out/graph.json
+out/history/20261030T2320Z-15fc7ecd.json
 out/warnings.txt
-pipeline-graph: 3 repos, 8 build configurations, 11 make targets, 2 images, 1 external, 30 links, 3 warnings (see out/warnings.txt)
+pipeline-graph: 7 repos, 30 jobs, 38 make targets, 5 images, 1 external, 133 links, 1 warnings (see out/warnings.txt)
 ```
 
 ![Every pipeline across seven repos on one page](docs/screenshots/overview.png)
