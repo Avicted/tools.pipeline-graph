@@ -241,7 +241,7 @@ func writeHistory(outDir string, g *model.Graph) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	ts := strings.NewReplacer(" ", "T", ":", "", "-", "", "UTC", "Z").Replace(g.Generated)
+	ts := strings.NewReplacer(" ", "T", ":", "", "-", "").Replace(strings.TrimSuffix(g.Generated, " UTC")) + "Z"
 	p := filepath.Join(dir, ts+"-"+tag+".json")
 	return p, os.WriteFile(p, buf.Bytes(), 0o644)
 }
