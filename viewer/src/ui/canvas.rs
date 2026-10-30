@@ -838,35 +838,7 @@ impl Workspace {
                 }
                 return;
             };
-            ui.label(RichText::new(g.node_label(v)).strong());
-            ui.separator();
-            if ui.button("Open lineage on its own").clicked() {
-                self.open_focus(v);
-                ui.close_menu();
-            }
-            for (label, mode) in [
-                ("Keep only what it breaks", LineageMode::Down),
-                ("Keep only what it needs", LineageMode::Up),
-                ("Keep both", LineageMode::Both),
-            ] {
-                if ui.button(label).clicked() {
-                    self.select(Some(v));
-                    self.mode = mode;
-                    ui.close_menu();
-                }
-            }
-            ui.separator();
-            if ui.button("Copy id").clicked() {
-                let id = g.node_id(v).to_string();
-                self.copy(ui.ctx(), id, "Id");
-                ui.close_menu();
-            }
-            if ui.button("Copy link").clicked() {
-                self.select(Some(v));
-                let l = self.link();
-                self.copy(ui.ctx(), l, "Link");
-                ui.close_menu();
-            }
+            self.node_menu(ui, v);
         });
 
         // zoom controls

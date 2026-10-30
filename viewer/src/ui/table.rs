@@ -271,6 +271,7 @@ impl Workspace {
 
         egui::Frame::new().inner_margin(egui::Margin::symmetric(16, 0)).show(ui, |ui| {
             // A whole row is the click target; a selectable label would swallow the click.
+            // Right-click a row to copy what is in it.
             ui.style_mut().interaction.selectable_labels = false;
             let mut tb = TableBuilder::new(ui)
                 .striped(false)
@@ -401,6 +402,7 @@ impl Workspace {
                     if r.clicked() {
                         clicked = Some(v);
                     }
+                    r.context_menu(|ui| self.node_menu(ui, v));
                     if r.double_clicked() {
                         focus = Some(v);
                     }

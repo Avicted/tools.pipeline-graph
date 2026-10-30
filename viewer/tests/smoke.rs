@@ -97,3 +97,25 @@ fn comparing_with_the_current_snapshot_marks_changes() {
     r.ws.go(Screen::Compare);
     r.settle();
 }
+
+#[test]
+fn node_menu_draws_and_ctrl_c_copies_the_selected_id() {
+    let mut r = rig();
+    let v = r.ws.m.g.node_by_id("bt:orders-service/Image").expect("fixture node");
+    let _ = r.ctx.run(egui::RawInput::default(), |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| r.ws.node_menu(ui, v));
+    });
+    r.ws.screen = Screen::Table;
+    r.ws.select(Some(v));
+    r.settle();
+    let raw = egui::RawInput { events: vec![egui::Event::Copy], ..Default::default() };
+    let pal = pgview::ui::theme::palette(pgview::ui::theme::Mode::Light);
+    let (mut mode, mut open) = (pgview::ui::theme::Mode::Light, None);
+    let out = r.ctx.run(raw, |ctx| r.ws.frame(ctx, &pal, &mut mode, &mut open));
+    let want = r.ws.ci_id(v);
+    assert!(
+        out.platform_output.commands.iter().any(|c| matches!(c, egui::OutputCommand::CopyText(t) if *t == want)),
+        "{:?}",
+        out.platform_output.commands
+    );
+}
