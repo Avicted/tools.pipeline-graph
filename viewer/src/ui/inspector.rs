@@ -64,7 +64,11 @@ fn code(ui: &mut egui::Ui, pal: &Palette, text: &str) {
         .inner_margin(egui::Margin::symmetric(10, 8))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.add(egui::Label::new(RichText::new(text.trim_end()).monospace().color(Color32::from_rgb(0xE5, 0xE7, 0xEB))).wrap());
+            ui.add(
+                egui::Label::new(RichText::new(text.trim_end()).monospace().color(Color32::from_rgb(0xE5, 0xE7, 0xEB)))
+                    .wrap()
+                    .selectable(true),
+            );
         });
 }
 
@@ -157,7 +161,7 @@ impl Workspace {
                 if !sub.is_empty() {
                     ui.label(RichText::new(if g.kind[vi] == Kind::Build { "CI id" } else { "Where" }).color(pal.muted));
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new(sub).monospace());
+                        ui.add(egui::Label::new(RichText::new(sub).monospace()).selectable(true));
                         copy_btn(ui, &mut acts, sub, "Id");
                     });
                     ui.end_row();
@@ -175,7 +179,7 @@ impl Workspace {
                                 }
                             }
                             None => {
-                                ui.label(RichText::new(src).monospace());
+                                ui.add(egui::Label::new(RichText::new(src).monospace()).selectable(true));
                             }
                         }
                         copy_btn(ui, &mut acts, src, "Source");
@@ -192,7 +196,7 @@ impl Workspace {
                                 }
                             }
                             None => {
-                                ui.label(RichText::new(util::short(g.s(r.commit))).monospace());
+                                ui.add(egui::Label::new(RichText::new(util::short(g.s(r.commit))).monospace()).selectable(true));
                             }
                         });
                         ui.end_row();
