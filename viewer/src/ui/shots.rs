@@ -19,7 +19,7 @@ impl ShotRun {
     }
 }
 
-const STEPS: &[&str] = &["snapshot", "table", "map", "focus", "prod", "images", "inspector", "compare", "palette"];
+const STEPS: &[&str] = &["snapshot", "table", "map", "focus", "prod", "images", "inspector", "compare", "palette", "help", "legend"];
 
 /// Puts the workspace into the state of step `i`; false when there is nothing for it.
 fn arrange(ws: &mut Workspace, name: &str) -> bool {
@@ -29,6 +29,7 @@ fn arrange(ws: &mut Workspace, name: &str) -> bool {
         .filter(|&v| m.g.kind[v as usize] == crate::core::graph::Kind::Build)
         .max_by_key(|&v| d.down[v as usize] + d.up[v as usize]);
     ws.palette.open = false;
+    ws.show_help = false;
     match name {
         "snapshot" => {
             ws.select(None);
@@ -72,6 +73,12 @@ fn arrange(ws: &mut Workspace, name: &str) -> bool {
             ws.go(Screen::Table);
             ws.palette.toggle();
             ws.palette.query = "deploy".into();
+        }
+        "help" | "legend" => {
+            ws.select(None);
+            ws.go(Screen::Snapshot);
+            ws.show_help = true;
+            ws.help_tab = usize::from(name == "legend");
         }
         _ => return false,
     }

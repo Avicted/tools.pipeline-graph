@@ -2,6 +2,7 @@ pub mod app;
 pub mod canvas;
 pub mod compare;
 pub mod headless;
+pub mod help;
 pub mod images;
 pub mod inspector;
 pub mod job;

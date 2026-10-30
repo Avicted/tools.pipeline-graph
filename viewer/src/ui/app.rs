@@ -136,6 +136,7 @@ pub struct Workspace {
     pub show_inspector: bool,
     pub show_nav: bool,
     pub show_help: bool,
+    pub help_tab: usize,
     title: String,
     pub show_warnings: bool,
     pub warn_filter: String,
@@ -309,6 +310,7 @@ impl Workspace {
             show_inspector: true,
             show_nav: true,
             show_help: false,
+            help_tab: 0,
             title: String::new(),
             show_warnings: false,
             warn_filter: String::new(),
@@ -924,22 +926,7 @@ impl Workspace {
 
     fn windows(&mut self, ctx: &egui::Context, pal: &Palette) {
         if self.show_help {
-            let mut open = true;
-            egui::Window::new("Keyboard shortcuts")
-                .open(&mut open)
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ctx, |ui| {
-                    egui::Grid::new("help").num_columns(2).spacing([24.0, 6.0]).show(ui, |ui| {
-                        for (k, v) in HELP {
-                            ui.label(RichText::new(*k).monospace().color(pal.accent));
-                            ui.label(*v);
-                            ui.end_row();
-                        }
-                    });
-                });
-            self.show_help = open;
+            self.help_overlay(ctx, pal);
         }
         if self.show_warnings {
             let mut open = true;
@@ -1028,20 +1015,3 @@ fn nav_item(ui: &mut egui::Ui, pal: &Palette, label: &str, count: Option<String>
     }
     resp.clicked()
 }
-
-const HELP: &[(&str, &str)] = &[
-    ("Ctrl/⌘ K", "Search nodes and run commands (type > for commands only)"),
-    ("/", "Filter the table, or open search"),
-    ("1 – 6", "Snapshot, Jobs & images, Map, Commit → prod, Images, Compare"),
-    ("Tab", "Switch between the table and the map"),
-    ("↑ ↓  Enter", "Move through the table; open the job's lineage"),
-    ("B  D  I", "Keep only what a job breaks / needs / both"),
-    ("Shift+click", "Show only the route between two jobs"),
-    ("Double-click", "Open a job's lineage on its own"),
-    ("F", "Fit the map to the window"),
-    ("Esc", "Step back: route, filter, selection, lineage"),
-    ("Alt ← →", "Back and forward"),
-    ("L", "Copy a link to exactly this view"),
-    ("T", "Light / dark"),
-    ("R", "Reload graph.json from disk"),
-];
