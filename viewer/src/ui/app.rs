@@ -312,7 +312,7 @@ impl App {
                         }
                         ui.separator();
                         ui.add_enabled(false, egui::Button::new("Save")).on_disabled_hover_text(
-                            "pgview only reads graph.json, so there is never anything to save. Use Save as… for a copy.",
+                            "The viewer only reads graph.json, so there is never anything to save. Use Save as… for a copy.",
                         );
                         if item(ui, "Save as…", &sa, ready) {
                             do_save_as = true;
@@ -362,7 +362,7 @@ impl App {
             ui.set_width(360.0);
             ui.vertical_centered(|ui| {
                 brand(ui, pal, 24.0);
-                ui.label(RichText::new(format!("pgview {}", env!("CARGO_PKG_VERSION"))).color(pal.muted));
+                ui.label(RichText::new(format!("pipeline-graph {}", env!("CARGO_PKG_VERSION"))).color(pal.muted));
                 ui.add_space(8.0);
                 ui.label("A native viewer for the graph.json that pipeline-graph writes: a snapshot of what your pipelines actually do.");
                 ui.add_space(6.0);
@@ -405,7 +405,8 @@ fn welcome(ctx: &egui::Context, pal: &Palette, err: Option<&str>, open: &mut Opt
             }
             ui.add_space(8.0);
             ui.label(
-                RichText::new("or drop a file here, or run `pipeline-graph` first and start pgview in the same directory").color(pal.muted),
+                RichText::new("or drop a file here, or run `pipeline-graph` first and start the viewer in the same directory")
+                    .color(pal.muted),
             );
         });
     });
@@ -658,7 +659,7 @@ impl Workspace {
     // ---- deep links ----
 
     pub fn link(&self) -> String {
-        let mut l = format!("pgview://{}", self.screen.slug());
+        let mut l = format!("pipeline-graph://{}", self.screen.slug());
         let mut q: Vec<String> = vec![];
         if let Some(v) = self.sel {
             q.push(format!("node={}", util::encode(self.m.g.node_id(v))));
@@ -686,7 +687,7 @@ impl Workspace {
     }
 
     pub fn goto_link(&mut self, link: &str) {
-        let rest = link.strip_prefix("pgview://").unwrap_or(link);
+        let rest = link.strip_prefix("pipeline-graph://").unwrap_or(link);
         let (screen, query) = rest.split_once('?').unwrap_or((rest, ""));
         if let Some(s) = Screen::from_slug(screen) {
             self.screen = s;

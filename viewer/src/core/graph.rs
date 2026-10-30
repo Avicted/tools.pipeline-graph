@@ -611,7 +611,7 @@ impl Builder {
         let mut g = self.g;
         if g.schema > SCHEMA {
             return Err(LoadError(format!(
-                "graph.json has schemaVersion {}, this pgview understands up to {}: update pgview",
+                "graph.json has schemaVersion {}, this viewer understands up to {}: update pipeline-graph",
                 g.schema, SCHEMA
             )));
         }
@@ -973,7 +973,7 @@ pub(crate) mod tests {
     #[test]
     fn rejects_a_newer_schema() {
         let e = Graph::from_slice(br#"{"schemaVersion": 99}"#).err().unwrap();
-        assert!(e.0.contains("update pgview"), "{e}");
+        assert!(e.0.contains("update pipeline-graph"), "{e}");
     }
 
     #[test]

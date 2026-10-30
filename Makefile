@@ -119,19 +119,19 @@ docker-build: ## Build the pipeline-graph docker image
 docker-run: run ## Alias for run
 
 ##@ Viewer
-# pgview, the native viewer in viewer/. Uses the local Rust toolchain; the
+# The native viewer in viewer/. Uses the local Rust toolchain; the
 # quality gate (fmt, clippy, tests) runs in the pre-commit image like the Go code.
 VIEWER_MANIFEST := $(ROOT_DIR)/viewer/Cargo.toml
 GRAPH ?= out/graph.json
-PGVIEW := viewer/target/release/pgview
+VIEWER_BIN := viewer/target/release/pipeline-graph-viewer
 
 .PHONY: viewer
-viewer: ## Build the native viewer into viewer/target/release/pgview
+viewer: ## Build the native viewer into viewer/target/release/pipeline-graph-viewer
 	cargo build --release --locked --manifest-path $(VIEWER_MANIFEST)
 
 .PHONY: view
 view: viewer ## Open $(GRAPH) in the native viewer (make run or make example first): make view GRAPH=out/acme/graph.json
-	@./$(PGVIEW) $(GRAPH) $(if $(COMPARE),--compare $(COMPARE))
+	@./$(VIEWER_BIN) $(GRAPH) $(if $(COMPARE),--compare $(COMPARE))
 
 .PHONY: viewer-test
 viewer-test: ## Unit tests of the viewer
@@ -147,13 +147,13 @@ viewer-bench: ## Generate a 48k-node graph and check load, search, lineage, layo
 	cargo run --release --locked --manifest-path $(VIEWER_MANIFEST) --example bench -- $(BENCH_GRAPH) --check
 	cargo run --release --locked --manifest-path $(VIEWER_MANIFEST) --example frames -- $(BENCH_GRAPH) --check
 
-# The pictures in docs/screenshots/pgview are taken by the viewer itself, so
+# The pictures in docs/screenshots/pipeline-graph-viewer are taken by the viewer itself, so
 # this needs a desktop session (it opens a window for a few seconds).
 .PHONY: viewer-shots
-viewer-shots: viewer build ## Regenerate the viewer screenshots in docs/screenshots/pgview (needs a display)
+viewer-shots: viewer build ## Regenerate the viewer screenshots in docs/screenshots/pipeline-graph-viewer (needs a display)
 	SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml
-	@mkdir -p docs/screenshots/pgview
-	./$(PGVIEW) out/acme/graph.json --compare viewer/testdata/acme-previous.json --theme light --shot docs/screenshots/pgview
+	@mkdir -p docs/screenshots/pipeline-graph-viewer
+	./$(VIEWER_BIN) out/acme/graph.json --compare viewer/testdata/acme-previous.json --theme light --shot docs/screenshots/pipeline-graph-viewer
 
 ##@ Docs
 # Screenshots are taken in Docker (Dockerfile.screenshots) so that browser and

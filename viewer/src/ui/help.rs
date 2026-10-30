@@ -48,7 +48,7 @@ const SHORTCUTS: [&[Group]; 2] = [
                 (&["Drag", "Ctrl", "C"], "Select any text and copy it"),
                 (&["Ctrl", "C"], "With no text selected: copy the selected job's id"),
                 (&["Right-click"], "Copy a job's name, id, source or link, in the table and on the map"),
-                (&["L"], "Copy a pgview:// link to exactly this view; open it with --goto"),
+                (&["L"], "Copy a pipeline-graph:// link to exactly this view; open it with --goto"),
             ],
         ),
         ("App", &[(&["T"], "Light or dark"), (&["R"], "Reload graph.json from disk"), (&["?"], "This help")]),

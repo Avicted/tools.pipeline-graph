@@ -2,7 +2,7 @@
 //! analyzer's own golden output, so a change on either side that breaks the
 //! contract fails here.
 
-use pgview::core::graph::{Ek, Graph, SCHEMA};
+use pipeline_graph_viewer::core::graph::{Ek, Graph, SCHEMA};
 
 const GOLDEN: &str = "../test/integration/testdata/graph.json.golden";
 
@@ -28,5 +28,5 @@ fn knows_every_edge_kind_the_analyzer_emits() {
 #[test]
 fn a_snapshot_compared_with_itself_has_no_difference() {
     let load = || Graph::from_slice(std::fs::read(GOLDEN).unwrap().as_slice()).unwrap();
-    assert!(pgview::core::diff::compare(&load(), &load()).is_empty());
+    assert!(pipeline_graph_viewer::core::diff::compare(&load(), &load()).is_empty());
 }

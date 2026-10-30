@@ -4,9 +4,9 @@
 //!
 //!   cargo run --release --example frames -- graph.json [--check]
 
-use pgview::ui::app::{Model, Screen, Workspace};
-use pgview::ui::canvas::Scene;
-use pgview::ui::headless::Rig;
+use pipeline_graph_viewer::ui::app::{Model, Screen, Workspace};
+use pipeline_graph_viewer::ui::canvas::Scene;
+use pipeline_graph_viewer::ui::headless::Rig;
 
 const BUDGET_P95_MS: f64 = 8.0;
 
@@ -39,7 +39,7 @@ fn main() {
     let busiest = {
         let m = rig.ws.m.clone();
         (0..m.g.len() as u32)
-            .filter(|&v| m.g.kind[v as usize] == pgview::core::graph::Kind::Build)
+            .filter(|&v| m.g.kind[v as usize] == pipeline_graph_viewer::core::graph::Kind::Build)
             .max_by_key(|&v| m.d.down[v as usize] + m.d.up[v as usize])
     };
     let repo = {

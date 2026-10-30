@@ -90,23 +90,23 @@ this project directory, since only it is visible to the container.
 ## The native viewer
 
 For a lot of pipelines (thousands of jobs, tens of thousands of make targets,
-layered images) there is **pgview**, a native app made for whoever decides how
+layered images) there is the **pipeline-graph viewer**, a native app made for whoever decides how
 pipelines are built. It opens `graph.json` instantly, searches as you type, and
 is built around one question: *what is actually built?* A snapshot page per
 repository, a table of every job, the map, commit → prod, the image layers and
 which jobs run in them, and a comparison against an earlier run to see drift.
 
-![pgview](docs/screenshots/pgview/snapshot.png)
+![pipeline-graph viewer](docs/screenshots/pipeline-graph-viewer/snapshot.png)
 
 ```sh
 make run && make view
 ```
 
-See [pgview](docs/pgview.md).
+See [the pipeline-graph viewer](docs/pipeline-graph-viewer.md).
 
 ## Docs
 
-- [pgview, the native viewer](docs/pgview.md): screens, search, comparing runs, budgets
+- [The pipeline-graph viewer](docs/pipeline-graph-viewer.md): screens, search, comparing runs, budgets
 - [The HTML viewer](docs/viewer.md): shortcuts, lineage, sharing, Miro import
 - [What is analysed](docs/analysis.md): recognised constructs, cross-repo references, limits
 - [Development](docs/development.md): devcontainer, adding a CI/CD system, tests, quality gate, layout

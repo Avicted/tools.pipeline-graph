@@ -125,7 +125,8 @@ impl Workspace {
                         |ui| {
                             ui.label("Nothing compared yet.");
                             ui.label(
-                                RichText::new("Pick a snapshot above, or start pgview with  --compare old/graph.json.").color(pal.muted),
+                                RichText::new("Pick a snapshot above, or start the viewer with  --compare old/graph.json.")
+                                    .color(pal.muted),
                             );
                         },
                     );

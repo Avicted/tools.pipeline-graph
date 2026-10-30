@@ -1,6 +1,6 @@
-# pgview: the native viewer
+# The pipeline-graph viewer: a native app
 
-`pgview` is a native desktop app that reads the `graph.json` pipeline-graph
+`pipeline-graph-viewer` is a native desktop app that reads the `graph.json` pipeline-graph
 writes and shows what your pipelines **actually do**: not what the plan says,
 what the files in the repositories say. It is made for the people who decide how
 pipelines should be built, a quality lead and a tech lead, who need two things
@@ -12,20 +12,20 @@ opens 48,000 nodes (3,000 jobs, 45,000 make targets, layered images) in about
 0.3 s, holds the graph in about 30 MB, and redraws in well under a
 millisecond of CPU per frame; [the budgets](#performance) are checked in CI.
 
-![Snapshot](screenshots/pgview/snapshot.png)
+![Snapshot](screenshots/pipeline-graph-viewer/snapshot.png)
 
 ## Running it
 
 ```sh
 make run            # or: make example, writes out/graph.json
-make view           # builds pgview and opens out/graph.json
+make view           # builds pipeline-graph-viewer and opens out/graph.json
 make view GRAPH=out/acme/graph.json COMPARE=viewer/testdata/acme-previous.json
 ```
 
 or, after `cargo build --release --manifest-path viewer/Cargo.toml`:
 
 ```sh
-pgview [graph.json] [--compare older/graph.json] [--goto pgview://table?q=repo:orders] [--theme light|dark]
+pipeline-graph-viewer [graph.json] [--compare older/graph.json] [--goto pipeline-graph://table?q=repo:orders] [--theme light|dark]
 ```
 
 Without a file it opens `./out/graph.json`, or asks for one; you can also drop a
@@ -70,7 +70,7 @@ upstream) and **Breaks** (everything downstream). Click a header to sort, type
 to filter, `↑`/`↓` to walk the rows, `Enter` or double-click to open a job's
 lineage.
 
-![Table with the inspector](screenshots/pgview/inspector.png)
+![Table with the inspector](screenshots/pipeline-graph-viewer/inspector.png)
 
 ### 3 Map: the structure
 
@@ -94,7 +94,7 @@ second job keeps only the route between the two. Each card shows the job's
 [stage](#how-the-facts-are-derived), its trigger and how many jobs are
 downstream of it.
 
-![Lineage](screenshots/pgview/focus.png)
+![Lineage](screenshots/pipeline-graph-viewer/focus.png)
 
 ### 4 Commit → prod
 
@@ -102,7 +102,7 @@ For one repository: every job a commit sets in motion and everything downstream
 of it, laid out in dependency order and coloured by stage. A header counts the
 stages and states plainly when a deploy job has **no test job upstream**.
 
-![Commit to prod](screenshots/pgview/prod.png)
+![Commit to prod](screenshots/pipeline-graph-viewer/prod.png)
 
 ### 5 Images & layers
 
@@ -111,7 +111,7 @@ chain starts from, who builds every image, who uses it, **which jobs run inside
 it** (a Yocto SDK container, a build image), and how many jobs rebuild if it
 changes.
 
-![Images and layers](screenshots/pgview/images.png)
+![Images and layers](screenshots/pipeline-graph-viewer/images.png)
 
 ### 6 Compare: what drifted
 
@@ -123,7 +123,7 @@ vanished link. The commit each repository was analysed at is shown too. The
 changes are also marked on the table and the map, so the question "what is
 different since last week?" can be asked of any job.
 
-![Compare](screenshots/pgview/compare.png)
+![Compare](screenshots/pipeline-graph-viewer/compare.png)
 
 ## The inspector
 
@@ -163,7 +163,7 @@ palette you can narrow with:
 | `trig:` | `trig:commit` | `commit`, `schedule`, `chained`, `manual` |
 | `is:` | `is:notest` | `isolated`, `notest`, `container`, `undefined`, `cycle`, `unused`, `hub` |
 
-Every state has a link: `L` copies a `pgview://…` link to exactly this view,
+Every state has a link: `L` copies a `pipeline-graph://…` link to exactly this view,
 and `--goto` opens one.
 
 ## Keyboard and help
@@ -172,9 +172,9 @@ and `--goto` opens one.
 **Reading the views**, a legend of stage colours, node kinds, needs and breaks,
 the lines on the map and the change markers.
 
-![Help: shortcuts](screenshots/pgview/help.png)
+![Help: shortcuts](screenshots/pipeline-graph-viewer/help.png)
 
-![Help: reading the views](screenshots/pgview/legend.png)
+![Help: reading the views](screenshots/pipeline-graph-viewer/legend.png)
 
 | Key | |
 |---|---|
@@ -246,8 +246,8 @@ a change on either side that breaks the contract fails the build.
 ```sh
 make viewer-test     # unit, contract and smoke tests
 make viewer-bench    # performance budgets on 48k nodes
-make viewer-shots    # regenerate docs/screenshots/pgview (needs a display)
+make viewer-shots    # regenerate docs/screenshots/pipeline-graph-viewer (needs a display)
 ```
 
-`pgview --shot DIR` is how the screenshots are made: the app drives itself
+`pipeline-graph-viewer --shot DIR` is how the screenshots are made: the app drives itself
 through its screens and saves a picture of each.

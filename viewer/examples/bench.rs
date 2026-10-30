@@ -2,12 +2,12 @@
 //!
 //!   cargo run --release --example bench -- graph.json [--check]
 
-use pgview::core::{
+use pipeline_graph_viewer::core::{
     derive::Derived,
     graph::{Graph, Scratch},
     search::{Query, SearchIndex},
 };
-use pgview::ui::{
+use pipeline_graph_viewer::ui::{
     app::Model,
     canvas::{build_scene, Scene},
 };
@@ -62,7 +62,7 @@ fn main() {
     // scene layouts, as the map builds them on a worker thread
     let m = Model { g, d, ix, path: path.clone().into(), load_ms: 0 };
     let busiest = (0..m.g.len() as u32)
-        .filter(|&v| m.g.kind[v as usize] == pgview::core::graph::Kind::Build)
+        .filter(|&v| m.g.kind[v as usize] == pipeline_graph_viewer::core::graph::Kind::Build)
         .max_by_key(|&v| m.d.down[v as usize] + m.d.up[v as usize])
         .unwrap_or(0);
     let repo = (0..m.d.repos.len()).max_by_key(|&i| m.d.repos[i].longest).unwrap_or(0) as u32;
@@ -74,7 +74,7 @@ fn main() {
         ("scene: all jobs", Scene::All, 700.0),
     ] {
         let t = Instant::now();
-        let l = build_scene(&m, &scene, pgview::ui::canvas::DEFAULT_LIMIT);
+        let l = build_scene(&m, &scene, pipeline_graph_viewer::ui::canvas::DEFAULT_LIMIT);
         budget(&format!("{name} ({} nodes)", l.nodes.len()), t.elapsed().as_secs_f64() * 1e3, limit);
     }
 
