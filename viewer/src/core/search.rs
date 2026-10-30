@@ -48,7 +48,9 @@ impl Query {
         for tok in text.split_whitespace() {
             let low = tok.to_lowercase();
             match low.split_once(':') {
-                Some(("repo", v)) if !v.is_empty() => q.filters.repo = Some(v.to_string()),
+                // a filter still being typed (`repo:`) filters nothing yet
+                Some(("repo" | "kind" | "class" | "trig" | "is", "")) => {}
+                Some(("repo", v)) => q.filters.repo = Some(v.to_string()),
                 Some(("kind", v)) => {
                     q.filters.kind = match v {
                         "build" | "job" => Some(Kind::Build),
@@ -256,6 +258,7 @@ mod tests {
         assert_eq!(find(&g, &d, &ix, "is:isolated"), ["Lonely"]);
         assert_eq!(find(&g, &d, &ix, "a=1"), ["App build & test"], "parameters are searched");
         assert!(find(&g, &d, &ix, "zzzz").is_empty());
+        assert_eq!(find(&g, &d, &ix, "repo:").len(), g.len(), "an unfinished filter keeps everything");
     }
 
     #[test]

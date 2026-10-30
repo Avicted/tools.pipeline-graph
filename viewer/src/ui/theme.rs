@@ -155,7 +155,7 @@ pub fn apply(ctx: &egui::Context, mode: Mode) {
     let mut v = if p.dark { Visuals::dark() } else { Visuals::light() };
     v.panel_fill = p.panel;
     v.window_fill = p.card;
-    v.extreme_bg_color = p.bg;
+    v.extreme_bg_color = if p.dark { p.bg } else { p.card }; // text fields: lighter than the page
     v.faint_bg_color = if p.dark { rgb(0x1E, 0x21, 0x28) } else { rgb(0xF6, 0xF6, 0xF3) };
     v.override_text_color = Some(p.text);
     v.selection.bg_fill = if p.dark { rgb(0x1E, 0x3A, 0x8A) } else { rgb(0xDB, 0xEA, 0xFE) };
@@ -165,6 +165,7 @@ pub fn apply(ctx: &egui::Context, mode: Mode) {
     v.window_corner_radius = CornerRadius::same(10);
     v.menu_corner_radius = CornerRadius::same(8);
     v.widgets.noninteractive.bg_stroke = stroke(1.0, p.line);
+    v.widgets.inactive.bg_stroke = stroke(1.0, p.line);
     for w in [&mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active, &mut v.widgets.open] {
         w.corner_radius = CornerRadius::same(6);
     }

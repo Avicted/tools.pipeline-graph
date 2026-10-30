@@ -223,7 +223,11 @@ impl Workspace {
                                     ui.painter().text(
                                         rect.right_center() - egui::vec2(10.0, 0.0),
                                         egui::Align2::RIGHT_CENTER,
-                                        format!("{kind} · {}", g.node_repo(*v)),
+                                        if g.node_repo(*v).is_empty() {
+                                            kind.to_string()
+                                        } else {
+                                            format!("{kind} · {}", g.node_repo(*v))
+                                        },
                                         egui::FontId::proportional(12.0),
                                         sub,
                                     );

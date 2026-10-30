@@ -82,6 +82,13 @@ impl Workspace {
     /// Called once per frame; returns true while a run is in progress.
     pub fn drive_shots(&mut self, ctx: &egui::Context) -> bool {
         let Some(mut run) = self.shot.take() else { return false };
+        // the same pixels on every machine: no display scaling, no notices in the picture
+        ctx.set_pixels_per_point(1.0);
+        ctx.style_mut(|st| {
+            st.animation_time = 0.0;
+            st.visuals.text_cursor.blink = false;
+        });
+        self.dismiss_toast();
         // collect a finished screenshot
         let image = ctx.input(|i| {
             i.raw.events.iter().find_map(|e| match e {

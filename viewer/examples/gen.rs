@@ -6,6 +6,8 @@
 use serde_json::{json, Value};
 use std::io::Write;
 
+const STAGES: usize = 12;
+
 struct Rng(u64);
 impl Rng {
     fn next(&mut self) -> u64 {
@@ -63,11 +65,18 @@ fn main() {
             "artifacts": [format!("out/{b}/**")],
             "source": ".teamcity/settings.kts:42"
         }));
-        if b > 0 {
+        // pipelines are shallow: a job depends on jobs one or two stages earlier, never on a long chain
+        let level = b % STAGES;
+        if level > 0 {
             for _ in 0..(1 + r.below(3)) {
-                let win = b.min(300);
-                let from = &builds[b - win + r.below(win)];
-                edges.push(json!({"from": from, "to": id, "kind":"snapshot"}));
+                let back = 1 + r.below(2).min(level - 1);
+                let pool = builds.len() / STAGES; // jobs per stage so far
+                if pool == 0 {
+                    continue;
+                }
+                let pick = (builds.len() / STAGES).saturating_sub(1).min(r.below(pool.max(1)));
+                let idx = (pick * STAGES + (level - back)).min(builds.len() - 1);
+                edges.push(json!({"from": builds[idx], "to": id, "kind":"snapshot"}));
             }
         }
         edges.push(json!({"from": images[r.below(n_img)], "to": id, "kind":"runsIn"}));

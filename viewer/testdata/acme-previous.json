@@ -1,0 +1,1945 @@
+{
+ "schemaVersion": 1,
+ "generated": "2026-10-23 09:00 UTC",
+ "repos": [
+  {
+   "name": "platform-images",
+   "url": "repos/platform-images",
+   "commit": "b8a9c2331b65e0d5552bedf7e421c4f97993c573"
+  },
+  {
+   "name": "shared-libs",
+   "url": "repos/shared-libs",
+   "commit": "b8a9c2331b65e0d5552bedf7e421c4f97993c573"
+  },
+  {
+   "name": "infra-terraform",
+   "url": "repos/infra-terraform",
+   "commit": "b8a9c2331b65e0d5552bedf7e421c4f97993c573"
+  },
+  {
+   "name": "orders-service",
+   "url": "repos/orders-service",
+   "commit": "9f2c4e1b7a6d5c3e2f1a0b9c8d7e6f5a4b3c2d1e"
+  },
+  {
+   "name": "payments-service",
+   "url": "repos/payments-service",
+   "commit": "b8a9c2331b65e0d5552bedf7e421c4f97993c573"
+  },
+  {
+   "name": "web-frontend",
+   "url": "repos/web-frontend",
+   "commit": "b8a9c2331b65e0d5552bedf7e421c4f97993c573"
+  },
+  {
+   "name": "release-train",
+   "url": "repos/release-train",
+   "commit": "b8a9c2331b65e0d5552bedf7e421c4f97993c573"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "bt:infra-terraform/Apply_prod",
+   "kind": "build",
+   "repo": "infra-terraform",
+   "label": "Apply prod",
+   "sub": "InfraTerraform_Apply_prod",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make apply ENV=prod",
+     "script": "make apply ENV=prod"
+    }
+   ],
+   "source": ".teamcity/settings.kts:36"
+  },
+  {
+   "id": "bt:infra-terraform/Apply_staging",
+   "kind": "build",
+   "repo": "infra-terraform",
+   "label": "Apply staging",
+   "sub": "InfraTerraform_Apply_staging",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make apply ENV=staging",
+     "script": "make apply ENV=staging"
+    }
+   ],
+   "source": ".teamcity/settings.kts:36"
+  },
+  {
+   "id": "bt:infra-terraform/Plan_prod",
+   "kind": "build",
+   "repo": "infra-terraform",
+   "label": "Plan prod",
+   "sub": "InfraTerraform_Plan_prod",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make plan ENV=prod",
+     "script": "make plan ENV=prod"
+    }
+   ],
+   "artifacts": [
+    "envs/prod/tfplan"
+   ],
+   "source": ".teamcity/settings.kts:24"
+  },
+  {
+   "id": "bt:infra-terraform/Plan_staging",
+   "kind": "build",
+   "repo": "infra-terraform",
+   "label": "Plan staging",
+   "sub": "InfraTerraform_Plan_staging",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make plan ENV=staging",
+     "script": "make plan ENV=staging"
+    }
+   ],
+   "artifacts": [
+    "envs/staging/tfplan"
+   ],
+   "source": ".teamcity/settings.kts:24"
+  },
+  {
+   "id": "bt:infra-terraform/Validate",
+   "kind": "build",
+   "repo": "infra-terraform",
+   "label": "terraform validate",
+   "sub": "InfraTerraform_Validate",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make validate",
+     "script": "make validate"
+    }
+   ],
+   "source": ".teamcity/settings.kts:17"
+  },
+  {
+   "id": "bt:orders-service/Build",
+   "kind": "build",
+   "repo": "orders-service",
+   "label": "Build & unit test",
+   "sub": "OrdersService_Build",
+   "steps": [
+    {
+     "name": "ci",
+     "type": "script",
+     "summary": "make ci",
+     "script": "make ci"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:*"
+    }
+   ],
+   "artifacts": [
+    "bin/orders => orders-bin.zip",
+    "reports/** => reports.zip"
+   ],
+   "source": ".teamcity/settings.kts:18"
+  },
+  {
+   "id": "bt:orders-service/Deploy_prod",
+   "kind": "build",
+   "repo": "orders-service",
+   "label": "Deploy orders → prod",
+   "sub": "OrdersService_Deploy_prod",
+   "project": "Deploy",
+   "steps": [
+    {
+     "name": "helm upgrade",
+     "type": "script",
+     "summary": "make deploy ENV=prod DRY_RUN=1",
+     "script": "make deploy ENV=prod DRY_RUN=1"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "finishBuild",
+     "detail": "Integration tests"
+    }
+   ],
+   "source": ".teamcity/Deploy.kt:5",
+   "params": {
+    "env.REPLICAS": "2"
+   }
+  },
+  {
+   "id": "bt:orders-service/Deploy_staging",
+   "kind": "build",
+   "repo": "orders-service",
+   "label": "Deploy orders → staging",
+   "sub": "OrdersService_Deploy_staging",
+   "project": "Deploy",
+   "steps": [
+    {
+     "name": "helm upgrade",
+     "type": "script",
+     "summary": "make deploy ENV=staging",
+     "script": "make deploy ENV=staging"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "finishBuild",
+     "detail": "Integration tests"
+    }
+   ],
+   "source": ".teamcity/Deploy.kt:5"
+  },
+  {
+   "id": "bt:orders-service/Image",
+   "kind": "build",
+   "repo": "orders-service",
+   "label": "Docker image",
+   "sub": "OrdersService_Image",
+   "steps": [
+    {
+     "name": "build & push",
+     "type": "script",
+     "summary": "make image push IMAGE=registry.acme.io/orders TAG=%image....",
+     "script": "make image push IMAGE=registry.acme.io/orders TAG=%image.tag%"
+    }
+   ],
+   "params": {
+    "image.tag": "%build.number%"
+   },
+   "source": ".teamcity/settings.kts:40"
+  },
+  {
+   "id": "bt:orders-service/IntegrationTests",
+   "kind": "build",
+   "repo": "orders-service",
+   "label": "Integration tests",
+   "sub": "OrdersService_IntegrationTests",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "./ci/integration.sh",
+     "script": "./ci/integration.sh"
+    }
+   ],
+   "source": ".teamcity/settings.kts:60"
+  },
+  {
+   "id": "bt:orders-service/LegacySmoke",
+   "kind": "build",
+   "repo": "orders-service",
+   "label": "Legacy smoke test",
+   "sub": "OrdersService_LegacySmoke",
+   "project": "orders-service",
+   "steps": [
+    {
+     "name": "smoke",
+     "type": "script",
+     "summary": "./ci/smoke.sh",
+     "script": "./ci/smoke.sh"
+    }
+   ],
+   "source": ".teamcity/settings.kts:120"
+  },
+  {
+   "id": "bt:payments-service/Build",
+   "kind": "build",
+   "repo": "payments-service",
+   "label": "payments: build & test",
+   "sub": "PaymentsService_Build",
+   "steps": [
+    {
+     "type": "gradle",
+     "summary": "gradle clean build",
+     "script": "gradle clean build"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:*"
+    }
+   ],
+   "params": {
+    "env.GRADLE_OPTS": "-Xmx2g"
+   },
+   "artifacts": [
+    "build/libs/payments.jar"
+   ],
+   "source": ".teamcity/settings.kts:33"
+  },
+  {
+   "id": "bt:payments-service/Deploy_prod",
+   "kind": "build",
+   "repo": "payments-service",
+   "label": "payments: deploy prod",
+   "sub": "PaymentsService_Deploy_prod",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "./scripts/deploy.sh prod",
+     "script": "./scripts/deploy.sh prod"
+    }
+   ],
+   "params": {
+    "env.GRADLE_OPTS": "-Xmx2g"
+   },
+   "source": ".teamcity/settings.kts:92"
+  },
+  {
+   "id": "bt:payments-service/Deploy_staging",
+   "kind": "build",
+   "repo": "payments-service",
+   "label": "payments: deploy staging",
+   "sub": "PaymentsService_Deploy_staging",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "./scripts/deploy.sh staging",
+     "script": "./scripts/deploy.sh staging"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "finishBuild",
+     "detail": "payments: docker image"
+    }
+   ],
+   "params": {
+    "env.GRADLE_OPTS": "-Xmx2g"
+   },
+   "source": ".teamcity/settings.kts:75"
+  },
+  {
+   "id": "bt:payments-service/Image",
+   "kind": "build",
+   "repo": "payments-service",
+   "label": "payments: docker image",
+   "sub": "PaymentsService_Image",
+   "steps": [
+    {
+     "name": "build",
+     "type": "dockerCommand",
+     "summary": "docker build -f docker/Dockerfile -t registry.acme.io/pay...",
+     "script": "docker build -f docker/Dockerfile -t registry.acme.io/payments:%build.number% ."
+    },
+    {
+     "name": "push",
+     "type": "dockerCommand",
+     "summary": "docker push registry.acme.io/payments:%build.number%",
+     "script": "docker push registry.acme.io/payments:%build.number%"
+    }
+   ],
+   "params": {
+    "env.GRADLE_OPTS": "-Xmx2g"
+   },
+   "source": ".teamcity/settings.kts:49"
+  },
+  {
+   "id": "bt:platform-images/BaseGo",
+   "kind": "build",
+   "repo": "platform-images",
+   "label": "Base image: Go",
+   "sub": "PlatformImages_BaseGo",
+   "steps": [
+    {
+     "name": "build & push",
+     "type": "script",
+     "summary": "make image-go push-go",
+     "script": "make image-go push-go"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:<default>"
+    }
+   ],
+   "params": {
+    "env.REGISTRY": "registry.acme.io"
+   },
+   "source": ".teamcity/settings.kts:46"
+  },
+  {
+   "id": "bt:platform-images/BaseJre",
+   "kind": "build",
+   "repo": "platform-images",
+   "label": "Base image: JRE",
+   "sub": "PlatformImages_BaseJre",
+   "steps": [
+    {
+     "name": "build & push",
+     "type": "script",
+     "summary": "make image-jre push-jre",
+     "script": "make image-jre push-jre"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:<default>"
+    }
+   ],
+   "params": {
+    "env.REGISTRY": "registry.acme.io"
+   },
+   "source": ".teamcity/settings.kts:70"
+  },
+  {
+   "id": "bt:platform-images/BaseNode",
+   "kind": "build",
+   "repo": "platform-images",
+   "label": "Base image: Node",
+   "sub": "PlatformImages_BaseNode",
+   "steps": [
+    {
+     "name": "build & push",
+     "type": "script",
+     "summary": "make image-node push-node",
+     "script": "make image-node push-node"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:<default>"
+    }
+   ],
+   "params": {
+    "env.REGISTRY": "registry.acme.io"
+   },
+   "source": ".teamcity/settings.kts:58"
+  },
+  {
+   "id": "bt:platform-images/LintDockerfiles",
+   "kind": "build",
+   "repo": "platform-images",
+   "label": "Lint Dockerfiles",
+   "sub": "PlatformImages_LintDockerfiles",
+   "steps": [
+    {
+     "name": "hadolint",
+     "type": "script",
+     "summary": "make lint",
+     "script": "make lint"
+    }
+   ],
+   "source": ".teamcity/settings.kts:36"
+  },
+  {
+   "id": "bt:platform-images/SecurityScan",
+   "kind": "build",
+   "repo": "platform-images",
+   "label": "Nightly CVE scan",
+   "sub": "PlatformImages_SecurityScan",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "docker pull registry.acme.io/base/go:latest",
+     "script": "docker pull registry.acme.io/base/go:latest\ndocker pull registry.acme.io/base/node:latest\ndocker pull registry.acme.io/base/jre:latest\nmake scan"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "schedule",
+     "detail": "daily hour=1"
+    }
+   ],
+   "source": ".teamcity/settings.kts:82"
+  },
+  {
+   "id": "bt:release-train/Freeze",
+   "kind": "build",
+   "repo": "release-train",
+   "label": "Code freeze & changelog",
+   "sub": "ReleaseTrain_Freeze",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "./scripts/changelog.sh",
+     "script": "./scripts/changelog.sh"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "schedule",
+     "detail": "weekly dayOfWeek=Tuesday hour=9"
+    }
+   ],
+   "source": ".teamcity/settings.kts:27"
+  },
+  {
+   "id": "bt:release-train/Release",
+   "kind": "build",
+   "repo": "release-train",
+   "label": "Release train",
+   "sub": "ReleaseTrain_Release",
+   "composite": true,
+   "source": ".teamcity/settings.kts:50"
+  },
+  {
+   "id": "bt:release-train/StagingSmoke",
+   "kind": "build",
+   "repo": "release-train",
+   "label": "Staging smoke suite",
+   "sub": "ReleaseTrain_StagingSmoke",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make smoke ENV=staging",
+     "script": "make smoke ENV=staging"
+    }
+   ],
+   "source": ".teamcity/settings.kts:43"
+  },
+  {
+   "id": "bt:shared-libs/PublishGo",
+   "kind": "build",
+   "repo": "shared-libs",
+   "label": "Publish Go SDK",
+   "sub": "SharedLibs_PublishGo",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make -C go release VERSION=%build.number%",
+     "script": "make -C go release VERSION=%build.number%"
+    }
+   ],
+   "artifacts": [
+    "dist/acme-go-sdk.tar.gz"
+   ],
+   "source": ".teamcity/settings.kts:27"
+  },
+  {
+   "id": "bt:shared-libs/PublishKotlin",
+   "kind": "build",
+   "repo": "shared-libs",
+   "label": "Publish Kotlin SDK",
+   "sub": "SharedLibs_PublishKotlin",
+   "steps": [
+    {
+     "name": "publish",
+     "type": "gradle",
+     "summary": "gradle :sdk:publish",
+     "script": "gradle :sdk:publish",
+     "workDir": "kotlin"
+    }
+   ],
+   "artifacts": [
+    "kotlin/build/libs/*.jar"
+   ],
+   "source": ".teamcity/settings.kts:41"
+  },
+  {
+   "id": "bt:shared-libs/Verify",
+   "kind": "build",
+   "repo": "shared-libs",
+   "label": "Verify libraries",
+   "sub": "SharedLibs_Verify",
+   "steps": [
+    {
+     "name": "lint + test",
+     "type": "script",
+     "summary": "./ci/verify.sh",
+     "script": "./ci/verify.sh"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:*"
+    }
+   ],
+   "source": ".teamcity/settings.kts:14"
+  },
+  {
+   "id": "bt:web-frontend/Build",
+   "kind": "build",
+   "repo": "web-frontend",
+   "label": "Build web app",
+   "sub": "WebFrontend_Build",
+   "steps": [
+    {
+     "name": "bundle",
+     "type": "exec",
+     "summary": "make -C app bundle",
+     "script": "make -C app bundle"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "vcs",
+     "detail": "+:*"
+    }
+   ],
+   "artifacts": [
+    "app/dist/** => web-dist.zip"
+   ],
+   "source": ".teamcity/settings.kts:15"
+  },
+  {
+   "id": "bt:web-frontend/E2E",
+   "kind": "build",
+   "repo": "web-frontend",
+   "label": "E2E (Playwright)",
+   "sub": "WebFrontend_E2E",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "docker run -d --name orders registry.acme.io/orders:latest",
+     "script": "docker run -d --name orders registry.acme.io/orders:latest\ndocker run -d --name payments registry.acme.io/payments:latest\nmake -C e2e run"
+    }
+   ],
+   "source": ".teamcity/settings.kts:43"
+  },
+  {
+   "id": "bt:web-frontend/PublishCdn",
+   "kind": "build",
+   "repo": "web-frontend",
+   "label": "Publish to CDN",
+   "sub": "WebFrontend_PublishCdn",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make -C app publish BUCKET=s3://acme-web-%teamcity.build....",
+     "script": "make -C app publish BUCKET=s3://acme-web-%teamcity.build.branch%"
+    }
+   ],
+   "triggers": [
+    {
+     "type": "finishBuild",
+     "detail": "E2E (Playwright)"
+    }
+   ],
+   "source": ".teamcity/settings.kts:61"
+  },
+  {
+   "id": "bt:web-frontend/Storybook",
+   "kind": "build",
+   "repo": "web-frontend",
+   "label": "Storybook",
+   "sub": "WebFrontend_Storybook",
+   "steps": [
+    {
+     "type": "script",
+     "summary": "make -C app storybook",
+     "script": "make -C app storybook"
+    }
+   ],
+   "source": ".teamcity/settings.kts:33"
+  },
+  {
+   "id": "ext:Legacy_Billing_DeployProd",
+   "kind": "external",
+   "label": "Legacy_Billing_DeployProd",
+   "sub": "not in analysed repos"
+  },
+  {
+   "id": "img:registry.acme.io/base/go",
+   "kind": "image",
+   "repo": "platform-images",
+   "label": "go",
+   "sub": "registry.acme.io/base/go",
+   "params": {
+    "from": "golang"
+   }
+  },
+  {
+   "id": "img:registry.acme.io/base/jre",
+   "kind": "image",
+   "repo": "platform-images",
+   "label": "jre",
+   "sub": "registry.acme.io/base/jre",
+   "params": {
+    "from": "eclipse-temurin"
+   }
+  },
+  {
+   "id": "img:registry.acme.io/base/node",
+   "kind": "image",
+   "repo": "platform-images",
+   "label": "node",
+   "sub": "registry.acme.io/base/node",
+   "params": {
+    "from": "node"
+   }
+  },
+  {
+   "id": "img:registry.acme.io/orders",
+   "kind": "image",
+   "repo": "orders-service",
+   "label": "orders",
+   "sub": "registry.acme.io/orders",
+   "params": {
+    "from": "gcr.io/distroless/static"
+   }
+  },
+  {
+   "id": "img:registry.acme.io/payments",
+   "kind": "image",
+   "repo": "payments-service",
+   "label": "payments",
+   "sub": "registry.acme.io/payments"
+  },
+  {
+   "id": "mk:infra-terraform/Makefile:apply",
+   "kind": "make",
+   "repo": "infra-terraform",
+   "label": "apply",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "terraform -chdir=envs/prod apply -input=false tfplan",
+     "script": "terraform -chdir=envs/prod apply -input=false tfplan"
+    }
+   ],
+   "source": "Makefile:16"
+  },
+  {
+   "id": "mk:infra-terraform/Makefile:init",
+   "kind": "make",
+   "repo": "infra-terraform",
+   "label": "init",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "terraform -chdir=envs/prod init -input=false",
+     "script": "terraform -chdir=envs/prod init -input=false"
+    }
+   ],
+   "source": "Makefile:6"
+  },
+  {
+   "id": "mk:infra-terraform/Makefile:plan",
+   "kind": "make",
+   "repo": "infra-terraform",
+   "label": "plan",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "terraform -chdir=envs/prod plan -out=tfplan",
+     "script": "terraform -chdir=envs/prod plan -out=tfplan"
+    }
+   ],
+   "source": "Makefile:13"
+  },
+  {
+   "id": "mk:infra-terraform/Makefile:validate",
+   "kind": "make",
+   "repo": "infra-terraform",
+   "label": "validate",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "terraform -chdir=envs/staging validate",
+     "script": "terraform -chdir=envs/staging validate\ntflint --recursive"
+    }
+   ],
+   "source": "Makefile:9"
+  },
+  {
+   "id": "mk:orders-service/Makefile:build",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "build",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "CGO_ENABLED=0 go build -o bin/orders ./cmd/orders",
+     "script": "CGO_ENABLED=0 go build -o bin/orders ./cmd/orders"
+    }
+   ],
+   "source": "mk/go.mk:12"
+  },
+  {
+   "id": "mk:orders-service/Makefile:ci",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "ci",
+   "sub": "Makefile",
+   "source": "Makefile:8"
+  },
+  {
+   "id": "mk:orders-service/Makefile:deploy",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "deploy",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "$(MAKE) -C deploy ENV=prod helm-upgrade",
+     "script": "$(MAKE) -C deploy ENV=prod helm-upgrade"
+    }
+   ],
+   "source": "Makefile:10"
+  },
+  {
+   "id": "mk:orders-service/Makefile:generate",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "generate",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "sqlc generate",
+     "script": "sqlc generate"
+    }
+   ],
+   "source": "mk/go.mk:6"
+  },
+  {
+   "id": "mk:orders-service/Makefile:image",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "image",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker build -f build/Dockerfile -t registry.acme.io/orde...",
+     "script": "docker build -f build/Dockerfile -t registry.acme.io/orders:%build.number% ."
+    }
+   ],
+   "source": "mk/docker.mk:6"
+  },
+  {
+   "id": "mk:orders-service/Makefile:lint",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "lint",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "golangci-lint run ./...",
+     "script": "golangci-lint run ./..."
+    }
+   ],
+   "source": "mk/go.mk:3"
+  },
+  {
+   "id": "mk:orders-service/Makefile:pact-verify",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "pact-verify",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "pact-provider-verifier --provider orders --pact-broker-ba...",
+     "script": "pact-provider-verifier --provider orders --pact-broker-base-url https://pact.acme.io"
+    }
+   ],
+   "source": "Makefile:13"
+  },
+  {
+   "id": "mk:orders-service/Makefile:push",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "push",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker push registry.acme.io/orders:%build.number%",
+     "script": "docker push registry.acme.io/orders:%build.number%"
+    }
+   ],
+   "source": "mk/docker.mk:9"
+  },
+  {
+   "id": "mk:orders-service/Makefile:test",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "test",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "go test -race -coverprofile=reports/coverage.out ./...",
+     "script": "go test -race -coverprofile=reports/coverage.out ./..."
+    }
+   ],
+   "source": "mk/go.mk:9"
+  },
+  {
+   "id": "mk:orders-service/deploy/Makefile:helm-upgrade",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "helm-upgrade",
+   "sub": "deploy/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "helm upgrade --install orders ./chart -f values-prod.yaml",
+     "script": "helm upgrade --install orders ./chart -f values-prod.yaml"
+    }
+   ],
+   "source": "deploy/Makefile:3"
+  },
+  {
+   "id": "mk:orders-service/deploy/Makefile:render",
+   "kind": "make",
+   "repo": "orders-service",
+   "label": "render",
+   "sub": "deploy/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "helm template orders ./chart -f values-prod.yaml > /dev/null",
+     "script": "helm template orders ./chart -f values-prod.yaml > /dev/null"
+    }
+   ],
+   "source": "deploy/Makefile:6"
+  },
+  {
+   "id": "mk:payments-service/Makefile:rollout",
+   "kind": "make",
+   "repo": "payments-service",
+   "label": "rollout",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "kubectl -n payments-$ENV set image deploy/payments app=re...",
+     "script": "kubectl -n payments-$ENV set image deploy/payments app=registry.acme.io/payments:\n$(MAKE) smoke ENV=$ENV"
+    }
+   ],
+   "source": "Makefile:5"
+  },
+  {
+   "id": "mk:payments-service/Makefile:smoke",
+   "kind": "make",
+   "repo": "payments-service",
+   "label": "smoke",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "curl -fsS https://payments.$ENV.acme.io/health",
+     "script": "curl -fsS https://payments.$ENV.acme.io/health"
+    }
+   ],
+   "source": "Makefile:9"
+  },
+  {
+   "id": "mk:platform-images/Makefile:image-go",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "image-go",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker build -t registry.acme.io/base/go:latest images/go",
+     "script": "docker build -t registry.acme.io/base/go:latest images/go"
+    }
+   ],
+   "source": "Makefile:9"
+  },
+  {
+   "id": "mk:platform-images/Makefile:image-jre",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "image-jre",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker build -t registry.acme.io/base/jre:latest images/jre",
+     "script": "docker build -t registry.acme.io/base/jre:latest images/jre"
+    }
+   ],
+   "source": "Makefile:15"
+  },
+  {
+   "id": "mk:platform-images/Makefile:image-node",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "image-node",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker build -t registry.acme.io/base/node:latest images/...",
+     "script": "docker build -t registry.acme.io/base/node:latest images/node"
+    }
+   ],
+   "source": "Makefile:12"
+  },
+  {
+   "id": "mk:platform-images/Makefile:lint",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "lint",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "hadolint images/*/Dockerfile",
+     "script": "hadolint images/*/Dockerfile"
+    }
+   ],
+   "source": "Makefile:6"
+  },
+  {
+   "id": "mk:platform-images/Makefile:push-go",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "push-go",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker push registry.acme.io/base/go:latest",
+     "script": "docker push registry.acme.io/base/go:latest"
+    }
+   ],
+   "source": "Makefile:18"
+  },
+  {
+   "id": "mk:platform-images/Makefile:push-jre",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "push-jre",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker push registry.acme.io/base/jre:latest",
+     "script": "docker push registry.acme.io/base/jre:latest"
+    }
+   ],
+   "source": "Makefile:24"
+  },
+  {
+   "id": "mk:platform-images/Makefile:push-node",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "push-node",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "docker push registry.acme.io/base/node:latest",
+     "script": "docker push registry.acme.io/base/node:latest"
+    }
+   ],
+   "source": "Makefile:21"
+  },
+  {
+   "id": "mk:platform-images/Makefile:scan",
+   "kind": "make",
+   "repo": "platform-images",
+   "label": "scan",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "trivy image --severity HIGH,CRITICAL registry.acme.io/bas...",
+     "script": "trivy image --severity HIGH,CRITICAL registry.acme.io/base/go:latest"
+    }
+   ],
+   "source": "Makefile:27"
+  },
+  {
+   "id": "mk:release-train/Makefile:changelog",
+   "kind": "make",
+   "repo": "release-train",
+   "label": "changelog",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "git-cliff --unreleased --prepend CHANGELOG.md",
+     "script": "git-cliff --unreleased --prepend CHANGELOG.md"
+    }
+   ],
+   "source": "Makefile:5"
+  },
+  {
+   "id": "mk:release-train/Makefile:smoke",
+   "kind": "make",
+   "repo": "release-train",
+   "label": "smoke",
+   "sub": "Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "k6 run --env TARGET=https://staging.acme.io smoke/checkou...",
+     "script": "k6 run --env TARGET=https://staging.acme.io smoke/checkout.js"
+    }
+   ],
+   "source": "Makefile:8"
+  },
+  {
+   "id": "mk:shared-libs/go/Makefile:generate",
+   "kind": "make",
+   "repo": "shared-libs",
+   "label": "generate",
+   "sub": "go/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "buf generate ../proto",
+     "script": "buf generate ../proto"
+    }
+   ],
+   "source": "go/Makefile:11"
+  },
+  {
+   "id": "mk:shared-libs/go/Makefile:lint",
+   "kind": "make",
+   "repo": "shared-libs",
+   "label": "lint",
+   "sub": "go/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "golangci-lint run ./...",
+     "script": "golangci-lint run ./..."
+    }
+   ],
+   "source": "go/Makefile:5"
+  },
+  {
+   "id": "mk:shared-libs/go/Makefile:release",
+   "kind": "make",
+   "repo": "shared-libs",
+   "label": "release",
+   "sub": "go/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "mkdir -p ../dist",
+     "script": "mkdir -p ../dist\ntar czf ../dist/acme-go-sdk.tar.gz --transform 's,^,acme-go-sdk-%build.number%/,' ."
+    }
+   ],
+   "source": "go/Makefile:14"
+  },
+  {
+   "id": "mk:shared-libs/go/Makefile:test",
+   "kind": "make",
+   "repo": "shared-libs",
+   "label": "test",
+   "sub": "go/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "go test -race ./...",
+     "script": "go test -race ./..."
+    }
+   ],
+   "source": "go/Makefile:8"
+  },
+  {
+   "id": "mk:web-frontend/app/Makefile:bundle",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "bundle",
+   "sub": "app/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "npm run build",
+     "script": "npm run build"
+    }
+   ],
+   "source": "app/Makefile:11"
+  },
+  {
+   "id": "mk:web-frontend/app/Makefile:deps",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "deps",
+   "sub": "app/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "npm ci",
+     "script": "npm ci"
+    }
+   ],
+   "source": "app/Makefile:5"
+  },
+  {
+   "id": "mk:web-frontend/app/Makefile:lint",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "lint",
+   "sub": "app/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "npm run lint",
+     "script": "npm run lint"
+    }
+   ],
+   "source": "app/Makefile:8"
+  },
+  {
+   "id": "mk:web-frontend/app/Makefile:publish",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "publish",
+   "sub": "app/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "aws s3 sync dist/ s3://acme-web-%teamcity.build.branch% -...",
+     "script": "aws s3 sync dist/ s3://acme-web-%teamcity.build.branch% --delete"
+    }
+   ],
+   "source": "app/Makefile:17"
+  },
+  {
+   "id": "mk:web-frontend/app/Makefile:storybook",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "storybook",
+   "sub": "app/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "npm run build-storybook",
+     "script": "npm run build-storybook"
+    }
+   ],
+   "source": "app/Makefile:14"
+  },
+  {
+   "id": "mk:web-frontend/e2e/Makefile:install",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "install",
+   "sub": "e2e/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "npx playwright install --with-deps chromium",
+     "script": "npx playwright install --with-deps chromium"
+    }
+   ],
+   "source": "e2e/Makefile:4"
+  },
+  {
+   "id": "mk:web-frontend/e2e/Makefile:run",
+   "kind": "make",
+   "repo": "web-frontend",
+   "label": "run",
+   "sub": "e2e/Makefile",
+   "steps": [
+    {
+     "type": "recipe",
+     "summary": "npx playwright test",
+     "script": "npx playwright test"
+    }
+   ],
+   "source": "e2e/Makefile:1"
+  }
+ ],
+ "edges": [
+  {
+   "from": "bt:infra-terraform/Apply_prod",
+   "to": "bt:orders-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Apply_prod",
+   "to": "bt:payments-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Apply_prod",
+   "to": "mk:infra-terraform/Makefile:apply",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:infra-terraform/Apply_staging",
+   "to": "bt:infra-terraform/Plan_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Apply_staging",
+   "to": "bt:orders-service/Deploy_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Apply_staging",
+   "to": "bt:payments-service/Deploy_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Apply_staging",
+   "to": "mk:infra-terraform/Makefile:apply",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:infra-terraform/Plan_prod",
+   "to": "bt:infra-terraform/Apply_prod",
+   "kind": "artifact",
+   "label": "tfplan => envs/prod/"
+  },
+  {
+   "from": "bt:infra-terraform/Plan_prod",
+   "to": "bt:infra-terraform/Apply_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Plan_prod",
+   "to": "mk:infra-terraform/Makefile:plan",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:infra-terraform/Plan_staging",
+   "to": "bt:infra-terraform/Apply_staging",
+   "kind": "artifact",
+   "label": "tfplan => envs/staging/"
+  },
+  {
+   "from": "bt:infra-terraform/Plan_staging",
+   "to": "bt:infra-terraform/Apply_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Plan_staging",
+   "to": "mk:infra-terraform/Makefile:plan",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:infra-terraform/Validate",
+   "to": "bt:infra-terraform/Plan_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Validate",
+   "to": "bt:infra-terraform/Plan_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:infra-terraform/Validate",
+   "to": "mk:infra-terraform/Makefile:validate",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:orders-service/Build",
+   "to": "bt:orders-service/Image",
+   "kind": "artifact",
+   "label": "orders-bin.zip!** => bin/"
+  },
+  {
+   "from": "bt:orders-service/Build",
+   "to": "mk:orders-service/Makefile:ci",
+   "kind": "runs",
+   "label": "ci"
+  },
+  {
+   "from": "bt:orders-service/Deploy_prod",
+   "to": "bt:release-train/Release",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/Deploy_prod",
+   "to": "mk:orders-service/Makefile:deploy",
+   "kind": "runs",
+   "label": "helm upgrade"
+  },
+  {
+   "from": "bt:orders-service/Deploy_staging",
+   "to": "bt:orders-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/Deploy_staging",
+   "to": "bt:release-train/StagingSmoke",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/Deploy_staging",
+   "to": "mk:orders-service/Makefile:deploy",
+   "kind": "runs",
+   "label": "helm upgrade"
+  },
+  {
+   "from": "bt:orders-service/Image",
+   "to": "bt:orders-service/IntegrationTests",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/Image",
+   "to": "bt:web-frontend/E2E",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/Image",
+   "to": "mk:orders-service/Makefile:image",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:orders-service/Image",
+   "to": "mk:orders-service/Makefile:push",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:orders-service/IntegrationTests",
+   "to": "bt:orders-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/IntegrationTests",
+   "to": "bt:orders-service/Deploy_prod",
+   "kind": "trigger",
+   "label": "on success"
+  },
+  {
+   "from": "bt:orders-service/IntegrationTests",
+   "to": "bt:orders-service/Deploy_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/IntegrationTests",
+   "to": "bt:orders-service/Deploy_staging",
+   "kind": "trigger",
+   "label": "on success"
+  },
+  {
+   "from": "bt:payments-service/Build",
+   "to": "bt:payments-service/Image",
+   "kind": "artifact",
+   "label": "payments.jar => build/libs/"
+  },
+  {
+   "from": "bt:payments-service/Deploy_prod",
+   "to": "bt:release-train/Release",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:payments-service/Deploy_prod",
+   "to": "mk:payments-service/Makefile:rollout",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:payments-service/Deploy_staging",
+   "to": "bt:payments-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:payments-service/Deploy_staging",
+   "to": "bt:release-train/StagingSmoke",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:payments-service/Deploy_staging",
+   "to": "mk:payments-service/Makefile:rollout",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:payments-service/Image",
+   "to": "bt:payments-service/Deploy_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:payments-service/Image",
+   "to": "bt:payments-service/Deploy_staging",
+   "kind": "trigger",
+   "label": "on success"
+  },
+  {
+   "from": "bt:payments-service/Image",
+   "to": "bt:web-frontend/E2E",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:payments-service/Image",
+   "to": "img:registry.acme.io/payments",
+   "kind": "produces"
+  },
+  {
+   "from": "bt:platform-images/BaseGo",
+   "to": "bt:orders-service/Image",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseGo",
+   "to": "bt:platform-images/SecurityScan",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseGo",
+   "to": "bt:shared-libs/PublishGo",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseGo",
+   "to": "mk:platform-images/Makefile:image-go",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:platform-images/BaseGo",
+   "to": "mk:platform-images/Makefile:push-go",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:platform-images/BaseJre",
+   "to": "bt:payments-service/Image",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseJre",
+   "to": "bt:platform-images/SecurityScan",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseJre",
+   "to": "mk:platform-images/Makefile:image-jre",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:platform-images/BaseJre",
+   "to": "mk:platform-images/Makefile:push-jre",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:platform-images/BaseNode",
+   "to": "bt:platform-images/SecurityScan",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseNode",
+   "to": "bt:web-frontend/Build",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/BaseNode",
+   "to": "mk:platform-images/Makefile:image-node",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:platform-images/BaseNode",
+   "to": "mk:platform-images/Makefile:push-node",
+   "kind": "runs",
+   "label": "build & push"
+  },
+  {
+   "from": "bt:platform-images/LintDockerfiles",
+   "to": "bt:platform-images/BaseGo",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/LintDockerfiles",
+   "to": "bt:platform-images/BaseJre",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/LintDockerfiles",
+   "to": "bt:platform-images/BaseNode",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:platform-images/LintDockerfiles",
+   "to": "mk:platform-images/Makefile:lint",
+   "kind": "runs",
+   "label": "hadolint"
+  },
+  {
+   "from": "bt:platform-images/SecurityScan",
+   "to": "mk:platform-images/Makefile:scan",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:release-train/Freeze",
+   "to": "bt:orders-service/Deploy_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:release-train/Freeze",
+   "to": "bt:payments-service/Deploy_staging",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:release-train/Freeze",
+   "to": "mk:release-train/Makefile:changelog",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:release-train/StagingSmoke",
+   "to": "bt:orders-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:release-train/StagingSmoke",
+   "to": "bt:payments-service/Deploy_prod",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:release-train/StagingSmoke",
+   "to": "bt:web-frontend/PublishCdn",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:release-train/StagingSmoke",
+   "to": "ext:Legacy_Billing_DeployProd",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:release-train/StagingSmoke",
+   "to": "mk:release-train/Makefile:smoke",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:shared-libs/PublishGo",
+   "to": "bt:orders-service/Build",
+   "kind": "artifact",
+   "label": "acme-go-sdk.tar.gz => third_party/"
+  },
+  {
+   "from": "bt:shared-libs/PublishGo",
+   "to": "mk:shared-libs/go/Makefile:release",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:shared-libs/PublishKotlin",
+   "to": "bt:payments-service/Build",
+   "kind": "artifact",
+   "label": "*.jar => libs/"
+  },
+  {
+   "from": "bt:shared-libs/Verify",
+   "to": "bt:shared-libs/PublishGo",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:shared-libs/Verify",
+   "to": "bt:shared-libs/PublishKotlin",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:shared-libs/Verify",
+   "to": "mk:shared-libs/go/Makefile:lint",
+   "kind": "runs",
+   "label": "lint + test"
+  },
+  {
+   "from": "bt:shared-libs/Verify",
+   "to": "mk:shared-libs/go/Makefile:test",
+   "kind": "runs",
+   "label": "lint + test"
+  },
+  {
+   "from": "bt:web-frontend/Build",
+   "to": "bt:web-frontend/E2E",
+   "kind": "artifact",
+   "label": "web-dist.zip!** => app/dist"
+  },
+  {
+   "from": "bt:web-frontend/Build",
+   "to": "bt:web-frontend/PublishCdn",
+   "kind": "artifact",
+   "label": "web-dist.zip!** => app/dist"
+  },
+  {
+   "from": "bt:web-frontend/Build",
+   "to": "bt:web-frontend/Storybook",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:web-frontend/Build",
+   "to": "mk:web-frontend/app/Makefile:bundle",
+   "kind": "runs",
+   "label": "bundle"
+  },
+  {
+   "from": "bt:web-frontend/E2E",
+   "to": "bt:web-frontend/PublishCdn",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:web-frontend/E2E",
+   "to": "bt:web-frontend/PublishCdn",
+   "kind": "trigger",
+   "label": "on success"
+  },
+  {
+   "from": "bt:web-frontend/E2E",
+   "to": "mk:web-frontend/e2e/Makefile:run",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:web-frontend/PublishCdn",
+   "to": "bt:release-train/Release",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:web-frontend/PublishCdn",
+   "to": "mk:web-frontend/app/Makefile:publish",
+   "kind": "runs"
+  },
+  {
+   "from": "bt:web-frontend/Storybook",
+   "to": "mk:web-frontend/app/Makefile:storybook",
+   "kind": "runs"
+  },
+  {
+   "from": "ext:Legacy_Billing_DeployProd",
+   "to": "bt:release-train/Release",
+   "kind": "snapshot"
+  },
+  {
+   "from": "img:registry.acme.io/base/go",
+   "to": "bt:platform-images/SecurityScan",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/base/go",
+   "to": "img:registry.acme.io/orders",
+   "kind": "derives"
+  },
+  {
+   "from": "img:registry.acme.io/base/go",
+   "to": "mk:orders-service/Makefile:image",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/base/jre",
+   "to": "bt:payments-service/Image",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/base/jre",
+   "to": "bt:platform-images/SecurityScan",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/base/jre",
+   "to": "img:registry.acme.io/payments",
+   "kind": "derives"
+  },
+  {
+   "from": "img:registry.acme.io/base/node",
+   "to": "bt:platform-images/SecurityScan",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/orders",
+   "to": "bt:orders-service/IntegrationTests",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/orders",
+   "to": "bt:orders-service/IntegrationTests",
+   "kind": "runsIn"
+  },
+  {
+   "from": "img:registry.acme.io/orders",
+   "to": "bt:web-frontend/E2E",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/orders",
+   "to": "bt:web-frontend/E2E",
+   "kind": "runsIn"
+  },
+  {
+   "from": "img:registry.acme.io/payments",
+   "to": "bt:web-frontend/E2E",
+   "kind": "consumes"
+  },
+  {
+   "from": "img:registry.acme.io/payments",
+   "to": "bt:web-frontend/E2E",
+   "kind": "runsIn"
+  },
+  {
+   "from": "mk:infra-terraform/Makefile:apply",
+   "to": "mk:infra-terraform/Makefile:init",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:infra-terraform/Makefile:plan",
+   "to": "mk:infra-terraform/Makefile:init",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:infra-terraform/Makefile:validate",
+   "to": "mk:infra-terraform/Makefile:init",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/Makefile:build",
+   "to": "mk:orders-service/Makefile:generate",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/Makefile:ci",
+   "to": "mk:orders-service/Makefile:build",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/Makefile:ci",
+   "to": "mk:orders-service/Makefile:lint",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/Makefile:ci",
+   "to": "mk:orders-service/Makefile:test",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/Makefile:deploy",
+   "to": "mk:orders-service/deploy/Makefile:helm-upgrade",
+   "kind": "calls"
+  },
+  {
+   "from": "mk:orders-service/Makefile:image",
+   "to": "img:registry.acme.io/orders",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:orders-service/Makefile:push",
+   "to": "img:registry.acme.io/orders",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:orders-service/Makefile:push",
+   "to": "mk:orders-service/Makefile:image",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/Makefile:test",
+   "to": "mk:orders-service/Makefile:generate",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:orders-service/deploy/Makefile:helm-upgrade",
+   "to": "mk:orders-service/deploy/Makefile:render",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:payments-service/Makefile:rollout",
+   "to": "mk:payments-service/Makefile:smoke",
+   "kind": "calls"
+  },
+  {
+   "from": "mk:platform-images/Makefile:image-go",
+   "to": "img:registry.acme.io/base/go",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:platform-images/Makefile:image-go",
+   "to": "mk:platform-images/Makefile:lint",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:platform-images/Makefile:image-jre",
+   "to": "img:registry.acme.io/base/jre",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:platform-images/Makefile:image-jre",
+   "to": "mk:platform-images/Makefile:lint",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:platform-images/Makefile:image-node",
+   "to": "img:registry.acme.io/base/node",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:platform-images/Makefile:image-node",
+   "to": "mk:platform-images/Makefile:lint",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:platform-images/Makefile:push-go",
+   "to": "img:registry.acme.io/base/go",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:platform-images/Makefile:push-go",
+   "to": "mk:platform-images/Makefile:image-go",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:platform-images/Makefile:push-jre",
+   "to": "img:registry.acme.io/base/jre",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:platform-images/Makefile:push-jre",
+   "to": "mk:platform-images/Makefile:image-jre",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:platform-images/Makefile:push-node",
+   "to": "img:registry.acme.io/base/node",
+   "kind": "produces"
+  },
+  {
+   "from": "mk:platform-images/Makefile:push-node",
+   "to": "mk:platform-images/Makefile:image-node",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:shared-libs/go/Makefile:release",
+   "to": "mk:shared-libs/go/Makefile:test",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:shared-libs/go/Makefile:test",
+   "to": "mk:shared-libs/go/Makefile:generate",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:web-frontend/app/Makefile:bundle",
+   "to": "mk:web-frontend/app/Makefile:lint",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:web-frontend/app/Makefile:lint",
+   "to": "mk:web-frontend/app/Makefile:deps",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:web-frontend/app/Makefile:storybook",
+   "to": "mk:web-frontend/app/Makefile:deps",
+   "kind": "depends"
+  },
+  {
+   "from": "mk:web-frontend/e2e/Makefile:run",
+   "to": "mk:web-frontend/e2e/Makefile:install",
+   "kind": "depends"
+  },
+  {
+   "from": "bt:orders-service/Image",
+   "to": "bt:release-train/Release",
+   "kind": "snapshot"
+  },
+  {
+   "from": "bt:orders-service/Image",
+   "to": "bt:orders-service/LegacySmoke",
+   "kind": "snapshot"
+  }
+ ],
+ "warnings": [
+  "release-train: .teamcity/settings.kts:20: build configuration Legacy_Billing_DeployProd not found in any analysed repo; shown as external"
+ ]
+}
