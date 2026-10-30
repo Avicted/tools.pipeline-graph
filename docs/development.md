@@ -152,3 +152,17 @@ fmt, clippy (`-D warnings`) and the tests run in the pre-commit image with the
 rest of the gate. Fonts are bundled (`viewer/assets/fonts`: Fira Sans under the
 SIL OFL, DejaVu Sans under its own free licence) so arrows and symbols in job
 names render the same everywhere.
+
+## Releasing
+
+The version lives in `VERSION`; `pipeline-graph -version`, the docker image tag
+and the viewer's About dialog derive from it. On a clean `master`:
+
+```sh
+make new-version BUMP=minor   # or major / patch: bumps VERSION and viewer/Cargo.toml, commits, tags vX.Y.Z
+git push origin HEAD vX.Y.Z
+gh release create vX.Y.Z --generate-notes   # publishing runs .github/workflows/release.yml
+```
+
+`make undo-version` drops the release commit and tag again as long as neither
+is pushed.
