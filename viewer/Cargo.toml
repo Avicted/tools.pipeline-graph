@@ -1,0 +1,24 @@
+[package]
+name = "pgview"
+version = "0.1.0"
+edition = "2021"
+description = "Native viewer for pipeline-graph's graph.json: a snapshot of what is actually built"
+license = "GPL-3.0-only"
+rust-version = "1.85"
+
+[dependencies]
+eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }
+egui = { version = "0.31", default-features = false }
+egui_extras = "0.31"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+nucleo-matcher = "0.3"
+image = { version = "0.25", default-features = false, features = ["png"] }
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
