@@ -59,11 +59,13 @@ var edgeStyles = map[model.EdgeKind]edgeStyle{
 	model.EdgeCalls:    {"#94A3B8", 1.2, "dot", "recursive make"},
 	model.EdgeProduces: {"#059669", 1.6, "dot", "produces image"},
 	model.EdgeConsumes: {"#059669", 1.6, "dot", "consumes image"},
+	model.EdgeDerives:  {"#0D9488", 1.6, "", "image built FROM image"},
+	model.EdgeRunsIn:   {"#0891B2", 1.4, "dash", "runs in container"},
 }
 
 var edgeOrder = []model.EdgeKind{
 	model.EdgeSnapshot, model.EdgeArtifact, model.EdgeTrigger, model.EdgeProduces,
-	model.EdgeConsumes, model.EdgeRuns, model.EdgeDepends, model.EdgeCalls,
+	model.EdgeConsumes, model.EdgeDerives, model.EdgeRunsIn, model.EdgeRuns, model.EdgeDepends, model.EdgeCalls,
 }
 
 // Card is the text content of a node box.
@@ -345,7 +347,7 @@ func WithoutMake(g *model.Graph) *model.Graph {
 			switch {
 			case e.Kind == model.EdgeProduces && reach[e.From]:
 				out.AddEdge(model.Edge{From: b.ID, To: e.To, Kind: e.Kind})
-			case e.Kind == model.EdgeConsumes && reach[e.To]:
+			case (e.Kind == model.EdgeConsumes || e.Kind == model.EdgeRunsIn) && reach[e.To]:
 				out.AddEdge(model.Edge{From: e.From, To: b.ID, Kind: e.Kind})
 			}
 		}

@@ -27,6 +27,8 @@ const (
 	EdgeCalls    EdgeKind = "calls"    // make recipe invokes another make
 	EdgeProduces EdgeKind = "produces" // build/target produces image
 	EdgeConsumes EdgeKind = "consumes" // image is used by build/target
+	EdgeDerives  EdgeKind = "derives"  // image is built FROM another image
+	EdgeRunsIn   EdgeKind = "runsIn"   // build/target runs inside a container of the image
 )
 
 // Edges point left to right in the diagram:
@@ -80,11 +82,12 @@ type Repo struct {
 const SchemaVersion = 1
 
 type Graph struct {
-	SchemaVersion int     `json:"schemaVersion"`
-	Generated     string  `json:"generated"`
-	Repos         []Repo  `json:"repos"`
-	Nodes         []*Node `json:"nodes"`
-	Edges         []Edge  `json:"edges"`
+	SchemaVersion int      `json:"schemaVersion"`
+	Generated     string   `json:"generated"`
+	Repos         []Repo   `json:"repos"`
+	Nodes         []*Node  `json:"nodes"`
+	Edges         []Edge   `json:"edges"`
+	Warnings      []string `json:"warnings,omitempty"` // what the analysis could not resolve
 
 	index map[string]*Node
 	seen  map[Edge]bool

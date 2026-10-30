@@ -5,6 +5,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -121,6 +123,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if cfg.Has("vsdx") {
 		vsdxViews = render.BuildViewsSized(g, cfg.Views, render.SizeVSDX)
 	}
+	g.Warnings = warnings
 	written, err := writeOutputs(cfg, g, views, vsdxViews, warnings)
 	for _, f := range written {
 		fmt.Fprintln(stdout, f)
@@ -189,6 +192,13 @@ func writeOutputs(cfg *config.Config, g *model.Graph, views, vsdxViews []render.
 			return written, err
 		}
 	}
+	if cfg.Has("json") {
+		if p, err := writeHistory(cfg.OutDir, g); err != nil {
+			return written, err
+		} else if p != "" {
+			written = append(written, p)
+		}
+	}
 	if err := write("warnings.txt", func(w io.Writer) error {
 		_, err := io.WriteString(w, strings.Join(warnings, "\n")+"\n")
 		return err
@@ -206,6 +216,34 @@ func writeOutputs(cfg *config.Config, g *model.Graph, views, vsdxViews []render.
 		}
 	}
 	return written, nil
+}
+
+// writeHistory keeps a copy of graph.json under <out>/history, named by time and
+// content, so pgview can compare against an earlier run. A run that found the
+// same graph as an existing snapshot adds nothing; it returns "" then.
+func writeHistory(outDir string, g *model.Graph) (string, error) {
+	var buf bytes.Buffer
+	if err := g.WriteJSON(&buf); err != nil {
+		return "", err
+	}
+	stamped := *g
+	stamped.Generated = ""
+	var h bytes.Buffer
+	if err := stamped.WriteJSON(&h); err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(h.Bytes())
+	tag := hex.EncodeToString(sum[:4])
+	dir := filepath.Join(outDir, "history")
+	if m, _ := filepath.Glob(filepath.Join(dir, "*-"+tag+".json")); len(m) > 0 {
+		return "", nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	ts := strings.NewReplacer(" ", "T", ":", "", "-", "", "UTC", "Z").Replace(g.Generated)
+	p := filepath.Join(dir, ts+"-"+tag+".json")
+	return p, os.WriteFile(p, buf.Bytes(), 0o644)
 }
 
 // overview drops make targets: the text formats are meant for READMEs and stay readable.

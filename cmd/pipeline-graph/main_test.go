@@ -104,8 +104,23 @@ func TestFormatsAreSelectable(t *testing.T) {
 	for _, e := range entries {
 		names = append(names, e.Name())
 	}
-	if got := strings.Join(names, ","); got != "graph.json,warnings.txt" {
-		t.Errorf("only the chosen format (plus warnings) is written, got %s", got)
+	if got := strings.Join(names, ","); got != "graph.json,history,warnings.txt" {
+		t.Errorf("only the chosen format (plus its history and warnings) is written, got %s", got)
+	}
+}
+
+func TestHistoryKeepsOneSnapshotPerDistinctGraph(t *testing.T) {
+	dir := t.TempDir()
+	cfg := writeConfig(t, dir, "formats: [json]\nout_dir: "+filepath.Join(dir, "o")+"\nrepos:\n  - "+fixture("service-a")+"\n")
+	for _, epoch := range []string{"1767225600", "1767312000"} { // same graph on two days
+		t.Setenv("SOURCE_DATE_EPOCH", epoch)
+		if code, _, errs := cli(t, "-config", cfg); code != 0 {
+			t.Fatalf("exit %d\n%s", code, errs)
+		}
+	}
+	snaps, _ := filepath.Glob(filepath.Join(dir, "o", "history", "*.json"))
+	if len(snaps) != 1 {
+		t.Errorf("an unchanged graph must not add a snapshot, got %v", snaps)
 	}
 }
 
