@@ -123,15 +123,16 @@ docker-run: run ## Alias for run
 # quality gate (fmt, clippy, tests) runs in the pre-commit image like the Go code.
 VIEWER_MANIFEST := $(ROOT_DIR)/viewer/Cargo.toml
 GRAPH ?= out/graph.json
-VIEWER_BIN := viewer/target/release/pipeline-graph-viewer
+VIEWER_TARGET ?= $(ROOT_DIR)/viewer/target
+VIEWER_BIN = $(VIEWER_TARGET)/release/pipeline-graph-viewer
 
 .PHONY: viewer
 viewer: ## Build the native viewer into viewer/target/release/pipeline-graph-viewer
-	cargo build --release --locked --manifest-path $(VIEWER_MANIFEST)
+	CARGO_TARGET_DIR="$(VIEWER_TARGET)" cargo build --release --locked --manifest-path $(VIEWER_MANIFEST)
 
 .PHONY: view
 view: viewer ## Open $(GRAPH) in the native viewer (make run or make example first): make view GRAPH=out/acme/graph.json
-	@./$(VIEWER_BIN) $(GRAPH) $(if $(COMPARE),--compare $(COMPARE))
+	@"$(VIEWER_BIN)" $(GRAPH) $(if $(COMPARE),--compare $(COMPARE))
 
 .PHONY: viewer-test
 viewer-test: ## Unit tests of the viewer
@@ -148,12 +149,30 @@ viewer-bench: ## Generate a 48k-node graph and check load, search, lineage, layo
 	cargo run --release --locked --manifest-path $(VIEWER_MANIFEST) --example frames -- $(BENCH_GRAPH) --check
 
 # The pictures in docs/screenshots/pipeline-graph-viewer are taken by the viewer itself, so
-# this needs a desktop session (it opens a window for a few seconds).
+# this needs a desktop session (it opens a window for a few seconds). SOURCE records
+# the commit they show, which is what viewer-shots-check rebuilds them from.
+SHOTS_DIR := docs/screenshots/pipeline-graph-viewer
 .PHONY: viewer-shots
 viewer-shots: viewer build ## Regenerate the viewer screenshots in docs/screenshots/pipeline-graph-viewer (needs a display)
 	SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml
-	@mkdir -p docs/screenshots/pipeline-graph-viewer
-	./$(VIEWER_BIN) out/acme/graph.json --compare viewer/testdata/acme-previous.json --theme light --shot docs/screenshots/pipeline-graph-viewer
+	@mkdir -p $(SHOTS_DIR)
+	"$(VIEWER_BIN)" out/acme/graph.json --compare viewer/testdata/acme-previous.json --theme light --shot $(SHOTS_DIR)
+	@git -C "$(ROOT_DIR)" rev-parse HEAD > $(SHOTS_DIR)/SOURCE
+	@[ -z "$$(git -C "$(ROOT_DIR)" status --porcelain -- . ':!docs/screenshots')" ] \
+		|| printf "$(BOLD)viewer-shots: the tree has uncommitted changes, so these pictures match no commit$(RESET)\n"
+
+# Rebuilds the screenshots from the commit in SOURCE, in a temporary git worktree,
+# and fails if any differs from the committed one. Needs a display, like viewer-shots.
+.PHONY: viewer-shots-check
+viewer-shots-check: ## Check that the viewer screenshots are reproduced byte for byte from their SOURCE commit
+	@src=$$(cat $(SHOTS_DIR)/SOURCE) && wt=$$(mktemp -d) && \
+	trap 'git -C "$(ROOT_DIR)" worktree remove --force "$$wt"' EXIT && \
+	git -C "$(ROOT_DIR)" worktree add -q --detach "$$wt" "$$src" && \
+	$(MAKE) -s --no-print-directory -C "$$wt" viewer-shots VIEWER_TARGET="$(ROOT_DIR)/viewer/target/shots-check" >/dev/null && \
+	bad=0 && for f in $(SHOTS_DIR)/*.png; do \
+		cmp -s "$$f" "$$wt/$$f" || { echo "differs: $$f"; bad=1; }; \
+	done && \
+	if [ $$bad = 0 ]; then printf "$(GREEN)viewer screenshots reproduced from $${src:0:8}$(RESET)\n"; else exit 1; fi
 
 ##@ Docs
 # Screenshots are taken in Docker (Dockerfile.screenshots) so that browser and
