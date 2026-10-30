@@ -146,7 +146,11 @@ make view           # open out/graph.json
 make viewer-test    # unit, contract and smoke tests (the smoke tests drive every screen headlessly)
 make viewer-bench   # 48k-node graph: load, search, lineage, layout and frame budgets
 make viewer-shots   # regenerate docs/screenshots/pipeline-graph-viewer; opens a window, needs a desktop
+make viewer-shots-check  # rebuild them from the commit in SOURCE and compare byte for byte
 ```
+
+The README's sample `make run` output is checked by `TestReadmeSampleOutput`;
+when the demo changes, the test prints the line to paste.
 
 fmt, clippy (`-D warnings`) and the tests run in the pre-commit image with the
 rest of the gate. Fonts are bundled (`viewer/assets/fonts`: Fira Sans under the
