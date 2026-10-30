@@ -5,6 +5,7 @@ use super::app::Workspace;
 use super::theme::{self, Palette};
 use super::util;
 use crate::core::derive::{Class, RepoStats};
+use crate::core::graph::Graph;
 use egui::{Color32, RichText, Sense};
 
 fn big_stat(ui: &mut egui::Ui, pal: &Palette, value: &str, label: &str, color: Color32, tip: &str) -> bool {
@@ -113,7 +114,7 @@ impl Workspace {
                 ui.add_space(14.0);
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(12.0, 12.0);
-                    if big_stat(ui, pal, &util::num(t.builds), "pipeline jobs", pal.accent, STAT_TIPS[0]) {
+                    if big_stat(ui, pal, &util::num(t.builds), "pipeline jobs", pal.accent, &jobs_tip(g)) {
                         self.filter_table("kind:build");
                     }
                     if big_stat(
@@ -372,9 +373,16 @@ impl Workspace {
     }
 }
 
-/// What each headline number counts and why it matters.
+/// What the jobs headline number counts, in the words of the CI systems in the graph.
+fn jobs_tip(g: &Graph) -> String {
+    let jobs = g.jobs_name();
+    let (first, rest) = jobs.split_at(jobs.chars().next().map_or(0, char::len_utf8));
+    format!("{}{rest} defined in the analysed repositories. Click to list them.", first.to_uppercase())
+}
+
+/// What each other headline number counts and why it matters. Index 0 is `jobs_tip`.
 const STAT_TIPS: [&str; 6] = [
-    "Build configurations and pipeline jobs defined in the analysed repositories. Click to list them.",
+    "",
     "Docker images built, pulled or run in, from Dockerfiles and CI steps. Click to list them.",
     "Make targets CI steps run, directly or through other targets. Click to list them.",
     "Images that job steps run inside, such as build containers. What is in them shapes every job that runs there. Click to list them.",

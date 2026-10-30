@@ -155,11 +155,16 @@ impl Workspace {
             egui::Grid::new("meta").num_columns(2).spacing([10.0, 4.0]).show(ui, |ui| {
                 let sub = g.s(g.sub[vi]);
                 if !sub.is_empty() {
-                    ui.label(RichText::new(if g.kind[vi] == Kind::Build { "CI id" } else { "Where" }).color(pal.muted));
+                    ui.label(RichText::new(if g.kind[vi] == Kind::Build { g.id_name(v) } else { "Where".to_string() }).color(pal.muted));
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(sub).monospace());
                         copy_btn(ui, &mut acts, sub, "Id");
                     });
+                    ui.end_row();
+                }
+                if let Some(sys) = g.system_of(v).filter(|x| !g.s(x.title).is_empty()) {
+                    ui.label(RichText::new("System").color(pal.muted));
+                    ui.label(g.s(sys.title));
                     ui.end_row();
                 }
                 let src = g.s(g.source[vi]);

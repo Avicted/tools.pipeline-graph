@@ -4,6 +4,7 @@
 use super::intern::{Interner, Sym};
 use serde::de::{self, DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer as _};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::Read;
@@ -113,6 +114,17 @@ pub struct RepoInfo {
     pub name: Sym,
     pub url: Sym,
     pub commit: Sym,
+}
+
+/// A CI system the jobs come from, in its own words (`systems` in graph.json).
+#[derive(Clone, Copy, Debug)]
+pub struct SystemInfo {
+    pub name: Sym,
+    pub title: Sym,
+    /// What one job is called: "build configuration", "workflow job".
+    pub job: Sym,
+    /// What a job's id is called: "TeamCity id", "job path".
+    pub id: Sym,
 }
 
 /// Compressed sparse row adjacency: neighbours and edge ids of every node.
@@ -311,6 +323,8 @@ pub struct Graph {
     pub generated: Sym,
     pub repos: Vec<RepoInfo>,
     pub warnings: Vec<Sym>,
+    /// Empty in files from before graph.json named its systems.
+    pub systems: Vec<SystemInfo>,
 
     pub id: Vec<Sym>,
     pub kind: Vec<Kind>,
@@ -319,6 +333,8 @@ pub struct Graph {
     pub sub: Vec<Sym>,
     pub project: Vec<Sym>,
     pub source: Vec<Sym>,
+    /// `SystemInfo::name` of the system each job comes from; empty for make targets and images.
+    pub system: Vec<Sym>,
     pub composite: Vec<bool>,
     steps: Vec<Step>,
     step_off: Vec<u32>,
@@ -335,6 +351,11 @@ pub struct Graph {
     /// are re-attached to the builds that run those targets.
     pub flow: Net,
     node_of: Vec<u32>, // Sym -> node index (u32::MAX when the string is not a node id)
+}
+
+fn capitalise(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
 }
 
 #[derive(Debug)]
@@ -385,6 +406,16 @@ struct RawNode {
     params: HashMap<String, String>,
     artifacts: Vec<String>,
     source: String,
+    system: String,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct RawSystem {
+    name: String,
+    title: String,
+    job: String,
+    id: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -473,6 +504,14 @@ impl<'de> Visitor<'de> for &mut Builder {
                         self.g.repos.push(RepoInfo { name, url, commit });
                     }
                 }
+                "systems" => {
+                    for x in map.next_value::<Vec<RawSystem>>()? {
+                        let s = &mut self.g.strs;
+                        let info =
+                            SystemInfo { name: s.intern(&x.name), title: s.intern(&x.title), job: s.intern(&x.job), id: s.intern(&x.id) };
+                        self.g.systems.push(info);
+                    }
+                }
                 "warnings" => {
                     for w in map.next_value::<Vec<String>>()? {
                         let s = self.g.strs.intern(&w);
@@ -500,6 +539,7 @@ impl Builder {
             generated,
             repos: vec![],
             warnings: vec![],
+            systems: vec![],
             id: vec![],
             kind: vec![],
             repo: vec![],
@@ -507,6 +547,7 @@ impl Builder {
             sub: vec![],
             project: vec![],
             source: vec![],
+            system: vec![],
             composite: vec![],
             steps: vec![],
             step_off: vec![0],
@@ -534,6 +575,7 @@ impl Builder {
         g.sub.push(s.intern(&n.sub));
         g.project.push(s.intern(&n.project));
         g.source.push(s.intern(&n.source));
+        g.system.push(s.intern(&n.system));
         g.composite.push(n.composite);
         for st in &n.steps {
             let step = Step {
@@ -753,13 +795,51 @@ impl Graph {
         }
     }
 
-    pub fn kind_name(&self, v: u32) -> &'static str {
-        match self.kind[v as usize] {
-            Kind::Build if self.composite[v as usize] => "Composite build",
-            Kind::Build => "Build configuration",
-            Kind::External => "External build",
-            Kind::Make => "Make target",
-            Kind::Image => "Docker image",
+    /// The system a job comes from; none for make targets, images and files that do not name systems.
+    pub fn system_of(&self, v: u32) -> Option<&SystemInfo> {
+        let name = self.system[v as usize];
+        self.systems.iter().find(|x| x.name == name && !self.s(name).is_empty())
+    }
+
+    /// What kind of node `v` is, in its CI system's words ("Build configuration",
+    /// "Composite workflow job"); a file that names no systems gets the generic wording.
+    pub fn kind_name(&self, v: u32) -> Cow<'static, str> {
+        let job = self.system_of(v).map(|x| self.s(x.job)).filter(|j| !j.is_empty());
+        match (self.kind[v as usize], job) {
+            (Kind::Build, Some(j)) if self.composite[v as usize] => Cow::Owned(format!("Composite {j}")),
+            (Kind::Build, Some(j)) => Cow::Owned(capitalise(j)),
+            (Kind::External, Some(j)) => Cow::Owned(format!("External {j}")),
+            (Kind::Build, None) if self.composite[v as usize] => Cow::Borrowed("Composite build"),
+            (Kind::Build, None) => Cow::Borrowed("Build configuration"),
+            (Kind::External, None) => Cow::Borrowed("External build"),
+            (Kind::Make, _) => Cow::Borrowed("Make target"),
+            (Kind::Image, _) => Cow::Borrowed("Docker image"),
+        }
+    }
+
+    /// What a job's id is called in its system ("TeamCity id"); "CI id" when that is not known.
+    pub fn id_name(&self, v: u32) -> String {
+        match self.system_of(v).map(|x| self.s(x.id)) {
+            Some(id) if !id.is_empty() => capitalise(id),
+            _ => "CI id".to_string(),
+        }
+    }
+
+    /// The jobs of this graph in the words of the systems they come from, plural:
+    /// "build configurations and workflow jobs"; "pipeline jobs" when no system is named.
+    pub fn jobs_name(&self) -> String {
+        let mut terms: Vec<String> = vec![];
+        for x in &self.systems {
+            let j = self.s(x.job);
+            if !j.is_empty() && !terms.iter().any(|t| t == j) {
+                terms.push(j.to_string());
+            }
+        }
+        let plural: Vec<String> = terms.iter().map(|t| format!("{t}s")).collect();
+        match plural.as_slice() {
+            [] => "pipeline jobs".to_string(),
+            [one] => one.clone(),
+            [init @ .., last] => format!("{} and {last}", init.join(", ")),
         }
     }
 }
@@ -799,6 +879,49 @@ pub(crate) mod tests {
           "warnings": ["r1: .teamcity/settings.kts:1: something odd"]
         }"#;
         Graph::from_slice(json.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn names_follow_the_ci_system_of_each_job() {
+        // `systems` comes after `nodes`, as pipeline-graph writes it
+        let g = Graph::from_slice(
+            br#"{"schemaVersion": 1,
+              "nodes": [
+                {"id":"bt:a/Build","kind":"build","repo":"a","label":"Build","sub":"A_Build","system":"teamcity"},
+                {"id":"bt:a/All","kind":"build","repo":"a","label":"All","sub":"A_All","system":"teamcity","composite":true},
+                {"id":"bt:b/ci/test","kind":"build","repo":"b","label":"test","sub":"b/ci.yml#test","system":"github"},
+                {"id":"ext:X","kind":"external","label":"X","sub":"not in analysed repos","system":"github"},
+                {"id":"mk:a/Makefile:t","kind":"make","repo":"a","label":"t","sub":"Makefile"}
+              ],
+              "systems": [
+                {"name":"github","title":"GitHub Actions","job":"workflow job","id":"job path"},
+                {"name":"teamcity","title":"TeamCity","job":"build configuration","id":"TeamCity id"}
+              ]}"#,
+        )
+        .unwrap();
+        let v = |id| g.node_by_id(id).unwrap();
+        assert_eq!(g.kind_name(v("bt:a/Build")), "Build configuration");
+        assert_eq!(g.kind_name(v("bt:a/All")), "Composite build configuration");
+        assert_eq!(g.kind_name(v("bt:b/ci/test")), "Workflow job");
+        assert_eq!(g.kind_name(v("ext:X")), "External workflow job");
+        assert_eq!(g.kind_name(v("mk:a/Makefile:t")), "Make target");
+        assert_eq!(g.id_name(v("bt:a/Build")), "TeamCity id");
+        assert_eq!(g.id_name(v("bt:b/ci/test")), "Job path");
+        assert_eq!(g.id_name(v("mk:a/Makefile:t")), "CI id", "no system, no term");
+        assert_eq!(g.s(g.system_of(v("bt:b/ci/test")).unwrap().title), "GitHub Actions");
+        assert!(g.system_of(v("mk:a/Makefile:t")).is_none());
+        assert_eq!(g.jobs_name(), "workflow jobs and build configurations");
+    }
+
+    #[test]
+    fn a_file_without_systems_keeps_the_generic_wording() {
+        let g = sample();
+        let v = |id| g.node_by_id(id).unwrap();
+        assert!(g.systems.is_empty());
+        assert_eq!(g.kind_name(v("bt:r2/App")), "Build configuration");
+        assert_eq!(g.id_name(v("bt:r2/App")), "CI id");
+        assert_eq!(g.jobs_name(), "pipeline jobs");
+        assert!(g.system_of(v("bt:r2/App")).is_none());
     }
 
     #[test]
