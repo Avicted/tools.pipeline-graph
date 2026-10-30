@@ -1,9 +1,18 @@
 //! Small helpers: forge links, percent-encoding for deep links, number formatting,
-//! and clickable text that never starts a selection.
+//! and the two widgets every screen shares: clickable text and explaining hover cards.
 
 /// Text that acts as a link: a click target that never starts a text selection.
 pub fn link(ui: &mut egui::Ui, text: impl Into<egui::WidgetText>) -> egui::Response {
     ui.add(egui::Label::new(text).selectable(false).sense(egui::Sense::click())).on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+/// A hover card that explains what something means: a bold title and a short body.
+pub fn hint(resp: egui::Response, title: &str, body: &str) -> egui::Response {
+    resp.on_hover_ui(|ui| {
+        ui.set_max_width(320.0);
+        ui.label(egui::RichText::new(title).strong());
+        ui.label(egui::RichText::new(body).weak());
+    })
 }
 
 /// Where a repo's files live on the web, when its URL is a known forge.

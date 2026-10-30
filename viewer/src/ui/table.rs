@@ -319,7 +319,8 @@ impl Workspace {
                         };
                         let text = RichText::new(format!("{name}{arrow}")).small().strong().color(pal.muted);
                         let r = if sortable { util::link(ui, text) } else { ui.label(text) };
-                        if r.clicked() && sortable {
+                        let (title, body) = HEAD_TIPS[i];
+                        if util::hint(r, title, body).clicked() && sortable {
                             new_sort = Some(*col);
                         }
                     });
@@ -479,3 +480,21 @@ pub fn image_text(m: &super::app::Model, v: u32) -> String {
     }
     parts.join(" · ")
 }
+
+/// What each column says, for the header hover cards.
+const HEAD_TIPS: [(&str, &str); 8] = [
+    ("Name", "The job, image or make target, with its CI id or image reference below. Click to sort."),
+    ("Repository", "Where it is defined. Click to sort."),
+    ("Stage", "What the job does, read from its name and steps: build, lint, test, scan, package, publish, deploy. Click to sort."),
+    ("Triggers", "What starts it: a commit, a schedule, another job finishing. Empty means it only runs as a dependency or by hand."),
+    ("Images", "Images it builds, pushes or runs its steps in."),
+    (
+        "Needs (upstream)",
+        "How many jobs and images must run before this one gets fresh input. A long tail here is a slow or fragile path to this job. Click to sort.",
+    ),
+    (
+        "Breaks (downstream)",
+        "How many jobs and images would not get fresh input if this one failed: its blast radius. Click to sort.",
+    ),
+    ("Change", "New or changed since the compared snapshot. Click to sort."),
+];
