@@ -2,3 +2,5 @@
 /dist/
 /out/
 /pipeline-graph.yaml
+/viewer/target/
+/examples/*/out/

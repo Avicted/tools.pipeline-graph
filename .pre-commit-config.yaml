@@ -30,6 +30,7 @@ repos:
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
       - id: check-added-large-files
+        args: [--maxkb=1024] # the viewer bundles two fonts, ~0.75 MB each at most
       - id: detect-private-key
 
   # ---- Go, linters and secret scanning, from the image -----------------------
