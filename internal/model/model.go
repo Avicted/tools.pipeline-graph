@@ -76,17 +76,23 @@ type Repo struct {
 	Commit string `json:"commit,omitempty"`
 }
 
+// SchemaVersion is bumped when graph.json changes shape; pgview checks it on load.
+const SchemaVersion = 1
+
 type Graph struct {
-	Generated string  `json:"generated"`
-	Repos     []Repo  `json:"repos"`
-	Nodes     []*Node `json:"nodes"`
-	Edges     []Edge  `json:"edges"`
+	SchemaVersion int     `json:"schemaVersion"`
+	Generated     string  `json:"generated"`
+	Repos         []Repo  `json:"repos"`
+	Nodes         []*Node `json:"nodes"`
+	Edges         []Edge  `json:"edges"`
 
 	index map[string]*Node
 	seen  map[Edge]bool
 }
 
-func New() *Graph { return &Graph{index: map[string]*Node{}, seen: map[Edge]bool{}} }
+func New() *Graph {
+	return &Graph{SchemaVersion: SchemaVersion, index: map[string]*Node{}, seen: map[Edge]bool{}}
+}
 
 func (g *Graph) Node(id string) *Node {
 	if g.index == nil {
