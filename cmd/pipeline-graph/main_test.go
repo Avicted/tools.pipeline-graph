@@ -56,6 +56,37 @@ func TestConfigErrorsExitTwo(t *testing.T) {
 	}
 }
 
+// Settings are per provider: a `teamcity:` block reaches the TeamCity provider, a bad
+// block is a config error, and the old flat keys still work but are announced.
+func TestProviderSettingsInConfig(t *testing.T) {
+	dir := t.TempDir()
+	run1 := func(yml string) (int, string, string) {
+		out := filepath.Join(dir, "o")
+		cfg := writeConfig(t, dir, "formats: [json]\nout_dir: "+out+"\nrepos:\n  - url: "+fixture("service-a")+"\n"+yml)
+		code, _, errs := cli(t, "-config", cfg)
+		b, _ := os.ReadFile(filepath.Join(out, "graph.json"))
+		return code, string(b), errs
+	}
+	if code, g, errs := run1("    teamcity: {dir: .teamcity}\n"); code != 0 || !strings.Contains(g, `"bt:service-a/`) {
+		t.Errorf("block: exit %d\n%s", code, errs)
+	}
+	if code, g, errs := run1("    teamcity: {dir: elsewhere}\n"); code != 0 || strings.Contains(g, `"bt:service-a/`) {
+		t.Errorf("the block's dir must reach the provider: exit %d\n%s", code, errs)
+	}
+	for name, yml := range map[string]string{
+		"typo inside a block": "    teamcity: {dri: x}\n",
+		"typo next to a repo": "    teamcty: {dir: x}\n",
+	} {
+		if code, _, errs := run1(yml); code != 2 || !strings.HasPrefix(errs, "pipeline-graph:") {
+			t.Errorf("%s: exit %d, stderr %q", name, code, errs)
+		}
+	}
+	code, g, errs := run1("    teamcity_dir: .teamcity\n")
+	if code != 0 || !strings.Contains(g, `"bt:service-a/`) || !strings.Contains(errs, "repos[0]: teamcity_dir is deprecated, write teamcity: {dir: .teamcity}") {
+		t.Errorf("the old key still works and says what to write: exit %d\n%s", code, errs)
+	}
+}
+
 func writeConfig(t *testing.T, dir, content string) string {
 	t.Helper()
 	f, err := os.CreateTemp(dir, "c-*.yaml")
@@ -84,7 +115,7 @@ func TestLocalReposWriteEveryOutput(t *testing.T) {
 			t.Errorf("stdout should list %s:\n%s", f, stdout)
 		}
 	}
-	if !strings.Contains(errs, "3 repos,") || !strings.Contains(errs, "build configurations") {
+	if !strings.Contains(errs, "3 repos,") || !strings.Contains(errs, "jobs,") {
 		t.Errorf("summary missing:\n%s", errs)
 	}
 	html, _ := os.ReadFile(filepath.Join(out, "pipelines.html"))
@@ -352,6 +383,12 @@ func TestMixedSystems(t *testing.T) {
 		t.Fatalf("exit %d\n%s", code, errs)
 	}
 	b, _ := os.ReadFile(filepath.Join(out, "graph.json"))
+	var g struct {
+		Systems []struct{ Name string }
+	}
+	if err := json.Unmarshal(b, &g); err != nil || len(g.Systems) != 2 || g.Systems[0].Name != "github" || g.Systems[1].Name != "teamcity" {
+		t.Errorf("graph.json names the systems in use: %v, %v", g.Systems, err)
+	}
 	if !strings.Contains(string(b), `"bt:platform-base/`) || !strings.Contains(string(b), `"bt:base-images/images/base-go"`) {
 		t.Errorf("both systems' jobs belong in the graph:\n%s", errs)
 	}

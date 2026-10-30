@@ -10,8 +10,8 @@ import (
 type NodeKind string
 
 const (
-	KindBuild    NodeKind = "build"    // TeamCity build configuration
-	KindExternal NodeKind = "external" // referenced build configuration not found in any analysed repo
+	KindBuild    NodeKind = "build"    // a CI job: a build configuration, a workflow job, ...
+	KindExternal NodeKind = "external" // referenced job not found in any analysed repo
 	KindMake     NodeKind = "make"     // make target
 	KindImage    NodeKind = "image"    // docker image produced by a pipeline
 )
@@ -55,7 +55,7 @@ type Node struct {
 	Kind      NodeKind          `json:"kind"`
 	Repo      string            `json:"repo,omitempty"`
 	Label     string            `json:"label"`
-	Sub       string            `json:"sub,omitempty"` // secondary line: TeamCity id, makefile path, ...
+	Sub       string            `json:"sub,omitempty"` // secondary line: the job's id in its CI system, makefile path, ...
 	Project   string            `json:"project,omitempty"`
 	Composite bool              `json:"composite,omitempty"`
 	Steps     []Step            `json:"steps,omitempty"`
@@ -63,6 +63,7 @@ type Node struct {
 	Params    map[string]string `json:"params,omitempty"`
 	Artifacts []string          `json:"artifacts,omitempty"` // published artifact rules
 	Source    string            `json:"source,omitempty"`    // file:line
+	System    string            `json:"system,omitempty"`    // System.Name of the CI system the job comes from
 }
 
 type Edge struct {
@@ -70,6 +71,14 @@ type Edge struct {
 	To    string   `json:"to"`
 	Kind  EdgeKind `json:"kind"`
 	Label string   `json:"label,omitempty"`
+}
+
+// System is how a CI system names itself and its things, for messages and viewers.
+type System struct {
+	Name  string `json:"name"`  // `provider:` value and settings key, e.g. "teamcity"
+	Title string `json:"title"` // for people, e.g. "GitHub Actions"
+	Job   string `json:"job"`   // what one job is called, e.g. "build configuration"
+	ID    string `json:"id"`    // what a job's id (Node.Sub) is called, e.g. "TeamCity id"
 }
 
 type Repo struct {
@@ -88,6 +97,7 @@ type Graph struct {
 	Nodes         []*Node  `json:"nodes"`
 	Edges         []Edge   `json:"edges"`
 	Warnings      []string `json:"warnings,omitempty"` // what the analysis could not resolve
+	Systems       []System `json:"systems,omitempty"`  // the CI systems the jobs come from
 
 	index map[string]*Node
 	seen  map[Edge]bool
@@ -160,7 +170,7 @@ func (g *Graph) Sort() {
 // Filter returns a copy holding only nodes accepted by keep and edges between them.
 func (g *Graph) Filter(keep func(*Node) bool) *Graph {
 	out := New()
-	out.Generated, out.Repos = g.Generated, g.Repos
+	out.Generated, out.Repos, out.Systems = g.Generated, g.Repos, g.Systems
 	for _, n := range g.Nodes {
 		if keep(n) {
 			out.AddNode(n)

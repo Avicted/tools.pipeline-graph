@@ -18,13 +18,30 @@ type Provider struct{}
 
 func New() Provider { return Provider{} }
 
-func (Provider) Name() string { return "teamcity" }
+func (Provider) System() ci.System {
+	return ci.System{Name: "teamcity", Title: "TeamCity", Job: "build configuration", ID: "TeamCity id"}
+}
+
+// Settings are the `teamcity:` block of the config, globally and per repo.
+type Settings struct {
+	Dir       string `yaml:"dir"`        // where the Kotlin DSL lives, relative to the repo; default .teamcity
+	ProjectID string `yaml:"project_id"` // TeamCity project the settings are imported into; default derived from the repo name
+}
+
+func (Provider) NewSettings() any { return &Settings{} }
+
+func settingsOf(r ci.Repo) Settings {
+	if s, ok := r.Settings.(*Settings); ok && s != nil {
+		return *s
+	}
+	return Settings{}
+}
 
 func dir(r ci.Repo) string {
-	if r.Dir == "" {
-		return defaultDir
+	if d := settingsOf(r).Dir; d != "" {
+		return d
 	}
-	return r.Dir
+	return defaultDir
 }
 
 func (Provider) Detect(r ci.Repo) bool {
@@ -41,8 +58,9 @@ func (Provider) Load(r ci.Repo) (*ci.Pipelines, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading TeamCity settings: %w", err)
 	}
-	if r.ProjectID == "" {
-		r.ProjectID = DeriveProjectID(r.Name)
+	projectID := settingsOf(r).ProjectID
+	if projectID == "" {
+		projectID = DeriveProjectID(r.Name)
 	}
 	p := &ci.Pipelines{Warnings: s.Warnings, IDSep: "_"}
 	warn := func(file string, line int, format string, args ...any) {
@@ -74,7 +92,7 @@ func (Provider) Load(r ci.Repo) (*ci.Pipelines, error) {
 	}
 	for _, b := range s.Builds {
 		j := &ci.Job{
-			Key: b.Key, QualID: r.ProjectID + "_" + b.Key, Name: b.Name, Project: b.Project,
+			Key: b.Key, QualID: projectID + "_" + b.Key, Name: b.Name, Project: b.Project,
 			Composite: b.Composite, Steps: b.Steps, File: b.File, Line: b.Line,
 			Expand: func(t string) string { return substParams(t, b.Params) },
 		}

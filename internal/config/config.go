@@ -6,18 +6,25 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
+// Repo is one repository. A key that is not listed here is a provider's settings
+// block, `<provider name>: {...}`, kept in Blocks for Settings to decode.
 type Repo struct {
-	URL         string `yaml:"url"`
-	Name        string `yaml:"name"`                // lane title; default: last URL path segment without .git
-	Branch      string `yaml:"branch"`              // default: remote HEAD
-	TeamCityDir string `yaml:"teamcity_dir"`        // default: top-level teamcity_dir
-	ProjectID   string `yaml:"teamcity_project_id"` // TeamCity project the settings are imported into; default derived from name
-	Provider    string `yaml:"provider"`            // CI system to read (e.g. teamcity); default: every supported one found in the repo
+	URL      string `yaml:"url"`
+	Name     string `yaml:"name"`     // lane title; default: last URL path segment without .git
+	Branch   string `yaml:"branch"`   // default: remote HEAD
+	Provider string `yaml:"provider"` // CI system to read (e.g. teamcity); default: every supported one found in the repo
+
+	// Deprecated spellings of teamcity: {dir, project_id}; Finalize folds them into Blocks.
+	LegacyDir       string `yaml:"teamcity_dir"`
+	LegacyProjectID string `yaml:"teamcity_project_id"`
+
+	Blocks map[string]yaml.Node `yaml:",inline"`
 }
 
 // UnmarshalYAML accepts either a mapping or a bare URL string.
@@ -30,15 +37,23 @@ func (r *Repo) UnmarshalYAML(n *yaml.Node) error {
 	return n.Decode((*plain)(r))
 }
 
+// Config is the whole file. Besides the fields below, a top-level `<provider name>:`
+// block holds that provider's settings for every repo; a repo's own block overrides it.
 type Config struct {
 	Repos       []Repo            `yaml:"repos"`
 	CacheDir    string            `yaml:"cache_dir"`
 	OutDir      string            `yaml:"out_dir"`
-	TeamCityDir string            `yaml:"teamcity_dir"`
 	Views       []string          `yaml:"views"`
 	Formats     []string          `yaml:"formats"`
-	ExternalIDs map[string]string `yaml:"external_ids"` // absolute TeamCity id -> "repo/RelativeId"
+	ExternalIDs map[string]string `yaml:"external_ids"` // a job's id in its CI system -> "repo/Key"
 	Concurrency int               `yaml:"concurrency"`
+
+	LegacyDir string `yaml:"teamcity_dir"` // deprecated spelling of teamcity: {dir}
+
+	Blocks map[string]yaml.Node `yaml:",inline"`
+
+	// Notices are things worth telling the user that are not errors, e.g. deprecated keys.
+	Notices []string `yaml:"-"`
 }
 
 var (
@@ -84,9 +99,6 @@ func (c *Config) Finalize() error {
 	if c.OutDir == "" {
 		c.OutDir = "out"
 	}
-	if c.TeamCityDir == "" {
-		c.TeamCityDir = ".teamcity"
-	}
 	if len(c.Views) == 0 {
 		c.Views = AllViews
 	}
@@ -109,6 +121,11 @@ func (c *Config) Finalize() error {
 			return fmt.Errorf("unknown format %q (valid: %s)", f, strings.Join(AllFormats, ", "))
 		}
 	}
+	if c.LegacyDir != "" {
+		if err := foldLegacy(&c.Blocks, "teamcity", "dir", c.LegacyDir, "teamcity_dir", "config", &c.Notices); err != nil {
+			return err
+		}
+	}
 	seen := map[string]string{}
 	for i := range c.Repos {
 		r := &c.Repos[i]
@@ -118,8 +135,8 @@ func (c *Config) Finalize() error {
 		if r.Name == "" {
 			r.Name = NameFromURL(r.URL)
 		}
-		if r.TeamCityDir == "" {
-			r.TeamCityDir = c.TeamCityDir
+		if err := r.foldLegacy(fmt.Sprintf("repos[%d]", i), &c.Notices); err != nil {
+			return err
 		}
 		if other, dup := seen[r.Name]; dup {
 			return fmt.Errorf("repos %s and %s both have name %q; set name: explicitly", other, r.URL, r.Name)
@@ -127,6 +144,100 @@ func (c *Config) Finalize() error {
 		seen[r.Name] = r.URL
 	}
 	return nil
+}
+
+func (r *Repo) foldLegacy(where string, notices *[]string) error {
+	for _, l := range []struct{ old, key, val string }{
+		{"teamcity_dir", "dir", r.LegacyDir},
+		{"teamcity_project_id", "project_id", r.LegacyProjectID},
+	} {
+		if l.val == "" {
+			continue
+		}
+		if err := foldLegacy(&r.Blocks, "teamcity", l.key, l.val, l.old, where, notices); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// foldLegacy moves a deprecated top-level key into block.key, refusing a block that also sets it.
+func foldLegacy(blocks *map[string]yaml.Node, block, key, val, old, where string, notices *[]string) error {
+	m := map[string]any{}
+	if n, ok := (*blocks)[block]; ok {
+		if err := n.Decode(&m); err != nil {
+			return fmt.Errorf("%s: %s: %w", where, block, err)
+		}
+	}
+	if _, dup := m[key]; dup {
+		return fmt.Errorf("%s: %s and %s.%s are both set; drop %s", where, old, block, key, old)
+	}
+	m[key] = val
+	var n yaml.Node
+	if err := n.Encode(m); err != nil {
+		return err
+	}
+	if *blocks == nil {
+		*blocks = map[string]yaml.Node{}
+	}
+	(*blocks)[block] = n
+	*notices = append(*notices, fmt.Sprintf("%s: %s is deprecated, write %s: {%s: %s}", where, old, block, key, val))
+	return nil
+}
+
+// CheckBlocks rejects a top-level or repo key that is neither a config field nor
+// a settings block of one of the providers in known (the names of those with settings).
+func (c *Config) CheckBlocks(known []string) error {
+	check := func(where string, blocks map[string]yaml.Node) error {
+		for _, k := range sortedKeys(blocks) {
+			if !contains(known, k) {
+				return fmt.Errorf("%s: unknown field %q (provider settings: %s)", where, k, strings.Join(known, ", "))
+			}
+		}
+		return nil
+	}
+	if err := check("config", c.Blocks); err != nil {
+		return err
+	}
+	for i, r := range c.Repos {
+		if err := check(fmt.Sprintf("repos[%d]", i), r.Blocks); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Settings decodes provider name's settings for repo i into v: the top-level block
+// first, then the repo's own on top of it. Unknown keys inside a block are errors.
+func (c *Config) Settings(i int, name string, v any) error {
+	for _, b := range []struct {
+		where  string
+		blocks map[string]yaml.Node
+	}{{"config", c.Blocks}, {fmt.Sprintf("repos[%d]", i), c.Repos[i].Blocks}} {
+		n, ok := b.blocks[name]
+		if !ok {
+			continue
+		}
+		raw, err := yaml.Marshal(&n)
+		if err != nil {
+			return err
+		}
+		dec := yaml.NewDecoder(strings.NewReader(string(raw)))
+		dec.KnownFields(true)
+		if err := dec.Decode(v); err != nil {
+			return fmt.Errorf("%s: %s: %w", b.where, name, err)
+		}
+	}
+	return nil
+}
+
+func sortedKeys(m map[string]yaml.Node) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // NameFromURL turns git@host:org/service-a.git or https://host/org/service-a into "service-a".

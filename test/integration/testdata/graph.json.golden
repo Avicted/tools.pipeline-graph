@@ -59,7 +59,8 @@
       "params": {
         "env.REGISTRY": "registry.acme.io"
       },
-      "source": ".teamcity/settings.kts:44"
+      "source": ".teamcity/settings.kts:44",
+      "system": "teamcity"
     },
     {
       "id": "bt:platform-base/Lint",
@@ -84,7 +85,8 @@
       "params": {
         "env.REGISTRY": "registry.acme.io"
       },
-      "source": ".teamcity/settings.kts:33"
+      "source": ".teamcity/settings.kts:33",
+      "system": "teamcity"
     },
     {
       "id": "bt:release-train/Release",
@@ -93,7 +95,8 @@
       "label": "Release train",
       "sub": "ReleaseTrain_Release",
       "composite": true,
-      "source": ".teamcity/settings.kts:33"
+      "source": ".teamcity/settings.kts:33",
+      "system": "teamcity"
     },
     {
       "id": "bt:release-train/Smoke",
@@ -114,7 +117,8 @@
           "detail": "daily hour=2"
         }
       ],
-      "source": ".teamcity/settings.kts:18"
+      "source": ".teamcity/settings.kts:18",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a-main/Build",
@@ -145,7 +149,8 @@
         "dist/service-a.tar.gz",
         "reports/** =\u003e reports.zip"
       ],
-      "source": ".teamcity/settings.kts:15"
+      "source": ".teamcity/settings.kts:15",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a-main/Deploy_prod",
@@ -167,7 +172,8 @@
           "detail": "Package image"
         }
       ],
-      "source": ".teamcity/Deploy.kt:7"
+      "source": ".teamcity/Deploy.kt:7",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a-main/Deploy_staging",
@@ -189,7 +195,8 @@
           "detail": "Package image"
         }
       ],
-      "source": ".teamcity/Deploy.kt:7"
+      "source": ".teamcity/Deploy.kt:7",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a-main/Package",
@@ -204,7 +211,8 @@
           "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a"
         }
       ],
-      "source": ".teamcity/settings.kts:42"
+      "source": ".teamcity/settings.kts:42",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a/Build",
@@ -235,7 +243,8 @@
         "dist/service-a.tar.gz",
         "reports/** =\u003e reports.zip"
       ],
-      "source": ".teamcity/settings.kts:15"
+      "source": ".teamcity/settings.kts:15",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a/Deploy_prod",
@@ -257,7 +266,8 @@
           "detail": "Package image"
         }
       ],
-      "source": ".teamcity/Deploy.kt:7"
+      "source": ".teamcity/Deploy.kt:7",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a/Deploy_staging",
@@ -279,7 +289,8 @@
           "detail": "Package image"
         }
       ],
-      "source": ".teamcity/Deploy.kt:7"
+      "source": ".teamcity/Deploy.kt:7",
+      "system": "teamcity"
     },
     {
       "id": "bt:service-a/Package",
@@ -294,13 +305,15 @@
           "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a"
         }
       ],
-      "source": ".teamcity/settings.kts:42"
+      "source": ".teamcity/settings.kts:42",
+      "system": "teamcity"
     },
     {
       "id": "ext:Billing_Deploy_staging",
       "kind": "external",
       "label": "Billing_Deploy_staging",
-      "sub": "not in analysed repos"
+      "sub": "not in analysed repos",
+      "system": "teamcity"
     },
     {
       "id": "img:registry.acme.io/base",
@@ -855,5 +868,13 @@
     "service-a-main: deploy runs make in \"deploy/prod\" but no makefile was found there",
     "service-a: .teamcity/patches/buildTypes/Build.kts:6: patch changeBuildType(Build) not applied: commit the patch into the DSL for accurate results",
     "service-a: deploy runs make in \"deploy/prod\" but no makefile was found there"
+  ],
+  "systems": [
+    {
+      "name": "teamcity",
+      "title": "TeamCity",
+      "job": "build configuration",
+      "id": "TeamCity id"
+    }
   ]
 }

@@ -64,6 +64,9 @@ repos:
   - ./checkout                                # a local directory, analysed as it is
 ```
 
+A CI system with settings of its own gets a block named after it, for every
+repo or for one (`teamcity: {dir: ci/tc, project_id: Base}`).
+
 Repos are shallow-cloned with git using your ssh-agent and `known_hosts`, and the
 clones are cached in `~/.cache/pipeline-graph`. Local directories must be inside
 this project directory, since only it is visible to the container.

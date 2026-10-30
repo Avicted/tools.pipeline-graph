@@ -18,10 +18,9 @@ import (
 
 // Repo is a checkout handed to a provider.
 type Repo struct {
-	Name      string // short repo name, the swimlane title
-	Root      string // local checkout
-	Dir       string // where the definitions live, relative to Root; "" means the provider's default. Providers with a fixed location ignore it
-	ProjectID string // namespace of the repo's job ids, for systems that have one; "" means derive it
+	Name     string // short repo name, the swimlane title
+	Root     string // local checkout
+	Settings any    // the provider's own settings for this repo, decoded into its NewSettings(); nil without any
 }
 
 // Ref points at another job.
@@ -82,13 +81,23 @@ type Pipelines struct {
 	IDSep string
 }
 
+// System is how a provider names itself and its jobs; see model.System.
+type System = model.System
+
 // Provider reads the pipelines of one CI/CD system.
 type Provider interface {
-	Name() string // the value of `provider:` in the config
+	System() System
 	// Detect reports whether the repo has this system's definitions.
 	Detect(r Repo) bool
 	// Load parses them. An error is reported as a warning and the repo is skipped.
 	Load(r Repo) (*Pipelines, error)
+}
+
+// Configurable is a Provider with settings of its own. The config's top-level
+// `<name>:` block and then a repo's `<name>:` block are decoded, in that order,
+// into the value NewSettings returns; the result is Repo.Settings.
+type Configurable interface {
+	NewSettings() any
 }
 
 // Pick returns the providers to run on a repo: the one called name, or, when
@@ -97,9 +106,9 @@ func Pick(all []Provider, name string, r Repo) ([]Provider, error) {
 	var out []Provider
 	var names []string
 	for _, p := range all {
-		names = append(names, p.Name())
+		names = append(names, p.System().Name)
 		switch {
-		case name == p.Name():
+		case name == p.System().Name:
 			return []Provider{p}, nil
 		case name == "" && p.Detect(r):
 			out = append(out, p)

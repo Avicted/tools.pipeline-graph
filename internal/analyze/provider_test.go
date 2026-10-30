@@ -20,7 +20,7 @@ type stub struct {
 	err    error
 }
 
-func (s stub) Name() string { return s.name }
+func (s stub) System() ci.System { return ci.System{Name: s.name, Job: "stub job"} }
 func (s stub) Detect(r ci.Repo) bool {
 	_, err := os.Stat(filepath.Join(r.Root, s.marker))
 	return err == nil
@@ -75,6 +75,10 @@ func TestOtherProviderBuildsTheSameGraph(t *testing.T) {
 		strings.Join(n.Artifacts, ",") != "coverage/**" {
 		t.Errorf("job details were not carried over: %+v", n)
 	}
+	if n.System != "github" || g.Node("ext:acme/lib-typo#release").System != "github" ||
+		len(g.Systems) != 1 || g.Systems[0] != (model.System{Name: "github", Job: "stub job"}) {
+		t.Errorf("the graph must say which system the jobs come from: node %q, systems %v", n.System, g.Systems)
+	}
 	var trig []string
 	for _, tr := range n.Triggers {
 		trig = append(trig, tr.Type+":"+tr.Detail)
@@ -84,8 +88,8 @@ func TestOtherProviderBuildsTheSameGraph(t *testing.T) {
 	}
 	joined := strings.Join(warnings, "\n")
 	for _, w := range []string{
-		"app: wf.yml:1: odd thing", // provider warnings get the repo
-		"app: wf.yml:9: build configuration acme/lib-typo#release not found",
+		"app: wf.yml:1: odd thing",                                // provider warnings get the repo
+		"app: wf.yml:9: stub job acme/lib-typo#release not found", // in the system's own words
 	} {
 		if !strings.Contains(joined, w) {
 			t.Errorf("missing warning %q in:\n%s", w, joined)
@@ -168,9 +172,9 @@ func TestProviderProblemsAreWarningsNotFailures(t *testing.T) {
 
 func TestExplicitTeamCityDirAndMissingDir(t *testing.T) {
 	r := repo(t, "svc", map[string]string{"ci/settings.kts": `object B : BuildType({ name = "B" })`})
-	g, _ := Run([]Repo{{Name: "svc", Root: r.Root, Provider: "teamcity", ConfigDir: "ci"}}, Options{Providers: tc})
+	g, _ := Run([]Repo{{Name: "svc", Root: r.Root, Provider: "teamcity", Settings: map[string]any{"teamcity": &teamcity.Settings{Dir: "ci"}}}}, Options{Providers: tc})
 	if g.Node("bt:svc/B") == nil {
-		t.Errorf("ConfigDir must reach the provider: %v", ids(g))
+		t.Errorf("settings must reach the provider: %v", ids(g))
 	}
 	_, w := Run([]Repo{{Name: "svc", Root: r.Root, Provider: "teamcity"}}, Options{Providers: tc})
 	if !strings.Contains(strings.Join(w, "\n"), "svc: teamcity: no TeamCity settings directory .teamcity") {

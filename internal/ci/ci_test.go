@@ -10,14 +10,14 @@ type fake struct {
 	detect bool
 }
 
-func (f fake) Name() string                  { return f.name }
+func (f fake) System() System                { return System{Name: f.name} }
 func (f fake) Detect(Repo) bool              { return f.detect }
 func (f fake) Load(Repo) (*Pipelines, error) { return &Pipelines{}, nil }
 
 func names(ps []Provider) string {
 	var n []string
 	for _, p := range ps {
-		n = append(n, p.Name())
+		n = append(n, p.System().Name)
 	}
 	return strings.Join(n, ",")
 }

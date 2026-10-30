@@ -26,8 +26,8 @@ func checkout(t *testing.T, files map[string]string) ci.Repo {
 
 func TestDetect(t *testing.T) {
 	p := New()
-	if p.Name() != "teamcity" {
-		t.Errorf("name %q", p.Name())
+	if p.System().Name != "teamcity" {
+		t.Errorf("name %q", p.System().Name)
 	}
 	if !p.Detect(checkout(t, map[string]string{".teamcity/settings.kts": ""})) {
 		t.Error(".teamcity must be detected")
@@ -36,7 +36,7 @@ func TestDetect(t *testing.T) {
 	if p.Detect(r) {
 		t.Error("the default directory is absent")
 	}
-	r.Dir = "ci"
+	r.Settings = &Settings{Dir: "ci"}
 	if !p.Detect(r) {
 		t.Error("a configured directory must be detected")
 	}
@@ -148,7 +148,7 @@ project { buildType(Build); buildType(Test) }
 object Build : BuildType({ id("Build") })
 object Test : BuildType({ dependencies { snapshot(AbsoluteId("Build")) {} } })
 `})
-	r.ProjectID = "Acme_Service"
+	r.Settings = &Settings{ProjectID: "Acme_Service"}
 	p, err := New().Load(r)
 	if err != nil {
 		t.Fatal(err)
