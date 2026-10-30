@@ -253,8 +253,14 @@ a change on either side that breaks the contract fails the build.
 ```sh
 make viewer-test     # unit, contract and smoke tests
 make viewer-bench    # performance budgets on 48k nodes
-make viewer-shots    # regenerate docs/screenshots/pipeline-graph-viewer (needs a display)
+make viewer-shots        # regenerate docs/screenshots/pipeline-graph-viewer (needs a display)
+make viewer-shots-check  # rebuild them from their SOURCE commit and compare byte for byte
 ```
 
 `pipeline-graph-viewer --shot DIR` is how the screenshots are made: the app drives itself
-through its screens and saves a picture of each.
+through its screens and saves a picture of each. The pictures are the same on every run
+at the same display scaling: 2000×1250 pixels at any scaling, no animation, the mouse and
+keyboard ignored, and no load time on the snapshot. At a different scaling the map and
+commit → prod pictures differ slightly in how the curved links are anti-aliased. `SOURCE` next to them is the commit they
+show. If the window manager will not give the window that size (a tiling one, say), the
+run stops and says so instead of saving different pictures.
