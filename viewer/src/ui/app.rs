@@ -270,6 +270,18 @@ impl eframe::App for App {
             self.phase = n;
         }
     }
+
+    /// A screenshot run sees no mouse or keyboard and always has focus, so where the
+    /// pointer is and what the desktop does with focus never reach the pictures.
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
+        let shooting = self.cli.shot.is_some() || matches!(&self.phase, Phase::Ready(ws) if ws.shot.is_some());
+        if shooting {
+            raw.focused = true;
+            raw.dropped_files.clear();
+            raw.hovered_files.clear();
+            raw.events.retain(|e| matches!(e, egui::Event::Screenshot { .. }));
+        }
+    }
 }
 
 #[derive(Default)]
