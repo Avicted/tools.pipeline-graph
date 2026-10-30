@@ -81,6 +81,28 @@ repos:
         pass_filenames: false
         stages: [pre-push, manual]
 
+      # The native viewer. Only when it changed, since a build of eframe is not free.
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --manifest-path viewer/Cargo.toml --check
+        language: system
+        files: ^viewer/.*\.rs$
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --manifest-path viewer/Cargo.toml --locked --all-targets -- -D warnings
+        language: system
+        files: ^viewer/
+        pass_filenames: false
+
+      - id: cargo-test
+        name: cargo test
+        entry: cargo test --manifest-path viewer/Cargo.toml --locked
+        language: system
+        files: ^viewer/
+        pass_filenames: false
+
       - id: shellcheck
         name: shellcheck
         entry: shellcheck -x
