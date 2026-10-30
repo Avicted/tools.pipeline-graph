@@ -40,18 +40,23 @@ Keys `1`–`6` switch between them; `Tab` flips between the table and the map.
 
 One page that answers "what do we have?": jobs, images, make targets, which
 images jobs run inside, the longest commit → prod chain, and what the analysis
-could not resolve. Below it, a card per repository with its mix of stages
-(build, lint, test, scan, package, publish, deploy), how its jobs are started,
-and a few facts worth a second look:
+could not resolve. Then **Worth a look**, the facts a pipeline designer would
+want to check, the ones that occur listed first:
 
 - **deploy jobs with no test job anywhere upstream**
+- builds referenced but **not found** in any analysed repository
+- **analysis warnings**
 - **stand-alone jobs** with nothing upstream or downstream
 - **make targets that are invoked but have no rule**
-- builds referenced but **not found** in any analysed repository
+
+After that, **how work starts** (on a commit, on a schedule, when another job
+finishes, by hand), and a card per repository with its mix of stages (build,
+lint, test, scan, package, publish, deploy) and the same facts for that
+repository.
 
 Every number is a link: it opens the table filtered to exactly the jobs it
-counts. The page never says pass or fail; it states what is there and lets you
-judge.
+counts. Hover one to read what it counts and why it can matter. The page never
+says pass or fail; it states what is there and lets you judge.
 
 ### 2 Jobs & images: every one, sortable
 
@@ -126,6 +131,13 @@ directly needs and what directly needs it (by kind of link), the **make
 targets it runs** as a tree you can open level by level, every step with its
 full script, parameters and artifact rules. Everything has a copy button.
 
+Any text that carries information can be selected with the mouse and copied
+with `Ctrl`+`C`: ids, sources, scripts, facts, warnings, compare notes. Text
+that acts as a link (a job name you click to open) is not selectable. In the
+table, where a whole row is a click target, right-click a row to copy its
+name, id, source or a link; on the map, right-click a card. `Ctrl`+`C` with no
+text selected copies the selected job's id.
+
 ## Search and filters
 
 `Ctrl`/`⌘`+`K` opens the palette: type to find any job, image or target by name,
@@ -144,7 +156,15 @@ palette you can narrow with:
 Every state has a link: `L` copies a `pgview://…` link to exactly this view,
 and `--goto` opens one.
 
-## Keyboard
+## Keyboard and help
+
+`?` opens the help: every shortcut grouped by what you want to do, and
+**Reading the views**, a legend of stage colours, node kinds, needs and breaks,
+the lines on the map and the change markers.
+
+![Help: shortcuts](screenshots/pgview/help.png)
+
+![Help: reading the views](screenshots/pgview/legend.png)
 
 | Key | |
 |---|---|
@@ -157,6 +177,7 @@ and `--goto` opens one.
 | `F` | fit the map |
 | `Esc` | step back: route, lineage, selection |
 | `Alt` `←` `→` | back, forward |
+| `Ctrl` `C`, right-click | copy the selection, or the selected job's id; copy menu |
 | `L` `T` `R` `?` | copy link, light/dark, reload, help |
 
 ## How the facts are derived
