@@ -194,6 +194,8 @@ The budgets below are measured on a generated 48,500-node graph by
 | Lay out a scene of 500 nodes | 700 ms | < 10 ms |
 | A frame (p95, CPU) | 8 ms | < 2 ms |
 | Memory held for the graph | 400 MB | ~32 MB |
+| Whole process, window and GL included | | ~120 MB |
+| CPU while idle | | 0 (it repaints only on input) |
 
 Layout is the one cost that grows fast: about 0.4 s for 2,000 nodes and 4 s for
 3,500, which is why a scene is cut to its nearest 500 until you ask for more.
