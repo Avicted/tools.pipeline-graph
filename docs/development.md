@@ -8,7 +8,7 @@ it is the VS Code devcontainer in `.devcontainer/` (Go plus the host's Docker, s
 
 Everything that is the same for every system (cloning, cross-repo id
 resolution, scanning steps for `make`, `docker` and scripts, the graph and all
-renderers) lives behind [`ci.Provider`](internal/ci/ci.go). A provider only reads
+renderers) lives behind [`ci.Provider`](../internal/ci/ci.go). A provider only reads
 one system's definitions from a checkout, and says what it calls things:
 
 ```go
@@ -25,7 +25,7 @@ type Configurable interface{ NewSettings() any }
 `Load` returns neutral `ci.Job`s: a unique `Key` within the repo, a `QualID`
 other repos refer to it by (plus `Aliases` for ids that name it too), its steps,
 dependencies (`ci.Ref` to a job in the same repo or by id across repos),
-triggers and artifact rules. [`internal/ci/github`](internal/ci/github/github.go)
+triggers and artifact rules. [`internal/ci/github`](../internal/ci/github/github.go)
 is a compact reference implementation.
 
 `System()` is how the system shows up everywhere else, so no shared code needs
@@ -51,11 +51,11 @@ repos:
 To add one:
 
 1. Implement it in `internal/ci/<name>`.
-2. Add it to `providers` in [`cmd/pipeline-graph/main.go`](cmd/pipeline-graph/main.go).
+2. Add it to `providers` in [`cmd/pipeline-graph/main.go`](../cmd/pipeline-graph/main.go).
 3. Test it against fixture checkouts, and describe what it reads in [`docs/analysis.md`](analysis.md).
 
 A repo that uses several systems is read by all of them; `provider: <name>` on a
-repo in the config picks exactly one. The [`analyze` tests](internal/analyze/provider_test.go)
+repo in the config picks exactly one. The [`analyze` tests](../internal/analyze/provider_test.go)
 use a stub provider as a template.
 
 ```sh
