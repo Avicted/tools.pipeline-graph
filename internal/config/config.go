@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Repo is one repository. A key that is not listed here is a provider's settings
