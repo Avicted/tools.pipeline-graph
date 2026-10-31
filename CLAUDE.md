@@ -18,7 +18,9 @@ Commands are in [docs/development.md](docs/development.md); the design is in
    maintainability (cost, flakiness, coupling, upkeep) before building, not after.
 6. **Designs are documented.** Every architecture design has a clear `.md` in `docs/` with
    diagrams (Mermaid, which GitHub renders). A new subsystem or a cross-cutting change
-   updates [docs/architecture.md](docs/architecture.md).
+   updates [docs/architecture.md](docs/architecture.md). Each diagram answers one stated
+   question and uses the legend at the top of that file. Render it in light and dark
+   before committing; a diagram that parses can still be wrong.
 7. **Don't trust, verify.** Claims are proven by running them: tests, byte-for-byte
    comparisons, checks made to fail on purpose. State plainly what was not run.
 
