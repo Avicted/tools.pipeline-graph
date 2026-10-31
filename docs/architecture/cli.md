@@ -94,6 +94,7 @@ flowchart LR
     analyze["analyze"]
     shell["shell"]
     makefile["makefile"]
+    repofs["repofs"]
     render["render"]
     layout["layout"]
     model["model<br/>graph.json"]
@@ -106,23 +107,27 @@ flowchart LR
     cmd --> model
     ci --> kts
     ci --> model
+    ci --> repofs
     kts --> model
+    kts --> repofs
     analyze --> ci
     analyze --> shell
     analyze --> makefile
+    analyze --> repofs
     analyze --> model
+    makefile --> repofs
     render --> layout
     render --> model
     layout --> model
 
     classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
     classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
-    class cmd,config,fetch,ci,kts,analyze,shell,makefile,render,layout go
+    class cmd,config,fetch,ci,kts,analyze,shell,makefile,repofs,render,layout go
     class model data
 ```
 
 An arrow is an import. Only `cmd/pipeline-graph` wires the stages together; `config`,
-`fetch`, `shell` and `makefile` import nothing of ours, and everything ends in `model`.
+`fetch`, `shell` and `repofs` import nothing of ours, and everything ends in `model` or `repofs`.
 `test/docs` fails when this picture and the real imports differ.
 
 | Package | Responsibility |
@@ -132,6 +137,7 @@ An arrow is an import. Only `cmd/pipeline-graph` wires the stages together; `con
 | `internal/ci` | The provider seam ([below](#the-provider-seam)) and the neutral job model |
 | `internal/kts` | Tolerant Kotlin tokenizer and parser for the TeamCity DSL |
 | `internal/shell`, `internal/makefile` | Find `make`, `docker` and script calls in step text; parse Makefiles |
+| `internal/repofs` | The only way repository files are read: confined to the repo root (no `..`, no symlink out), regular files only, size-capped |
 | `internal/analyze` | Turns every provider's jobs into one graph; resolves references across repositories |
 | `internal/model` | The graph types and `graph.json` (`SchemaVersion`) |
 | `internal/layout`, `internal/render` | Layered left-to-right layout with repository lanes; every output format |

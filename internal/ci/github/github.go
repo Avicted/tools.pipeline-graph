@@ -8,7 +8,6 @@ package github
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/Avicted/tools.pipeline-graph/internal/ci"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
 )
 
 const workflowsDir = ".github/workflows"
@@ -108,9 +108,9 @@ func parseFile(r ci.Repo, file string) (*workflow, []string) {
 	fail := func(line int, format string, a ...any) (*workflow, []string) {
 		return nil, []string{fmt.Sprintf("%s:%d: %s", rel, line, fmt.Sprintf(format, a...))}
 	}
-	b, err := os.ReadFile(file)
+	b, err := repofs.ReadFile(r.Root, rel)
 	if err != nil {
-		return fail(1, "%v", err)
+		return fail(1, "%s", repofs.Reason(err))
 	}
 	var doc yaml.Node
 	if err := yaml.Unmarshal(b, &doc); err != nil {

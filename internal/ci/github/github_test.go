@@ -3,6 +3,7 @@ package github
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -343,5 +344,31 @@ func TestStepWithoutRunOrUses(t *testing.T) {
 	_, jobs := load(t, map[string]string{"ci.yml": "on: push\njobs:\n  a:\n    steps:\n      - name: nothing\n      - run: make\n"})
 	if s := jobs["ci/a"].Steps; len(s) != 1 || s[0].Summary != "make" {
 		t.Errorf("steps: %+v", s)
+	}
+}
+
+func TestWorkflowSymlinkedOutsideTheRepositoryIsNotRead(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on windows")
+	}
+	r := checkout(t, map[string]string{"ok.yml": "on: push\njobs:\n  build:\n    runs-on: x\n    steps:\n      - run: make\n"})
+	outside := filepath.Join(t.TempDir(), "evil.yml")
+	if err := os.WriteFile(outside, []byte("on: push\njobs:\n  leaked:\n    runs-on: x\n    steps:\n      - run: make\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(r.Root, ".github", "workflows", "evil.yml")); err != nil {
+		t.Fatal(err)
+	}
+	p, err := New().Load(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range p.Jobs {
+		if strings.Contains(j.Key, "leaked") {
+			t.Errorf("job %q comes from a workflow outside the repository", j.Key)
+		}
+	}
+	if got := strings.Join(p.Warnings, "\n"); !strings.Contains(got, "evil.yml") || !strings.Contains(got, "escapes") {
+		t.Errorf("the refusal must be reported, got %q", got)
 	}
 }

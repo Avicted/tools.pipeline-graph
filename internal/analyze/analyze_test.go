@@ -3,6 +3,7 @@ package analyze
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -108,5 +109,54 @@ func TestImageName(t *testing.T) {
 		if got := ImageName(in); got != want {
 			t.Errorf("ImageName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A repository is untrusted: what a script or Dockerfile path points at outside it must
+// not be read, whether by "..", or by a symlink inside the checkout.
+func TestFilesOutsideTheRepositoryAreNotRead(t *testing.T) {
+	cases := map[string]struct {
+		step    string // the TeamCity step
+		symlink string // link name inside the repo, pointing at the outside file
+		file    string // content of the outside file
+		leaked  string // node that would exist had the file been read
+	}{
+		"script via ..":      {step: "sh ../outside.sh", file: "docker build -t reg.io/leaked:1 .\n", leaked: "img:reg.io/leaked"},
+		"script via symlink": {step: "sh ci/run.sh", symlink: "ci/run.sh", file: "docker build -t reg.io/leaked:1 .\n", leaked: "img:reg.io/leaked"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			if c.symlink != "" && runtime.GOOS == "windows" {
+				t.Skip("symlinks need privileges on windows")
+			}
+			parent := t.TempDir()
+			root := filepath.Join(parent, "repo")
+			outside := filepath.Join(parent, "outside.sh")
+			if err := os.WriteFile(outside, []byte(c.file), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Join(root, ".teamcity"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			settings := `object App : BuildType({ steps { script { scriptContent = "` + c.step + `" } } })`
+			if err := os.WriteFile(filepath.Join(root, ".teamcity", "settings.kts"), []byte(settings), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if c.symlink != "" {
+				if err := os.MkdirAll(filepath.Join(root, filepath.Dir(c.symlink)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(outside, filepath.Join(root, c.symlink)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			g, warnings := Run([]Repo{{Name: "app", Root: root}}, Options{Providers: tc})
+			if g.Node(c.leaked) != nil {
+				t.Errorf("%s exists: the file outside the repository was analysed", c.leaked)
+			}
+			if got := strings.Join(warnings, "\n"); !strings.Contains(got, "escapes") {
+				t.Errorf("the refusal must be reported as a warning, got %q", got)
+			}
+		})
 	}
 }

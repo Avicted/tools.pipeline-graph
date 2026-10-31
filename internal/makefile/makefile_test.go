@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -187,5 +188,27 @@ func TestStaticPatternAndMultiTargetRules(t *testing.T) {
 		if m.Rules[want] == nil {
 			t.Errorf("rule %s missing; have %v", want, m.Targets())
 		}
+	}
+}
+
+func TestIncludeCannotLeaveTheRepository(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "repo")
+	write(t, parent, map[string]string{"secret.mk": "LEAK := top-secret\n"})
+	write(t, root, map[string]string{"Makefile": "include ../secret.mk\ninclude ../../etc/hosts\nall:\n\techo $(LEAK)\n"})
+
+	m, err := Load(root, ".", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := m.Vars["LEAK"]; ok {
+		t.Errorf("a file outside the repository was included: LEAK=%q", v)
+	}
+	if got := strings.Join(m.Warnings, "\n"); !strings.Contains(got, "include ../secret.mk") || !strings.Contains(got, "escapes") {
+		t.Errorf("the refused include must be reported with its reason, got %q", got)
+	}
+	// `make -f ../secret.mk` is the same escape by another door.
+	if _, err := Load(root, ".", "../secret.mk", nil); err == nil {
+		t.Error("Load must refuse a makefile outside the repository")
 	}
 }

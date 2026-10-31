@@ -3,6 +3,7 @@ package teamcity
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -214,5 +215,33 @@ func TestSubstParams(t *testing.T) {
 	}
 	if got := substParams("%x%", map[string]string{"x": "%x%"}); got != "%x%" {
 		t.Errorf("a self-reference must terminate, got %q", got)
+	}
+}
+
+func TestSettingsSymlinkedOutsideTheRepositoryIsSkipped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on windows")
+	}
+	r := checkout(t, map[string]string{".teamcity/settings.kts": "project { buildType(Build) }\nobject Build : BuildType({ name = \"Build\" })\n"})
+	outside := filepath.Join(t.TempDir(), "evil.kts")
+	if err := os.WriteFile(outside, []byte("object Leaked : BuildType({ name = \"Leaked\" })\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(r.Root, ".teamcity", "evil.kts")); err != nil {
+		t.Fatal(err)
+	}
+	p, err := New().Load(r)
+	if err != nil {
+		t.Fatalf("one hostile file must not fail the whole repository: %v", err)
+	}
+	var keys []string
+	for _, j := range p.Jobs {
+		keys = append(keys, j.Key)
+	}
+	if got := strings.Join(keys, ","); strings.Contains(got, "Leaked") || !strings.Contains(got, "Build") {
+		t.Errorf("jobs %q: want Build and not Leaked", got)
+	}
+	if got := strings.Join(p.Warnings, "\n"); !strings.Contains(got, "evil.kts") || !strings.Contains(got, "escapes") {
+		t.Errorf("the refusal must be reported, got %q", got)
 	}
 }

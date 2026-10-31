@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
 )
 
 type RefKind int
@@ -116,15 +117,23 @@ func ParseDir(dir, root string) (*Settings, error) {
 	}
 	sort.Strings(files)
 	srcs := map[string]string{}
+	var warnings []string
 	for _, f := range files {
-		b, err := os.ReadFile(f)
+		rel, err := filepath.Rel(root, f)
 		if err != nil {
 			return nil, err
 		}
-		rel, _ := filepath.Rel(root, f)
-		srcs[filepath.ToSlash(rel)] = string(b)
+		rel = filepath.ToSlash(rel)
+		b, err := repofs.ReadFile(root, rel)
+		if err != nil { // one hostile or unreadable file must not hide the rest of the repository
+			warnings = append(warnings, fmt.Sprintf("%s: not read: %s", rel, repofs.Reason(err)))
+			continue
+		}
+		srcs[rel] = string(b)
 	}
-	return ParseSources(srcs), nil
+	s := ParseSources(srcs)
+	s.Warnings = append(warnings, s.Warnings...)
+	return s, nil
 }
 
 // ParseSources analyses a set of DSL files (name -> content) as one settings package.

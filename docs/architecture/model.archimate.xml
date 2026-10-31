@@ -48,6 +48,10 @@
       <name xml:lang="en">internal/makefile</name>
       <documentation xml:lang="en">Parses Makefiles.</documentation>
     </element>
+    <element identifier="id-pkg-repofs" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/repofs</name>
+      <documentation xml:lang="en">Reads repository files confined to the repo root: no .. or symlink escape, regular files only, size-capped.</documentation>
+    </element>
     <element identifier="id-pkg-render" xsi:type="ApplicationComponent">
       <name xml:lang="en">internal/render</name>
       <documentation xml:lang="en">Every output format.</documentation>
@@ -330,6 +334,7 @@
     <relationship identifier="id-cli-composition-pkg-analyze" source="id-cli" target="id-pkg-analyze" xsi:type="Composition"/>
     <relationship identifier="id-cli-composition-pkg-shell" source="id-cli" target="id-pkg-shell" xsi:type="Composition"/>
     <relationship identifier="id-cli-composition-pkg-makefile" source="id-cli" target="id-pkg-makefile" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-repofs" source="id-cli" target="id-pkg-repofs" xsi:type="Composition"/>
     <relationship identifier="id-cli-composition-pkg-render" source="id-cli" target="id-pkg-render" xsi:type="Composition"/>
     <relationship identifier="id-cli-composition-pkg-layout" source="id-cli" target="id-pkg-layout" xsi:type="Composition"/>
     <relationship identifier="id-cli-composition-pkg-model" source="id-cli" target="id-pkg-model" xsi:type="Composition"/>
@@ -455,6 +460,10 @@
     <relationship identifier="id-pkg-layout-serving-pkg-render" source="id-pkg-layout" target="id-pkg-render" xsi:type="Serving"/>
     <relationship identifier="id-pkg-model-serving-pkg-render" source="id-pkg-model" target="id-pkg-render" xsi:type="Serving"/>
     <relationship identifier="id-pkg-model-serving-pkg-layout" source="id-pkg-model" target="id-pkg-layout" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-repofs-serving-pkg-ci" source="id-pkg-repofs" target="id-pkg-ci" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-repofs-serving-pkg-kts" source="id-pkg-repofs" target="id-pkg-kts" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-repofs-serving-pkg-analyze" source="id-pkg-repofs" target="id-pkg-analyze" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-repofs-serving-pkg-makefile" source="id-pkg-repofs" target="id-pkg-makefile" xsi:type="Serving"/>
     <relationship identifier="id-ci-teamcity-association-provider" source="id-ci-teamcity" target="id-provider" xsi:type="Association">
       <name xml:lang="en">implements</name>
     </relationship>
@@ -672,17 +681,18 @@
       <view identifier="id-cli-packages" xsi:type="Diagram">
         <name xml:lang="en">Packages: which Go package imports which?</name>
         <documentation xml:lang="en">The diagram tagged view: cli-packages in docs/architecture/cli.md.</documentation>
-        <node identifier="n-cli-packages-cmd" elementRef="id-pkg-cmd" xsi:type="Element" x="794" y="127" w="156" h="55"/>
-        <node identifier="n-cli-packages-config" elementRef="id-pkg-config" xsi:type="Element" x="596" y="25" w="135" h="55"/>
-        <node identifier="n-cli-packages-fetch" elementRef="id-pkg-fetch" xsi:type="Element" x="192" y="1" w="128" h="55"/>
-        <node identifier="n-cli-packages-ci" elementRef="id-pkg-ci" xsi:type="Element" x="398" y="26" w="120" h="55"/>
-        <node identifier="n-cli-packages-kts" elementRef="id-pkg-kts" xsi:type="Element" x="196" y="79" w="120" h="55"/>
-        <node identifier="n-cli-packages-analyze" elementRef="id-pkg-analyze" xsi:type="Element" x="592" y="152" w="142" h="55"/>
-        <node identifier="n-cli-packages-shell" elementRef="id-pkg-shell" xsi:type="Element" x="394" y="101" w="128" h="55"/>
-        <node identifier="n-cli-packages-makefile" elementRef="id-pkg-makefile" xsi:type="Element" x="383" y="176" w="149" h="55"/>
-        <node identifier="n-cli-packages-render" elementRef="id-pkg-render" xsi:type="Element" x="390" y="303" w="135" h="55"/>
-        <node identifier="n-cli-packages-layout" elementRef="id-pkg-layout" xsi:type="Element" x="188" y="246" w="135" h="55"/>
-        <node identifier="n-cli-packages-model" elementRef="id-pkg-model" xsi:type="Element" x="0" y="182" w="128" h="55"/>
+        <node identifier="n-cli-packages-cmd" elementRef="id-pkg-cmd" xsi:type="Element" x="801" y="248" w="156" h="55"/>
+        <node identifier="n-cli-packages-config" elementRef="id-pkg-config" xsi:type="Element" x="603" y="110" w="135" h="55"/>
+        <node identifier="n-cli-packages-fetch" elementRef="id-pkg-fetch" xsi:type="Element" x="206" y="280" w="128" h="55"/>
+        <node identifier="n-cli-packages-ci" elementRef="id-pkg-ci" xsi:type="Element" x="412" y="211" w="120" h="55"/>
+        <node identifier="n-cli-packages-kts" elementRef="id-pkg-kts" xsi:type="Element" x="210" y="153" w="120" h="55"/>
+        <node identifier="n-cli-packages-analyze" elementRef="id-pkg-analyze" xsi:type="Element" x="599" y="185" w="142" h="55"/>
+        <node identifier="n-cli-packages-shell" elementRef="id-pkg-shell" xsi:type="Element" x="408" y="84" w="128" h="55"/>
+        <node identifier="n-cli-packages-makefile" elementRef="id-pkg-makefile" xsi:type="Element" x="195" y="0" w="149" h="55"/>
+        <node identifier="n-cli-packages-repofs" elementRef="id-pkg-repofs" xsi:type="Element" x="0" y="68" w="135" h="55"/>
+        <node identifier="n-cli-packages-render" elementRef="id-pkg-render" xsi:type="Element" x="404" y="312" w="135" h="55"/>
+        <node identifier="n-cli-packages-layout" elementRef="id-pkg-layout" xsi:type="Element" x="202" y="355" w="135" h="55"/>
+        <node identifier="n-cli-packages-model" elementRef="id-pkg-model" xsi:type="Element" x="4" y="208" w="128" h="55"/>
         <connection identifier="c-cli-packages-pkg-fetch-flow-pkg-ci" relationshipRef="id-pkg-fetch-flow-pkg-ci" xsi:type="Relationship" source="n-cli-packages-fetch" target="n-cli-packages-ci"/>
         <connection identifier="c-cli-packages-pkg-ci-flow-pkg-analyze" relationshipRef="id-pkg-ci-flow-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-ci" target="n-cli-packages-analyze"/>
         <connection identifier="c-cli-packages-pkg-config-serving-pkg-cmd" relationshipRef="id-pkg-config-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-config" target="n-cli-packages-cmd"/>
@@ -701,6 +711,10 @@
         <connection identifier="c-cli-packages-pkg-layout-serving-pkg-render" relationshipRef="id-pkg-layout-serving-pkg-render" xsi:type="Relationship" source="n-cli-packages-layout" target="n-cli-packages-render"/>
         <connection identifier="c-cli-packages-pkg-model-serving-pkg-render" relationshipRef="id-pkg-model-serving-pkg-render" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-render"/>
         <connection identifier="c-cli-packages-pkg-model-serving-pkg-layout" relationshipRef="id-pkg-model-serving-pkg-layout" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-layout"/>
+        <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-ci" relationshipRef="id-pkg-repofs-serving-pkg-ci" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-ci"/>
+        <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-kts" relationshipRef="id-pkg-repofs-serving-pkg-kts" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-kts"/>
+        <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-analyze" relationshipRef="id-pkg-repofs-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-analyze"/>
+        <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-makefile" relationshipRef="id-pkg-repofs-serving-pkg-makefile" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-makefile"/>
       </view>
       <view identifier="id-provider-seam" xsi:type="Diagram">
         <name xml:lang="en">The provider seam: what does adding a CI system cost?</name>

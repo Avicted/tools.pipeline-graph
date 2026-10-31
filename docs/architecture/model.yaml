@@ -22,6 +22,7 @@ elements:
   - {id: pkg-analyze, type: ApplicationComponent, name: internal/analyze, doc: Turns every provider's jobs into one graph and resolves references across repositories.}
   - {id: pkg-shell, type: ApplicationComponent, name: internal/shell, doc: "Finds make, docker and script calls in step text."}
   - {id: pkg-makefile, type: ApplicationComponent, name: internal/makefile, doc: Parses Makefiles.}
+  - {id: pkg-repofs, type: ApplicationComponent, name: internal/repofs, doc: "Reads repository files confined to the repo root: no .. or symlink escape, regular files only, size-capped."}
   - {id: pkg-render, type: ApplicationComponent, name: internal/render, doc: Every output format.}
   - {id: pkg-layout, type: ApplicationComponent, name: internal/layout, doc: Layered left-to-right layout with repository lanes.}
   - {id: pkg-model, type: ApplicationComponent, name: internal/model, doc: "The graph types and graph.json (SchemaVersion = 1)."}
@@ -126,6 +127,7 @@ relationships:
   - {type: Composition, source: cli, target: pkg-analyze}
   - {type: Composition, source: cli, target: pkg-shell}
   - {type: Composition, source: cli, target: pkg-makefile}
+  - {type: Composition, source: cli, target: pkg-repofs}
   - {type: Composition, source: cli, target: pkg-render}
   - {type: Composition, source: cli, target: pkg-layout}
   - {type: Composition, source: cli, target: pkg-model}
@@ -209,6 +211,10 @@ relationships:
   - {type: Serving, source: pkg-layout, target: pkg-render}
   - {type: Serving, source: pkg-model, target: pkg-render}
   - {type: Serving, source: pkg-model, target: pkg-layout}
+  - {type: Serving, source: pkg-repofs, target: pkg-ci}
+  - {type: Serving, source: pkg-repofs, target: pkg-kts}
+  - {type: Serving, source: pkg-repofs, target: pkg-analyze}
+  - {type: Serving, source: pkg-repofs, target: pkg-makefile}
 
   # The provider seam.
   - {type: Association, source: ci-teamcity, target: provider, name: implements}
@@ -352,6 +358,7 @@ views:
       - {m: analyze, el: pkg-analyze}
       - {m: shell, el: pkg-shell}
       - {m: makefile, el: pkg-makefile}
+      - {m: repofs, el: pkg-repofs}
       - {m: render, el: pkg-render}
       - {m: layout, el: pkg-layout}
       - {m: model, el: pkg-model}

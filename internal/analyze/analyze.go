@@ -4,10 +4,10 @@
 package analyze
 
 import (
+	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 	"path"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -16,6 +16,7 @@ import (
 	"github.com/Avicted/tools.pipeline-graph/internal/ci"
 	"github.com/Avicted/tools.pipeline-graph/internal/makefile"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
+	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
 	"github.com/Avicted/tools.pipeline-graph/internal/shell"
 )
 
@@ -281,9 +282,12 @@ func (a *analyzer) commands(r Repo, script, dir, owner, label string, depth int)
 	}
 	for _, sc := range res.Scripts {
 		p := path.Clean(path.Join(dir, sc.Path))
-		b, err := os.ReadFile(filepath.Join(r.Root, p))
+		b, err := repofs.ReadFile(r.Root, p)
 		if err != nil {
-			continue // not a repo file (or generated at build time)
+			if !errors.Is(err, fs.ErrNotExist) { // a missing file is generated at build time
+				a.warn(r.Name, p, 0, "script not read: %s", repofs.Reason(err))
+			}
+			continue
 		}
 		a.commands(r, string(b), dir, owner, label, depth+1)
 	}
@@ -421,8 +425,11 @@ func (a *analyzer) docker(r Repo, d shell.Docker, dir, owner string) {
 		df = path.Join(ctx, "Dockerfile")
 	}
 	df = path.Join(dir, df)
-	b, err := os.ReadFile(filepath.Join(r.Root, df))
+	b, err := repofs.ReadFile(r.Root, df)
 	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			a.warn(r.Name, df, 0, "Dockerfile not read: %s", repofs.Reason(err))
+		}
 		return
 	}
 	for _, img := range shell.DockerfileFrom(string(b), nil) {

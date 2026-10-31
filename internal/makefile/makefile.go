@@ -5,11 +5,15 @@ package makefile
 
 import (
 	"bufio"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
 )
 
 type Rule struct {
@@ -43,7 +47,7 @@ func Load(root, dir, file string, cmdVars map[string]string) (*Makefile, error) 
 	}
 	if file == "" {
 		for _, f := range []string{"GNUmakefile", "makefile", "Makefile"} {
-			if _, err := os.Stat(filepath.Join(root, dir, f)); err == nil {
+			if repofs.Exists(root, filepath.Join(dir, f)) {
 				file = f
 				break
 			}
@@ -63,7 +67,7 @@ func Load(root, dir, file string, cmdVars map[string]string) (*Makefile, error) 
 }
 
 func (m *Makefile) parseFile(root, rel string, cmdVars map[string]string, depth int) error {
-	f, err := os.Open(filepath.Join(root, rel))
+	f, err := repofs.Open(root, rel)
 	if err != nil {
 		return err
 	}
@@ -129,7 +133,11 @@ func (m *Makefile) parseFile(root, rel string, cmdVars map[string]string, depth 
 					continue
 				}
 				if err := m.parseFile(root, p, cmdVars, depth+1); err != nil && word == "include" {
-					m.Warnings = append(m.Warnings, rel+": include "+inc+": not found")
+					why := "not found"
+					if !errors.Is(err, fs.ErrNotExist) {
+						why = repofs.Reason(err)
+					}
+					m.Warnings = append(m.Warnings, rel+": include "+inc+": "+why)
 				}
 			}
 			cur = nil
