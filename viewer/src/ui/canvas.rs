@@ -11,6 +11,9 @@ use egui::{Color32, CursorIcon, Pos2, RichText, Sense, Vec2};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// How many finished layouts are kept for switching back and forth.
+const LAYOUTS_KEPT: usize = 6;
+
 #[derive(Default)]
 pub struct LayoutCache {
     map: HashMap<(Scene, usize), Arc<SceneLayout>>,
@@ -72,7 +75,7 @@ impl Workspace {
             self.layouts.failed.extend(lost);
             self.toast("The layout stopped unexpectedly; pick another view");
         }
-        while self.layouts.order.len() > 6 {
+        while self.layouts.order.len() > LAYOUTS_KEPT {
             let old = self.layouts.order.remove(0);
             self.layouts.map.remove(&old);
         }
@@ -104,7 +107,7 @@ impl Workspace {
     fn map_toolbar(&mut self, ui: &mut egui::Ui, pal: &Palette) {
         egui::Frame::new().inner_margin(egui::Margin::symmetric(12, 8)).show(ui, |ui| {
             ui.horizontal(|ui| {
-                let big = self.m.g.len() > 1500;
+                let big = self.m.g.len() > crate::core::scene::BIG_GRAPH;
                 if ui.selectable_label(self.scene == Scene::Repos, "Repositories").clicked() {
                     self.scene = Scene::Repos;
                     self.canvas.fit_pending = true;

@@ -5,6 +5,7 @@ use super::job::Job;
 use super::shell::brand;
 use super::shots::ShotRun;
 use super::theme::{self, Mode, Palette};
+use super::util;
 use super::workspace::{Screen, Workspace};
 use crate::core::model::Model;
 use egui::RichText;
@@ -225,7 +226,7 @@ impl App {
                 });
             });
         if do_open {
-            act.open = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).pick_file();
+            act.open = util::graph_dialog().pick_file();
         }
         act.close = do_close && ready;
         act.save_as = do_save_as && ready;
@@ -280,7 +281,7 @@ fn welcome(ctx: &egui::Context, pal: &Palette, err: Option<&str>, open: &mut Opt
                 ui.add_space(10.0);
             }
             if ui.add(egui::Button::new(RichText::new("Open graph.json…").size(16.0)).min_size(egui::vec2(200.0, 36.0))).clicked() {
-                if let Some(p) = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).pick_file() {
+                if let Some(p) = util::graph_dialog().pick_file() {
                     *open = Some(p);
                 }
             }

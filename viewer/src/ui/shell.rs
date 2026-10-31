@@ -21,7 +21,7 @@ impl Workspace {
         self.sync_title(ctx);
         self.shortcuts(ctx, mode);
         if std::mem::take(&mut self.theme_toggle) {
-            *mode = if *mode == Mode::Dark { Mode::Light } else { Mode::Dark };
+            *mode = mode.toggled();
         }
 
         egui::TopBottomPanel::top("top")
@@ -108,7 +108,7 @@ impl Workspace {
     pub fn save_copy(&mut self) {
         let src = self.m.path.clone();
         let name = src.file_name().map_or_else(|| "graph.json".into(), |n| n.to_string_lossy().into_owned());
-        let Some(dest) = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).set_file_name(name).save_file() else {
+        let Some(dest) = util::graph_dialog().set_file_name(name).save_file() else {
             return;
         };
         match std::fs::copy(&src, &dest) {
@@ -167,7 +167,7 @@ impl Workspace {
                 }
                 self.select(None);
             } else if let (Screen::Map, Scene::Focus(_) | Scene::Repo(_)) = (self.screen, &self.scene) {
-                self.scene = if self.m.g.len() > 1500 { Scene::Repos } else { Scene::All };
+                self.scene = Scene::first_for(self.m.g.len());
                 self.canvas.fit_pending = true;
             }
         }
@@ -210,7 +210,7 @@ impl Workspace {
             self.canvas.fit_all = true;
         }
         if pressed(Key::T) {
-            *mode = if *mode == Mode::Dark { Mode::Light } else { Mode::Dark };
+            *mode = mode.toggled();
         }
         if pressed(Key::L) {
             let l = self.link();
@@ -274,7 +274,7 @@ impl Workspace {
                 }
                 let icon = if *mode == Mode::Dark { "☀" } else { "☾" };
                 if ui.add(egui::Button::new(icon).min_size(egui::vec2(28.0, 28.0))).on_hover_text("Light / dark (T)").clicked() {
-                    *mode = if *mode == Mode::Dark { Mode::Light } else { Mode::Dark };
+                    *mode = mode.toggled();
                 }
                 let b = egui::Button::new(RichText::new("🔍  Search or run a command…      Ctrl K").color(pal.muted))
                     .min_size(egui::vec2(300.0, 28.0));
@@ -283,7 +283,7 @@ impl Workspace {
                 }
                 let tip = "Open another graph.json";
                 if ui.add(egui::Button::new("Open…").min_size(egui::vec2(28.0, 28.0))).on_hover_text(tip).clicked() {
-                    if let Some(p) = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).pick_file() {
+                    if let Some(p) = util::graph_dialog().pick_file() {
                         *open = Some(p);
                     }
                 }

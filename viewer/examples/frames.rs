@@ -37,16 +37,8 @@ fn main() {
     let mut rig = Rig::new(m);
     let mut failed = vec![];
 
-    let busiest = {
-        let m = rig.ws.m.clone();
-        (0..m.g.len() as u32)
-            .filter(|&v| m.g.kind[v as usize] == pipeline_graph_viewer::core::graph::Kind::Build)
-            .max_by_key(|&v| m.d.down[v as usize] + m.d.up[v as usize])
-    };
-    let repo = {
-        let d = &rig.ws.m.d;
-        (0..d.repos.len()).max_by_key(|&i| d.repos[i].longest).unwrap_or(0)
-    };
+    let busiest = rig.ws.m.busiest_build();
+    let repo = rig.ws.m.best_prod_repo();
 
     rig.ws.screen = Screen::Snapshot;
     measure(&mut rig, "snapshot", 60, |_, _| {}, &mut failed);

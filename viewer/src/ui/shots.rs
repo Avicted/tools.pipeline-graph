@@ -15,6 +15,8 @@ pub struct ShotRun {
 }
 
 /// Every picture is this many pixels, whatever the display scaling.
+/// Frames a screenshot step waits, with no layout pending, before the picture is taken.
+const SETTLE_FRAMES: u32 = 14;
 const SHOT_PX: egui::Vec2 = egui::vec2(2000.0, 1250.0);
 
 impl ShotRun {
@@ -28,10 +30,7 @@ const STEPS: &[&str] = &["snapshot", "table", "map", "focus", "prod", "images", 
 /// Puts the workspace into the state of step `i`; false when there is nothing for it.
 fn arrange(ws: &mut Workspace, name: &str) -> bool {
     let m = ws.m.clone();
-    let d = &m.d;
-    let busiest = (0..m.g.len() as u32)
-        .filter(|&v| m.g.kind[v as usize] == crate::core::graph::Kind::Build)
-        .max_by_key(|&v| d.down[v as usize] + d.up[v as usize]);
+    let busiest = m.busiest_build();
     ws.palette.open = false;
     ws.show_help = false;
     match name {
@@ -162,7 +161,7 @@ impl Workspace {
         }
         run.wait += 1;
         let layouts_busy = !self.layouts_idle();
-        if run.wait >= 14 && !layouts_busy {
+        if run.wait >= SETTLE_FRAMES && !layouts_busy {
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
             run.asked = true;
         }

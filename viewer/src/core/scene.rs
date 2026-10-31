@@ -72,6 +72,20 @@ fn card_size(m: &Model, v: u32) -> (f32, f32) {
 /// How many nodes a scene shows before it keeps only the nearest ones.
 pub const DEFAULT_LIMIT: usize = 500;
 
+/// Past this many nodes the first map is the repositories, not every job at once.
+pub const BIG_GRAPH: usize = 1500;
+
+impl Scene {
+    /// The scene a graph of `nodes` nodes opens on.
+    pub fn first_for(nodes: usize) -> Scene {
+        if nodes > BIG_GRAPH {
+            Scene::Repos
+        } else {
+            Scene::All
+        }
+    }
+}
+
 /// The `limit` nodes closest to `roots`, walking up and/or down the flow, nearest first.
 fn nearest(net: &Net, roots: &[u32], up: bool, down: bool, limit: usize) -> Vec<u32> {
     let mut seen: std::collections::HashSet<u32> = roots.iter().copied().collect();

@@ -100,7 +100,7 @@ impl Workspace {
                             }
                         });
                     if ui.button("Open file…").clicked() {
-                        if let Some(p) = rfd::FileDialog::new().add_filter("pipeline-graph", &["json"]).pick_file() {
+                        if let Some(p) = util::graph_dialog().pick_file() {
                             self.start_compare(&ctx, p);
                         }
                     }

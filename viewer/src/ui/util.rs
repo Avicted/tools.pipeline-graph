@@ -1,6 +1,11 @@
 //! Small helpers: forge links, percent-encoding for deep links, number formatting,
 //! and the two widgets every screen shares: clickable text and explaining hover cards.
 
+/// The file dialog for graph.json files: the same filter wherever one is opened or saved.
+pub fn graph_dialog() -> rfd::FileDialog {
+    rfd::FileDialog::new().add_filter("pipeline-graph", &["json"])
+}
+
 /// Text that acts as a link: a click target that never starts a text selection.
 pub fn link(ui: &mut egui::Ui, text: impl Into<egui::WidgetText>) -> egui::Response {
     ui.add(egui::Label::new(text).selectable(false).sense(egui::Sense::click())).on_hover_cursor(egui::CursorIcon::PointingHand)

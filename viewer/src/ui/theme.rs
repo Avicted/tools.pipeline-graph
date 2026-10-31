@@ -10,6 +10,15 @@ pub enum Mode {
     Dark,
 }
 
+impl Mode {
+    pub fn toggled(self) -> Mode {
+        match self {
+            Mode::Light => Mode::Dark,
+            Mode::Dark => Mode::Light,
+        }
+    }
+}
+
 pub struct Palette {
     pub dark: bool,
     pub bg: Color32,

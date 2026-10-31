@@ -59,11 +59,8 @@ fn main() {
 
     // scene layouts, as the map builds them on a worker thread
     let m = Model { g, d, ix, path: path.clone().into(), load_ms: 0 };
-    let busiest = (0..m.g.len() as u32)
-        .filter(|&v| m.g.kind[v as usize] == pipeline_graph_viewer::core::graph::Kind::Build)
-        .max_by_key(|&v| m.d.down[v as usize] + m.d.up[v as usize])
-        .unwrap_or(0);
-    let repo = (0..m.d.repos.len()).max_by_key(|&i| m.d.repos[i].longest).unwrap_or(0) as u32;
+    let busiest = m.busiest_build().unwrap_or(0);
+    let repo = m.best_prod_repo() as u32;
     for (name, scene, limit) in [
         ("scene: repositories", Scene::Repos, 100.0),
         ("scene: focus (busiest job)", Scene::Focus(busiest), 700.0),

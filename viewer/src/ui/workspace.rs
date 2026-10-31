@@ -176,7 +176,7 @@ pub struct Workspace {
 impl Workspace {
     pub fn new(m: Model) -> Workspace {
         let n = m.g.len();
-        let scene = if m.g.len() > 1500 { Scene::Repos } else { Scene::All };
+        let scene = Scene::first_for(m.g.len());
         let ws = Workspace {
             m: Arc::new(m),
             screen: Screen::Snapshot,
@@ -211,15 +211,9 @@ impl Workspace {
         };
         let mut ws = ws;
         ws.compare.discover(&ws.m.path);
-        ws.prod_repo = ws.best_prod_repo();
+        ws.prod_repo = ws.m.best_prod_repo();
         ws.history = History::starting_at(ws.nav());
         ws
-    }
-
-    /// The repo with the longest commit → prod chain: the most useful one to open first.
-    fn best_prod_repo(&self) -> usize {
-        let d = &self.m.d;
-        (0..d.repos.len()).max_by_key(|&i| d.repos[i].longest).unwrap_or(0)
     }
 
     fn nav(&self) -> Nav {
