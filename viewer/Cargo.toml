@@ -1,6 +1,6 @@
 [package]
 name = "pipeline-graph-viewer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Native viewer for pipeline-graph's graph.json: a snapshot of what is actually built"
 license = "GPL-3.0-only"
