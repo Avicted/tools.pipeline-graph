@@ -58,15 +58,54 @@ type vnode struct {
 	out   []*vnode
 }
 
+// dedge is an edge as the layering sees it: cycles are broken by reversing back edges.
+type dedge struct {
+	from, to *vnode
+	rev      bool
+	e        model.Edge
+}
+
+// chain is one edge's path through the layers, with a dummy node in every layer it spans.
+type chain struct {
+	e     model.Edge
+	rev   bool
+	nodes []*vnode // from ... to (in layer order)
+}
+
+// engine is the state the phases of Compute share, in the order they fill it.
+type engine struct {
+	o        Options
+	lanes    []string
+	nodes    map[string]*vnode
+	order    []*vnode // the graph's nodes, in graph order
+	edges    []dedge  // after cycle removal
+	all      []*vnode // order plus the dummy nodes
+	chains   []chain
+	maxLayer int
+	layers   [][]*vnode
+}
+
 // Compute lays out g. size returns the box size for each node; lanes is the ordered
-// list of lane names (a node's lane is laneOf(node)).
+// list of lane names (a node's lane is laneOf(node)). The phases are the classic
+// layered drawing: break cycles, assign layers, add dummy nodes for long edges, order
+// each layer to cut crossings, place nodes inside their lanes, then turn it all into
+// coordinates and routes.
 func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []string, laneOf func(*model.Node) string, o Options) Layout {
+	e := newEngine(g, size, lanes, laneOf, o)
+	e.removeCycles(g)
+	e.assignLayers()
+	e.addDummies()
+	e.orderLayers()
+	e.placeInLanes()
+	return e.coordinates()
+}
+
+func newEngine(g *model.Graph, size func(*model.Node) (float64, float64), lanes []string, laneOf func(*model.Node) string, o Options) *engine {
+	e := &engine{o: o, nodes: map[string]*vnode{}}
 	laneIdx := map[string]int{}
 	for i, l := range lanes {
 		laneIdx[l] = i
 	}
-	nodes := map[string]*vnode{}
-	var order []*vnode
 	for _, n := range g.Nodes {
 		w, h := size(n)
 		li, ok := laneIdx[laneOf(n)]
@@ -76,57 +115,58 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 			laneIdx[laneOf(n)] = li
 		}
 		v := &vnode{id: n.ID, lane: li, w: w, h: h}
-		nodes[n.ID] = v
-		order = append(order, v)
+		e.nodes[n.ID] = v
+		e.order = append(e.order, v)
 	}
+	e.lanes = lanes
+	return e
+}
 
-	// 1. cycle removal: DFS, reverse back edges
-	type dedge struct {
-		from, to *vnode
-		rev      bool
-		e        model.Edge
-	}
+// removeCycles: DFS, reverse back edges.
+func (e *engine) removeCycles(g *model.Graph) {
+	nodes := e.nodes
 	adj := map[*vnode][]model.Edge{}
-	for _, e := range g.Edges {
-		adj[nodes[e.From]] = append(adj[nodes[e.From]], e)
+	for _, ed := range g.Edges {
+		adj[nodes[ed.From]] = append(adj[nodes[ed.From]], ed)
 	}
 	state := map[*vnode]int{}
-	var edges []dedge
 	var dfs func(v *vnode)
 	dfs = func(v *vnode) {
 		state[v] = 1
-		for _, e := range adj[v] {
-			w := nodes[e.To]
+		for _, ed := range adj[v] {
+			w := nodes[ed.To]
 			switch state[w] {
 			case 0:
-				edges = append(edges, dedge{v, w, false, e})
+				e.edges = append(e.edges, dedge{v, w, false, ed})
 				dfs(w)
 			case 1:
-				edges = append(edges, dedge{w, v, true, e})
+				e.edges = append(e.edges, dedge{w, v, true, ed})
 			default:
-				edges = append(edges, dedge{v, w, false, e})
+				e.edges = append(e.edges, dedge{v, w, false, ed})
 			}
 		}
 		state[v] = 2
 	}
-	for _, v := range order {
+	for _, v := range e.order {
 		if state[v] == 0 {
 			dfs(v)
 		}
 	}
-	for _, de := range edges {
+	for _, de := range e.edges {
 		de.from.out = append(de.from.out, de.to)
 		de.to.in = append(de.to.in, de.from)
 	}
+}
 
-	// 2. layering: longest path, then pull sources next to their successors
+// assignLayers: longest path, then pull sources next to their successors.
+func (e *engine) assignLayers() {
 	var topo []*vnode
 	indeg := map[*vnode]int{}
-	for _, v := range order {
+	for _, v := range e.order {
 		indeg[v] = len(v.in)
 	}
 	queue := []*vnode{}
-	for _, v := range order {
+	for _, v := range e.order {
 		if indeg[v] == 0 {
 			queue = append(queue, v)
 		}
@@ -157,19 +197,16 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 			v.layer = min - 1
 		}
 	}
+}
 
-	// 3. dummy nodes for edges spanning several layers
-	type chain struct {
-		e     model.Edge
-		rev   bool
-		nodes []*vnode // from ... to (in layer order)
-	}
-	var chains []chain
-	for _, v := range order {
+// addDummies puts a dummy node in every layer an edge spans, and rebuilds the links so that
+// they only join neighbouring layers.
+func (e *engine) addDummies() {
+	for _, v := range e.order {
 		v.in, v.out = nil, nil
 	}
-	all := append([]*vnode{}, order...)
-	for _, de := range edges {
+	e.all = append([]*vnode{}, e.order...)
+	for _, de := range e.edges {
 		c := chain{e: de.e, rev: de.rev, nodes: []*vnode{de.from}}
 		prev := de.from
 		for l := de.from.layer + 1; l < de.to.layer; l++ {
@@ -177,7 +214,7 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 			if l > (de.from.layer+de.to.layer)/2 {
 				d.lane = de.to.lane // cross-lane edges switch lanes half way
 			}
-			all = append(all, d)
+			e.all = append(e.all, d)
 			prev.out = append(prev.out, d)
 			d.in = append(d.in, prev)
 			c.nodes = append(c.nodes, d)
@@ -186,47 +223,53 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 		prev.out = append(prev.out, de.to)
 		de.to.in = append(de.to.in, prev)
 		c.nodes = append(c.nodes, de.to)
-		chains = append(chains, c)
+		e.chains = append(e.chains, c)
 	}
+}
 
-	// 4. ordering within layers: lane first, then barycenter (several sweeps)
-	maxLayer := 0
-	for _, v := range all {
-		if v.layer > maxLayer {
-			maxLayer = v.layer
+// orderLayers: lane first, then barycenter (several sweeps).
+func (e *engine) orderLayers() {
+	for _, v := range e.all {
+		if v.layer > e.maxLayer {
+			e.maxLayer = v.layer
 		}
 	}
-	layers := make([][]*vnode, maxLayer+1)
-	for _, v := range all {
-		layers[v.layer] = append(layers[v.layer], v)
+	e.layers = make([][]*vnode, e.maxLayer+1)
+	for _, v := range e.all {
+		e.layers[v.layer] = append(e.layers[v.layer], v)
 	}
-	for _, l := range layers {
+	for _, l := range e.layers {
 		sort.SliceStable(l, func(i, j int) bool { return l[i].lane < l[j].lane })
 		renumber(l)
 	}
 	for it := 0; it < 12; it++ {
 		if it%2 == 0 {
-			for i := 1; i <= maxLayer; i++ {
-				sortByBary(layers[i], func(v *vnode) []*vnode { return v.in })
+			for i := 1; i <= e.maxLayer; i++ {
+				sortByBary(e.layers[i], func(v *vnode) []*vnode { return v.in })
 			}
 		} else {
-			for i := maxLayer - 1; i >= 0; i-- {
-				sortByBary(layers[i], func(v *vnode) []*vnode { return v.out })
+			for i := e.maxLayer - 1; i >= 0; i-- {
+				sortByBary(e.layers[i], func(v *vnode) []*vnode { return v.out })
 			}
 		}
 	}
+}
 
-	// 5. vertical placement inside lanes: start stacked, then pull nodes towards
-	// the median of same-lane neighbours while preserving order and spacing.
-	group := func(l []*vnode) map[int][]*vnode {
-		m := map[int][]*vnode{}
-		for _, v := range l {
-			m[v.lane] = append(m[v.lane], v)
-		}
-		return m
+// byLane groups one layer's nodes by lane.
+func byLane(l []*vnode) map[int][]*vnode {
+	m := map[int][]*vnode{}
+	for _, v := range l {
+		m[v.lane] = append(m[v.lane], v)
 	}
+	return m
+}
+
+// placeInLanes sets the vertical position inside lanes: start stacked, then pull nodes
+// towards the median of same-lane neighbours while preserving order and spacing.
+func (e *engine) placeInLanes() {
+	o, layers, maxLayer := e.o, e.layers, e.maxLayer
 	for _, l := range layers {
-		for _, grp := range group(l) {
+		for _, grp := range byLane(l) {
 			y := 0.0
 			for _, v := range grp {
 				v.y = y
@@ -247,7 +290,7 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 				}
 			}
 			for _, li := range seq {
-				for _, grp := range group(layers[li]) {
+				for _, grp := range byLane(layers[li]) {
 					desired := make([]float64, len(grp))
 					for k, v := range grp {
 						desired[k] = v.y + v.h/2
@@ -270,16 +313,19 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 
 	// normalise: each lane's content starts at local y = 0
 	minY := map[int]float64{}
-	for _, v := range all {
+	for _, v := range e.all {
 		if m, ok := minY[v.lane]; !ok || v.y < m {
 			minY[v.lane] = v.y
 		}
 	}
-	for _, v := range all {
+	for _, v := range e.all {
 		v.y -= minY[v.lane]
 	}
+}
 
-	// 6. absolute coordinates
+// coordinates turns layers and lane positions into absolute boxes, lanes and edge routes.
+func (e *engine) coordinates() Layout {
+	o, all, order, lanes, maxLayer := e.o, e.all, e.order, e.lanes, e.maxLayer
 	layerX := make([]float64, maxLayer+2)
 	layerW := make([]float64, maxLayer+1)
 	for _, v := range all {
@@ -331,7 +377,7 @@ func Compute(g *model.Graph, size func(*model.Node) (float64, float64), lanes []
 	for _, v := range order {
 		out.Nodes[v.id] = pos(v)
 	}
-	for _, c := range chains {
+	for _, c := range e.chains {
 		var pts []Pt
 		for k, v := range c.nodes {
 			b := pos(v)
