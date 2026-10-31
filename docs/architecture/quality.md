@@ -111,6 +111,11 @@ and `make viewer`.
   push, on machines that have the hooks.
 - **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is part
   of the gate.
+- **The gate image pins its tools, but not everything in it.** The linters, `pre-commit` and its Python
+  packages (by hash), and the base images (by digest) are pinned. The Alpine packages it installs
+  (`bash`, `git`, `make`, `python3`, `build-base`) are not: they come from the Alpine release
+  the base image is on. The hooks from `pre-commit-hooks` are fetched when first run, and need
+  the network then.
 - **The Rust toolchain is pinned by the gate image, not by a `rust-toolchain.toml`.** The image
   is `rust:1.99-alpine3.24` by digest. A toolchain file at the repository root was tried: the
   gate's container then downloaded a toolchain on every run, and the compiler became whatever
