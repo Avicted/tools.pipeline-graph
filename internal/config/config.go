@@ -105,10 +105,10 @@ func (c *Config) Finalize() error {
 		c.OutDir = "out"
 	}
 	if len(c.Views) == 0 {
-		c.Views = AllViews
+		c.Views = slices.Clone(AllViews)
 	}
 	if len(c.Formats) == 0 {
-		c.Formats = AllFormats
+		c.Formats = slices.Clone(AllFormats)
 	}
 	if c.Concurrency <= 0 {
 		c.Concurrency = 4

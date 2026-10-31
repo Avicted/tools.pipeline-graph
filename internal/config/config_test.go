@@ -285,3 +285,20 @@ func TestRemovedHTMLFormatSaysWhatToDo(t *testing.T) {
 		t.Errorf("got %v", err)
 	}
 }
+
+// The defaults are shared package variables: a config that edited its own list must not
+// change what the next config gets.
+func TestDefaultsAreCopiesNotTheSharedSlices(t *testing.T) {
+	a := &Config{Repos: []Repo{{URL: "x"}}}
+	if err := a.Finalize(); err != nil {
+		t.Fatal(err)
+	}
+	a.Views[0], a.Formats[0] = "tampered", "tampered"
+	b := &Config{Repos: []Repo{{URL: "x"}}}
+	if err := b.Finalize(); err != nil {
+		t.Fatal(err)
+	}
+	if b.Views[0] == "tampered" || b.Formats[0] == "tampered" {
+		t.Errorf("the defaults changed: %v %v", b.Views, b.Formats)
+	}
+}
