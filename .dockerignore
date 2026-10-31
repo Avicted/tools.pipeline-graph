@@ -1,4 +1,8 @@
-.git
-out
-dist
-/pipeline-graph
+# Only what `go build ./cmd/pipeline-graph` reads goes into the build context. Everything
+# else is excluded by default, so a new directory (viewer/target is several GB) or a local
+# pipeline-graph.yaml with private repository URLs never ends up in an image layer.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/

@@ -113,7 +113,7 @@ example-github: docker-build ## Generate diagrams for the GitHub Actions example
 
 .PHONY: docker-build
 docker-build: ## Build the pipeline-graph docker image
-	@docker build -q -t $(BINARY):$(VERSION) . >/dev/null
+	@docker build -q --build-arg VERSION=$(VERSION) -t $(BINARY):$(VERSION) . >/dev/null
 
 .PHONY: docker-run
 docker-run: run ## Alias for run
