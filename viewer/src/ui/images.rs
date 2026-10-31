@@ -1,9 +1,9 @@
 //! Images & layers: what is built on what, who builds it, who uses it, and
 //! which jobs run inside it. Answers "who rebuilds if this base moves".
 
-use super::app::Workspace;
 use super::theme::{self, Palette};
 use super::util;
+use super::workspace::Workspace;
 use crate::core::graph::{Ek, Kind};
 use egui::RichText;
 use std::collections::HashMap;

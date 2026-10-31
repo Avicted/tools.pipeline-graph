@@ -1,9 +1,9 @@
 //! The right-hand panel: everything known about the selected node, in the
 //! order a reviewer asks: what it is, what triggers it, what it runs, where.
 
-use super::app::{LineageMode, Workspace};
 use super::theme::{self, Palette};
 use super::util;
+use super::workspace::{LineageMode, Workspace};
 use crate::core::derive::{classify, Class};
 use crate::core::diff::Change;
 use crate::core::graph::{Ek, Kind};
@@ -402,8 +402,8 @@ impl Workspace {
         }
         if let Some(mode) = acts.mode {
             self.set_mode(mode);
-            if self.screen != super::app::Screen::Map && self.screen != super::app::Screen::Prod {
-                self.go(super::app::Screen::Map);
+            if self.screen != super::workspace::Screen::Map && self.screen != super::workspace::Screen::Prod {
+                self.go(super::workspace::Screen::Map);
                 self.scene = crate::core::scene::Scene::Focus(v);
             }
         }
@@ -414,7 +414,7 @@ impl Workspace {
         }
         if acts.route {
             self.toast("Shift+click another job on the map");
-            if self.screen != super::app::Screen::Map && self.screen != super::app::Screen::Prod {
+            if self.screen != super::workspace::Screen::Map && self.screen != super::workspace::Screen::Prod {
                 self.open_focus(v);
             }
         }

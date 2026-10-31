@@ -14,7 +14,7 @@ stated under its heading.
 %% view: viewer-modules
 flowchart LR
     main["main.rs<br/>window · flags"]
-    ui["ui · egui<br/>app · screens · canvas<br/>job · shots · headless · theme"]
+    ui["ui · egui<br/>app · workspace · shell · screens<br/>canvas · job · shots · headless · theme"]
     subgraph core["core · no egui"]
         direction LR
         core_model["model<br/>graph + derived + index"]

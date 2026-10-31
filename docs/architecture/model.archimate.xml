@@ -74,7 +74,7 @@
     </element>
     <element identifier="id-v-ui" xsi:type="ApplicationComponent">
       <name xml:lang="en">viewer ui (egui)</name>
-      <documentation xml:lang="en">app, screens, canvas, job, shots, headless, theme.</documentation>
+      <documentation xml:lang="en">app, workspace, shell, screens, canvas, job, shots, headless, theme.</documentation>
     </element>
     <element identifier="id-v-core" xsi:type="ApplicationComponent">
       <name xml:lang="en">viewer core (headless)</name>

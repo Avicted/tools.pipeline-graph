@@ -1,8 +1,8 @@
 //! Drives the interface without a window: egui runs and tessellates frames on
 //! the CPU. Used by the frame benchmark and the smoke tests.
 
-use super::app::Workspace;
 use super::theme::{self, Mode};
+use super::workspace::Workspace;
 use crate::core::model::Model;
 use std::time::{Duration, Instant};
 

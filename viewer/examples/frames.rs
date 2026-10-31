@@ -6,8 +6,8 @@
 
 use pipeline_graph_viewer::core::model::Model;
 use pipeline_graph_viewer::core::scene::Scene;
-use pipeline_graph_viewer::ui::app::{Screen, Workspace};
 use pipeline_graph_viewer::ui::headless::Rig;
+use pipeline_graph_viewer::ui::workspace::{Screen, Workspace};
 
 const BUDGET_P95_MS: f64 = 8.0;
 

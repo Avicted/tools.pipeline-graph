@@ -1,7 +1,7 @@
 //! `pipeline-graph-viewer --shot DIR`: drives the app through its screens and saves a PNG of
 //! each, so the documentation pictures are generated, not hand-made.
 
-use super::app::{Screen, Workspace};
+use super::workspace::{Screen, Workspace};
 use crate::core::scene::Scene;
 use std::path::PathBuf;
 

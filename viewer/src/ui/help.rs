@@ -1,8 +1,9 @@
 //! The help overlay: every shortcut, grouped by what you want to do, and a legend
 //! for reading the views. Opened with `?`, closed with Esc or a click outside.
 
-use super::app::{Workspace, APP_NAME};
+use super::app::APP_NAME;
 use super::theme::{self, Palette};
+use super::workspace::Workspace;
 use crate::core::derive::Class;
 use crate::core::graph::{Ek, Kind};
 use egui::{Color32, RichText, Sense};

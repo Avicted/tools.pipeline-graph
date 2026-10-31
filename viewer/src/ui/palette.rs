@@ -1,7 +1,7 @@
 //! The command palette: jump to any node, or run any command, from the keyboard.
 
-use super::app::{LineageMode, Screen, Workspace};
 use super::theme::Palette;
+use super::workspace::{LineageMode, Screen, Workspace};
 use crate::core::scene::Scene;
 use crate::core::search::{fuzzy_rank, Query};
 use egui::{Key, Modifiers, RichText, Sense};

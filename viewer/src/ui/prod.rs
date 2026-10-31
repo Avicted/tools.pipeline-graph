@@ -1,8 +1,8 @@
 //! Commit → prod: for one repository, everything its commits set in motion,
 //! in dependency order, with each job's stage, trigger and container.
 
-use super::app::Workspace;
 use super::theme::{self, Palette};
+use super::workspace::Workspace;
 use crate::core::derive::Class;
 use crate::core::scene::Scene;
 use egui::RichText;

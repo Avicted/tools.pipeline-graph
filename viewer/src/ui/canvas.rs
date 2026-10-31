@@ -1,9 +1,9 @@
 //! The map: scenes (what is on the canvas), their cached layouts, and the
 //! painter that draws only what is on screen, with level of detail.
 
-use super::app::{LineageMode, Screen, Workspace};
 use super::job::{Job, Poll};
 use super::theme::{self, Palette};
+use super::workspace::{LineageMode, Screen, Workspace};
 use crate::core::derive::{Class, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS};
 use crate::core::diff::Change;
 use crate::core::graph::Kind;

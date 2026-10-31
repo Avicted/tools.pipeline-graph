@@ -1,9 +1,9 @@
 //! The reality snapshot: what exists, per repository, at a glance. Descriptive
 //! only; every number opens the table that explains it.
 
-use super::app::Workspace;
 use super::theme::{self, Palette};
 use super::util;
+use super::workspace::Workspace;
 use crate::core::derive::{Class, RepoStats};
 use crate::core::graph::Graph;
 use egui::{Color32, RichText, Sense};
@@ -146,7 +146,7 @@ impl Workspace {
                     if big_stat(ui, pal, &t.longest.to_string(), "longest chain", pal.down, STAT_TIPS[4]) {
                         if let Some(r) = (0..d.repos.len()).max_by_key(|&i| d.repos[i].longest) {
                             self.prod_repo = r;
-                            self.go(super::app::Screen::Prod);
+                            self.go(super::workspace::Screen::Prod);
                         }
                     }
                     if big_stat(
@@ -173,7 +173,7 @@ impl Workspace {
                                 ui.label(RichText::new(format!("−{} removed", df.removed.len())).color(pal.removed).strong());
                                 ui.label(RichText::new(format!("~{} changed", df.changed)).color(pal.changed).strong());
                                 if ui.link("Details").clicked() {
-                                    self.go(super::app::Screen::Compare);
+                                    self.go(super::workspace::Screen::Compare);
                                 }
                             });
                         },
@@ -311,7 +311,7 @@ impl Workspace {
                         util::hint(l, "Longest commit → prod chain", STAT_TIPS[4]);
                         if ui.link("Show").clicked() {
                             self.prod_repo = i;
-                            self.go(super::app::Screen::Prod);
+                            self.go(super::workspace::Screen::Prod);
                         }
                     });
                 }

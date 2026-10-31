@@ -1,8 +1,8 @@
 //! The explorer table: every job, image and make target, sortable and filterable.
 
-use super::app::Workspace;
 use super::theme::{self, Palette};
 use super::util;
+use super::workspace::Workspace;
 use crate::core::derive::{Class, ENTRY_CHAINED, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS};
 use crate::core::diff::Change;
 use crate::core::graph::{Ek, Kind};

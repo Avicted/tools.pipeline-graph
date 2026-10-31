@@ -28,7 +28,7 @@ elements:
   - {id: pkg-model, type: ApplicationComponent, name: internal/model, doc: "The graph types and graph.json (SchemaVersion = 1)."}
   - {id: viewer, type: ApplicationComponent, name: pipeline-graph-viewer (Rust), doc: "viewer/: the desktop app for exploring graph.json."}
   - {id: v-main, type: ApplicationComponent, name: viewer main.rs, doc: The window and the command-line flags.}
-  - {id: v-ui, type: ApplicationComponent, name: viewer ui (egui), doc: "app, screens, canvas, job, shots, headless, theme."}
+  - {id: v-ui, type: ApplicationComponent, name: viewer ui (egui), doc: "app, workspace, shell, screens, canvas, job, shots, headless, theme."}
   - {id: v-core, type: ApplicationComponent, name: viewer core (headless), doc: Doesn't depend on egui.}
   - {id: v-core-model, type: ApplicationComponent, name: core::model, doc: "A loaded graph with everything derived from it: Graph, Derived and the search index."}
   - {id: v-core-scene, type: ApplicationComponent, name: core::scene, doc: "What the map shows (all jobs, a repository, one lineage), with a position for every node and a route for every edge."}

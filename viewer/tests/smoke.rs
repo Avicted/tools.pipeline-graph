@@ -4,8 +4,8 @@
 use pipeline_graph_viewer::core::graph::Kind;
 use pipeline_graph_viewer::core::model::Model;
 use pipeline_graph_viewer::core::scene::Scene;
-use pipeline_graph_viewer::ui::app::{LineageMode, Screen};
 use pipeline_graph_viewer::ui::headless::Rig;
+use pipeline_graph_viewer::ui::workspace::{LineageMode, Screen};
 use std::path::Path;
 
 fn rig() -> Rig {

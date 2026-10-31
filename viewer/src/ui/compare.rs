@@ -1,9 +1,9 @@
 //! Compare two snapshots of the analysis: what was added, removed or changed.
 
-use super::app::{Screen, Workspace};
 use super::job::Job;
 use super::theme::Palette;
 use super::util;
+use super::workspace::{Screen, Workspace};
 use crate::core::diff::{self, Diff};
 use crate::core::graph::Graph;
 use crate::core::model::Model;
