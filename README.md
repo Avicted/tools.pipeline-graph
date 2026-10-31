@@ -124,7 +124,7 @@ See [the pipeline-graph viewer](docs/pipeline-graph-viewer.md).
 - [The pipeline-graph viewer](docs/pipeline-graph-viewer.md): screens, search, comparing runs, budgets
 - [The HTML viewer](docs/viewer.md): shortcuts, lineage, sharing, Miro import
 - [What is analysed](docs/analysis.md): recognised constructs, cross-repo references, limits
-- [Architecture](docs/architecture.md): the CLI pipeline, the provider seam, the `graph.json` contract, verification, release, known limits
+- [Architecture](docs/architecture.md): the system on one page; detail pages in [docs/architecture/](docs/architecture/) cover the CLI, security, the `graph.json` contract, the viewer, the quality gate and release
 - [Development](docs/development.md): devcontainer, adding a CI/CD system, tests, quality gate, layout
 
 ## License
