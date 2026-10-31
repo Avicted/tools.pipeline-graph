@@ -369,7 +369,9 @@ impl Workspace {
             let (a, b) = (lay.nodes[e.a as usize].gid, lay.nodes[e.b as usize].gid);
             let text = format!("{}  →  {}\n{}", g.node_label(a), g.node_label(b), e.kind.name());
             egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), egui::Id::new("edge-tip"), |ui: &mut egui::Ui| {
-                ui.label(text);
+                // Never wrap: a tooltip re-placed every frame under a moving pointer is sized
+                // from the room left beside it and collapses to a sliver.
+                ui.add(egui::Label::new(text).wrap_mode(egui::TextWrapMode::Extend));
             });
         }
         let shift = ui.input(|i| i.modifiers.shift);
