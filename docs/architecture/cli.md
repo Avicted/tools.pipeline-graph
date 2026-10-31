@@ -77,6 +77,52 @@ flowchart LR
     class warn,files,text output
 ```
 
+## Packages
+
+*Answers: which Go package imports which?*
+
+```mermaid
+%% view: cli-packages
+flowchart LR
+    cmd["cmd/pipeline-graph"]
+    config["config"]
+    fetch["fetch"]
+    ci["ci<br/>+ ci/teamcity · ci/github"]
+    kts["kts"]
+    analyze["analyze"]
+    shell["shell"]
+    makefile["makefile"]
+    render["render"]
+    layout["layout"]
+    model["model<br/>graph.json"]
+
+    cmd --> config
+    cmd --> fetch
+    cmd --> ci
+    cmd --> analyze
+    cmd --> render
+    cmd --> model
+    ci --> kts
+    ci --> model
+    kts --> model
+    analyze --> ci
+    analyze --> shell
+    analyze --> makefile
+    analyze --> model
+    render --> layout
+    render --> model
+    layout --> model
+
+    classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
+    class cmd,config,fetch,ci,kts,analyze,shell,makefile,render,layout go
+    class model data
+```
+
+An arrow is an import. Only `cmd/pipeline-graph` wires the stages together; `config`,
+`fetch`, `shell` and `makefile` import nothing of ours, and everything ends in `model`.
+`test/docs` fails when this picture and the real imports differ.
+
 | Package | Responsibility |
 |---|---|
 | `internal/config` | Loads the YAML; folds deprecated keys into provider blocks and reports them |
