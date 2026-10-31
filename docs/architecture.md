@@ -17,8 +17,61 @@ Each diagram below answers one question, stated under its heading.
 | 🟦 blue | the Go CLI |
 | 🟨 amber | data files and the contract between the two programs |
 | 🟩 green | the Rust viewer |
-| ⬜ grey | generated output |
+| ⬜ grey | generated output, and the git remote |
+| ⬛ thick black outline | the quality gate |
 | dashed box | a trust or runtime boundary |
+
+## Overview
+
+*Answers: what is the whole system, on one page?*
+
+```mermaid
+flowchart LR
+    repos[("untrusted:<br/>analysed repositories<br/>TeamCity DSL · workflows<br/>Makefiles · Dockerfiles")]
+    subgraph cli["pipeline-graph · Go"]
+        direction TB
+        fetch["fetch<br/>shallow clones"] --> prov["providers<br/>teamcity · github"] --> an["analyze<br/>one graph, cross-repo"]
+    end
+    subgraph out["out/"]
+        direction TB
+        json[("graph.json<br/>the contract<br/>schemaVersion 1")]
+        diagrams[("drawio · vsdx · html<br/>mmd · dot")]
+    end
+    subgraph viewer["viewer · Rust"]
+        direction TB
+        core["core · headless<br/>graph · derive · search<br/>layout · diff"] --> ui["ui · egui<br/>screens · canvas · shots"]
+    end
+    gate["quality gate<br/>git hooks · pre-commit in Docker<br/>Go · Rust · shell · secrets"]
+    remote[("git remote<br/>branches and tags only")]
+
+    repos -- "git clone<br/>parsed, never run" --> cli
+    cli -- "writes" --> out
+    out -- "graph.json" --> viewer
+    gate -. "checks every commit" .-> cli
+    gate -. "checks every commit" .-> viewer
+    gate -- "then push" --> remote
+
+    classDef untrusted fill:#fde2e1,stroke:#c0392b,color:#3b0d0a,stroke-width:2px
+    classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
+    classDef rust fill:#dcfce7,stroke:#15803d,color:#0a2e16
+    classDef output fill:#e5e7eb,stroke:#4b5563,color:#111827
+    classDef gate fill:#ffffff,stroke:#111827,color:#111827,stroke-width:3px
+    class repos untrusted
+    class fetch,prov,an go
+    class json data
+    class core,ui rust
+    class diagrams,remote output
+    class gate gate
+    style cli fill:none,stroke:#1d4ed8,stroke-dasharray:6 4
+    style out fill:none,stroke:#b45309,stroke-dasharray:6 4
+    style viewer fill:none,stroke:#15803d,stroke-dasharray:6 4
+```
+
+Everything in this picture runs on a developer's machine. There is no CI/CD and
+nothing is published; the remote holds only branches and tags. The analysed
+repositories are the only untrusted input. Sections 1–9
+zoom in on each part.
 
 ## 1. Context and trust boundaries
 
