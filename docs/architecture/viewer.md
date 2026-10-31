@@ -120,5 +120,9 @@ flowchart TB
 - **Not ported from the removed HTML viewer:** the swimlane overview, the make-target
   drill-down, presentation mode and shareable URLs (`--goto` covers part of the last).
   They are feature work, not part of the cleanup.
+- **Fonts.** Fira Sans draws the text. DejaVu Sans is behind it for seven symbols Fira lacks
+  (`↵ ■ ☀ ☰ ☾ ⚠ ✕`), and egui's own emoji font (the `default_fonts` feature) is behind that for
+  `🔍`. Both fallbacks are in use; a glyph audit of every string literal in `viewer/src` is what
+  settled it, so removing either one changes the UI.
 - The budgets are checked on a synthetic graph with 48,000 nodes by `make viewer-bench`.
   It loads in about 0.3 s and stays at about 30 MB.
