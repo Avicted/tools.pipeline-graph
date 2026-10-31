@@ -18,7 +18,7 @@ elements:
   - {id: pkg-ci, type: ApplicationComponent, name: internal/ci, doc: The provider seam and the neutral job model.}
   - {id: ci-teamcity, type: ApplicationComponent, name: internal/ci/teamcity, doc: Reads the .teamcity Kotlin DSL.}
   - {id: ci-github, type: ApplicationComponent, name: internal/ci/github, doc: Reads .github/workflows.}
-  - {id: pkg-kts, type: ApplicationComponent, name: internal/kts, doc: Tolerant Kotlin tokenizer and parser for the TeamCity DSL.}
+  - {id: pkg-kts, type: ApplicationComponent, name: internal/kts, doc: "Tolerant Kotlin tokenizer and parser; the TeamCity meaning of the tree lives in internal/ci/teamcity."}
   - {id: pkg-analyze, type: ApplicationComponent, name: internal/analyze, doc: Turns every provider's jobs into one graph and resolves references across repositories.}
   - {id: pkg-shell, type: ApplicationComponent, name: internal/shell, doc: "Finds make, docker and script calls in step text."}
   - {id: pkg-makefile, type: ApplicationComponent, name: internal/makefile, doc: Parses Makefiles.}
@@ -203,7 +203,6 @@ relationships:
   - {type: Serving, source: pkg-model, target: pkg-cmd}
   - {type: Serving, source: pkg-kts, target: pkg-ci}
   - {type: Serving, source: pkg-model, target: pkg-ci}
-  - {type: Serving, source: pkg-model, target: pkg-kts}
   - {type: Serving, source: pkg-ci, target: pkg-analyze}
   - {type: Serving, source: pkg-shell, target: pkg-analyze}
   - {type: Serving, source: pkg-makefile, target: pkg-analyze}
@@ -212,7 +211,6 @@ relationships:
   - {type: Serving, source: pkg-model, target: pkg-render}
   - {type: Serving, source: pkg-model, target: pkg-layout}
   - {type: Serving, source: pkg-repofs, target: pkg-ci}
-  - {type: Serving, source: pkg-repofs, target: pkg-kts}
   - {type: Serving, source: pkg-repofs, target: pkg-analyze}
   - {type: Serving, source: pkg-repofs, target: pkg-makefile}
 

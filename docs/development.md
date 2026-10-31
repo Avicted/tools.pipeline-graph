@@ -101,9 +101,9 @@ cmd/pipeline-graph   CLI
 internal/config      YAML config
 internal/fetch       shallow git clones (system git, BatchMode ssh)
 internal/ci          CI/CD provider interface (Provider, Job, Ref)
-internal/ci/teamcity TeamCity provider: reads the Kotlin DSL through internal/kts
+internal/ci/teamcity TeamCity provider: the DSL extraction (builds, templates, triggers) on top of internal/kts
 internal/ci/github   GitHub Actions provider: reads workflow yaml
-internal/kts         Kotlin tokenizer, tolerant parser, TeamCity DSL extraction
+internal/kts         Kotlin tokenizer and tolerant parser (a loose syntax tree)
 internal/makefile    Makefile parser
 internal/shell       make/docker/script invocations in shell text
 internal/analyze     builds the graph from any provider's jobs; resolves cross-repo references

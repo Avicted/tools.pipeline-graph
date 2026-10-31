@@ -54,6 +54,17 @@ func (n *Node) Path() string {
 	return ""
 }
 
+// Args0 is the first argument of a call; a named argument ("x = v") yields its value.
+func (n *Node) Args0() *Node {
+	if n == nil || len(n.Args) == 0 {
+		return nil
+	}
+	if a := n.Args[0]; a.Kind == NAssign {
+		return a.Value
+	}
+	return n.Args[0]
+}
+
 // CallName returns the dotted name of the callee for NCall ("" otherwise).
 func (n *Node) CallName() string {
 	if n == nil || n.Kind != NCall {

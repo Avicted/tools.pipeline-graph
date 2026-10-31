@@ -1,4 +1,4 @@
-package kts
+package teamcity
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Avicted/tools.pipeline-graph/internal/kts"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
 	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
 )
@@ -71,7 +72,7 @@ type CrossDep struct {
 	Line   int
 }
 
-type Settings struct {
+type Declared struct {
 	Builds    []*Build // excludes templates
 	CrossDeps []CrossDep
 	Warnings  []string
@@ -81,7 +82,7 @@ type Settings struct {
 }
 
 // Lookup resolves a Kotlin object/val name or relative id within these settings.
-func (s *Settings) Lookup(r Ref) *Build {
+func (s *Declared) Lookup(r Ref) *Build {
 	switch r.Kind {
 	case RefObject:
 		if b := s.byObj[r.Value]; b != nil {
@@ -98,7 +99,7 @@ func (s *Settings) Lookup(r Ref) *Build {
 }
 
 // ParseDir reads every .kts/.kt file below dir. root is used to make file paths relative.
-func ParseDir(dir, root string) (*Settings, error) {
+func ParseDir(dir, root string) (*Declared, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -137,13 +138,13 @@ func ParseDir(dir, root string) (*Settings, error) {
 }
 
 // ParseSources analyses a set of DSL files (name -> content) as one settings package.
-func ParseSources(srcs map[string]string) *Settings {
+func ParseSources(srcs map[string]string) *Declared {
 	e := &extractor{
-		s:      &Settings{byKey: map[string]*Build{}, byObj: map[string]*Build{}, templates: map[string]*Build{}},
+		s:      &Declared{byKey: map[string]*Build{}, byObj: map[string]*Build{}, templates: map[string]*Build{}},
 		objs:   map[string]objDef{},
-		funs:   map[string]*Node{},
+		funs:   map[string]*kts.Node{},
 		consts: map[string]string{},
-		vals:   map[string]*Node{},
+		vals:   map[string]*kts.Node{},
 		reg:    map[string]string{},
 	}
 	names := make([]string, 0, len(srcs))
@@ -151,12 +152,12 @@ func ParseSources(srcs map[string]string) *Settings {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	trees := map[string][]*Node{}
+	trees := map[string][]*kts.Node{}
 	for _, n := range names {
 		var truncated bool
-		trees[n], truncated = Parse(srcs[n])
+		trees[n], truncated = kts.Parse(srcs[n])
 		if truncated {
-			e.s.Warnings = append(e.s.Warnings, fmt.Sprintf("%s:1: nesting is deeper than %d levels; part of this file is not analysed", n, MaxDepth))
+			e.s.Warnings = append(e.s.Warnings, fmt.Sprintf("%s:1: nesting is deeper than %d levels; part of this file is not analysed", n, kts.MaxDepth))
 		}
 		e.collect(trees[n], n, true)
 	}
@@ -169,21 +170,21 @@ func ParseSources(srcs map[string]string) *Settings {
 }
 
 type objDef struct {
-	node *Node
+	node *kts.Node
 	file string
 }
 
 type extractor struct {
-	s       *Settings
+	s       *Declared
 	file    string
 	objs    map[string]objDef // object name -> declaration
-	funs    map[string]*Node
+	funs    map[string]*kts.Node
 	consts  map[string]string
-	vals    map[string]*Node // top-level val name -> value expression
+	vals    map[string]*kts.Node // top-level val name -> value expression
 	reg     map[string]string
 	subst   []map[string]string // function-argument substitutions (innermost last)
 	pending []pendingDep
-	refs    []map[string]*Node // inlined function arguments as expressions (innermost last)
+	refs    []map[string]*kts.Node // inlined function arguments as expressions (innermost last)
 	depth   int
 }
 
@@ -192,28 +193,28 @@ func (e *extractor) warn(line int, format string, a ...any) {
 }
 
 // collect indexes declarations: objects, functions, constant vals.
-func (e *extractor) collect(nodes []*Node, file string, top bool) {
+func (e *extractor) collect(nodes []*kts.Node, file string, top bool) {
 	for _, n := range nodes {
 		switch n.Kind {
-		case NObject:
+		case kts.NObject:
 			if n.Name != "" {
 				e.objs[n.Name] = objDef{n, file}
 			}
 			e.collect(n.Body, file, false)
-		case NFun:
+		case kts.NFun:
 			if n.Name != "" {
 				e.funs[n.Name] = n
 			}
-		case NVal:
+		case kts.NVal:
 			if n.Value != nil && n.Name != "" {
-				if n.Value.Kind == NStr {
+				if n.Value.Kind == kts.NStr {
 					e.consts[n.Name] = n.Value.Str
 				}
 				if top {
 					e.vals[n.Name] = n.Value
 				}
 			}
-		case NBlock:
+		case kts.NBlock:
 			e.collect(n.Body, file, false)
 		}
 	}
@@ -233,7 +234,7 @@ func (e *extractor) lookupVar(name string) (string, bool) {
 			return v, true
 		}
 	}
-	v, ok := e.consts[LastName(name)]
+	v, ok := e.consts[kts.LastName(name)]
 	return v, ok
 }
 
@@ -259,34 +260,34 @@ func (e *extractor) expand(s string) string {
 }
 
 // str evaluates an expression to a string when it is (a concatenation of) literals/constants.
-func (e *extractor) str(n *Node) string {
+func (e *extractor) str(n *kts.Node) string {
 	if n == nil {
 		return ""
 	}
 	switch n.Kind {
-	case NStr:
+	case kts.NStr:
 		return e.expand(n.Str)
-	case NNum:
+	case kts.NNum:
 		return n.Str
-	case NRef, NMember:
+	case kts.NRef, kts.NMember:
 		if v, ok := e.lookupVar(n.Path()); ok {
 			return v
 		}
-		if n.Kind == NMember && (n.Name == "trimIndent" || n.Name == "trimMargin") {
+		if n.Kind == kts.NMember && (n.Name == "trimIndent" || n.Name == "trimMargin") {
 			return e.str(n.Recv)
 		}
 		return n.Path()
-	case NBinary:
+	case kts.NBinary:
 		if n.Op == "+" {
 			return e.str(n.Value) + e.str(n.Right)
 		}
 		if n.Op == "?:" {
 			return e.str(n.Value)
 		}
-	case NCall:
-		switch LastName(n.CallName()) {
+	case kts.NCall:
+		switch kts.LastName(n.CallName()) {
 		case "trimIndent", "trimMargin", "trim", "toString":
-			if n.Recv.Kind == NMember {
+			if n.Recv.Kind == kts.NMember {
 				s := e.str(n.Recv.Recv)
 				if n.Recv.Name == "trimIndent" {
 					s = trimIndent(s)
@@ -331,16 +332,16 @@ func trimIndent(s string) string {
 // resolveSuper follows a supertype call (BuildType({...}), or a user class that
 // eventually extends BuildType/Template/Project) and returns the DSL kind, the
 // statements making up the body, and constructor-argument substitutions.
-func (e *extractor) resolveSuper(sup *Node, depth int) (string, []*Node, map[string]string) {
-	name := LastName(sup.CallName())
+func (e *extractor) resolveSuper(sup *kts.Node, depth int) (string, []*kts.Node, map[string]string) {
+	name := kts.LastName(sup.CallName())
 	if name == "" {
-		name = LastName(sup.Path())
+		name = kts.LastName(sup.Path())
 	}
-	var lambdas []*Node
+	var lambdas []*kts.Node
 	for _, a := range sup.Args {
-		if a.Kind == NLambda {
+		if a.Kind == kts.NLambda {
 			lambdas = append(lambdas, a.Body...)
-		} else if a.Kind == NAssign && a.Value != nil && a.Value.Kind == NLambda {
+		} else if a.Kind == kts.NAssign && a.Value != nil && a.Value.Kind == kts.NLambda {
 			lambdas = append(lambdas, a.Value.Body...) // init = { ... }
 		}
 	}
@@ -361,14 +362,14 @@ func (e *extractor) resolveSuper(sup *Node, depth int) (string, []*Node, map[str
 			continue
 		}
 		for i, p := range cls.node.Params {
-			if i < len(sup.Args) && sup.Args[i].Kind != NLambda && sup.Args[i].Kind != NAssign {
+			if i < len(sup.Args) && sup.Args[i].Kind != kts.NLambda && sup.Args[i].Kind != kts.NAssign {
 				if v := e.str(sup.Args[i]); v != "" {
 					sub[p] = v
 				}
 			}
 		}
 		for _, a := range sup.Args {
-			if a.Kind == NAssign && a.Value != nil && a.Value.Kind != NLambda {
+			if a.Kind == kts.NAssign && a.Value != nil && a.Value.Kind != kts.NLambda {
 				if v := e.str(a.Value); v != "" {
 					sub[a.Name] = v
 				}
@@ -380,7 +381,7 @@ func (e *extractor) resolveSuper(sup *Node, depth int) (string, []*Node, map[str
 	return "", nil, nil
 }
 
-func (e *extractor) superOf(obj *Node) (string, []*Node, map[string]string) {
+func (e *extractor) superOf(obj *kts.Node) (string, []*kts.Node, map[string]string) {
 	for _, s := range obj.Supers {
 		if kind, body, sub := e.resolveSuper(s, 0); kind != "" {
 			return kind, append(body, initBodies(obj.Body)...), sub
@@ -390,18 +391,18 @@ func (e *extractor) superOf(obj *Node) (string, []*Node, map[string]string) {
 }
 
 // walk visits statements looking for DSL constructs. project is the enclosing project name.
-func (e *extractor) walk(nodes []*Node, project string) {
+func (e *extractor) walk(nodes []*kts.Node, project string) {
 	for _, n := range nodes {
 		e.visit(n, project)
 	}
 }
 
-func (e *extractor) visit(n *Node, project string) {
+func (e *extractor) visit(n *kts.Node, project string) {
 	if n == nil {
 		return
 	}
 	switch n.Kind {
-	case NObject:
+	case kts.NObject:
 		kind, body, sub := e.superOf(n)
 		if n.Op != "object" {
 			if kind == "" {
@@ -420,41 +421,41 @@ func (e *extractor) visit(n *Node, project string) {
 		default:
 			e.walk(n.Body, project)
 		}
-	case NFun:
+	case kts.NFun:
 		// function bodies are only analysed when called (see call), with arguments substituted
-	case NVal:
+	case kts.NVal:
 		if b := e.buildExpr(n.Value, project, n.Name); b == nil {
 			e.visit(n.Value, project)
 		}
-	case NAssign:
+	case kts.NAssign:
 		e.visit(n.Value, project)
-	case NBinary:
+	case kts.NBinary:
 		e.visit(n.Value, project)
 		e.visit(n.Right, project)
-	case NBlock:
+	case kts.NBlock:
 		e.walk(n.Args, project)
 		e.walk(n.Body, project)
 		e.visit(n.Right, project)
-	case NLambda, NRaw:
+	case kts.NLambda, kts.NRaw:
 		e.walk(n.Body, project)
-	case NCall:
+	case kts.NCall:
 		e.call(n, project)
 	}
 }
 
-func initBodies(body []*Node) []*Node {
-	var out []*Node
+func initBodies(body []*kts.Node) []*kts.Node {
+	var out []*kts.Node
 	for _, s := range body {
-		if s.Kind == NBlock && s.Name == "init" {
+		if s.Kind == kts.NBlock && s.Name == "init" {
 			out = append(out, s.Body...)
 		}
 	}
 	return out
 }
 
-func (e *extractor) call(n *Node, project string) {
+func (e *extractor) call(n *kts.Node, project string) {
 	full := n.CallName()
-	name := LastName(full)
+	name := kts.LastName(full)
 	lam := n.Lambda()
 	switch {
 	case full == "project" && lam != nil:
@@ -464,7 +465,7 @@ func (e *extractor) call(n *Node, project string) {
 		if e.buildExpr(n, project, "") != nil {
 			return
 		}
-	case name == "dependsOn" && n.Recv.Kind == NMember && len(n.Args) > 0:
+	case name == "dependsOn" && n.Recv.Kind == kts.NMember && len(n.Args) > 0:
 		// X.dependsOn(Y)
 		if target := e.refOf(n.Recv.Recv); target != nil {
 			for _, a := range n.Args {
@@ -490,12 +491,12 @@ func (e *extractor) call(n *Node, project string) {
 
 // buildExpr handles expressions that create a build: BuildType{...}, BuildType({...}),
 // calls to helper functions returning one. Returns the created build (or nil).
-func (e *extractor) buildExpr(n *Node, project, valName string) *Build {
-	if n == nil || n.Kind != NCall {
+func (e *extractor) buildExpr(n *kts.Node, project, valName string) *Build {
+	if n == nil || n.Kind != kts.NCall {
 		return nil
 	}
 	full := n.CallName()
-	name := LastName(full)
+	name := kts.LastName(full)
 	if full != name {
 		return nil
 	}
@@ -530,7 +531,7 @@ func (e *extractor) buildExpr(n *Node, project, valName string) *Build {
 		for i, p := range fn.Params {
 			if i < len(n.Args) {
 				a := n.Args[i]
-				if a.Kind == NAssign {
+				if a.Kind == kts.NAssign {
 					sub[a.Name] = e.str(a.Value)
 				} else {
 					sub[p] = e.str(a)
@@ -548,7 +549,7 @@ func (e *extractor) buildExpr(n *Node, project, valName string) *Build {
 			}
 		}
 		for _, s := range fn.Body {
-			if s.Kind == NRef && s.Name == "return" {
+			if s.Kind == kts.NRef && s.Name == "return" {
 				continue
 			}
 			if c := e.buildExpr(s, project, valName); c != nil {
@@ -565,19 +566,19 @@ func (e *extractor) buildExpr(n *Node, project, valName string) *Build {
 	return nil
 }
 
-func (e *extractor) defineProject(objName string, body []*Node) {
+func (e *extractor) defineProject(objName string, body []*kts.Node) {
 	name := objName
 	for _, s := range body {
-		if s.Kind == NAssign && s.Name == "name" {
+		if s.Kind == kts.NAssign && s.Name == "name" {
 			name = e.str(s.Value)
 		}
 	}
 	e.projectBody(body, name)
 }
 
-func (e *extractor) projectBody(body []*Node, project string) {
+func (e *extractor) projectBody(body []*kts.Node, project string) {
 	for _, s := range body {
-		if s.Kind != NCall {
+		if s.Kind != kts.NCall {
 			e.visit(s, project)
 			continue
 		}
@@ -593,9 +594,9 @@ func (e *extractor) projectBody(body []*Node, project string) {
 			}
 		case "subProject":
 			for _, a := range s.Args {
-				if a.Kind == NCall && LastName(a.CallName()) == "Project" {
+				if a.Kind == kts.NCall && kts.LastName(a.CallName()) == "Project" {
 					e.buildExpr(a, project, "")
-				} else if a.Kind == NRef || a.Kind == NMember {
+				} else if a.Kind == kts.NRef || a.Kind == kts.NMember {
 					// object Project definitions are visited on their own
 				} else {
 					e.visit(a, project)
@@ -615,7 +616,7 @@ func (e *extractor) projectBody(body []*Node, project string) {
 }
 
 // register records that the build referenced by expression a belongs to project.
-func (e *extractor) register(a *Node, project string) {
+func (e *extractor) register(a *kts.Node, project string) {
 	if b := e.buildExpr(a, project, ""); b != nil {
 		return
 	}
@@ -628,16 +629,16 @@ func (e *extractor) register(a *Node, project string) {
 
 // sequence handles sequential { buildType(A); parallel { ... } } blocks: each item
 // gets snapshot dependencies on the previous stage. Returns the last stage.
-func (e *extractor) sequence(body []*Node, prev []Ref, project string, register bool) []Ref {
+func (e *extractor) sequence(body []*kts.Node, prev []Ref, project string, register bool) []Ref {
 	for _, s := range body {
-		if s.Kind != NCall {
+		if s.Kind != kts.NCall {
 			continue
 		}
 		switch s.CallName() {
 		case "buildType":
 			var cur []Ref
 			for _, a := range s.Args {
-				if a.Kind == NAssign || a.Kind == NLambda {
+				if a.Kind == kts.NAssign || a.Kind == kts.NLambda {
 					continue
 				}
 				var r *Ref
@@ -668,10 +669,10 @@ func (e *extractor) sequence(body []*Node, prev []Ref, project string, register 
 			if lam := s.Lambda(); lam != nil {
 				var tails []Ref
 				for _, item := range lam.Body {
-					if item.Kind == NCall && item.CallName() == "sequential" && item.Lambda() != nil {
+					if item.Kind == kts.NCall && item.CallName() == "sequential" && item.Lambda() != nil {
 						tails = append(tails, e.sequence(item.Lambda().Body, prev, project, register)...)
 					} else {
-						tails = append(tails, e.sequence([]*Node{item}, prev, project, register)...)
+						tails = append(tails, e.sequence([]*kts.Node{item}, prev, project, register)...)
 					}
 				}
 				if tails != nil {
@@ -707,12 +708,12 @@ func (e *extractor) isClass(name string) bool {
 }
 
 // refOf converts an expression to a reference to a build configuration.
-func (e *extractor) refOf(n *Node) *Ref {
+func (e *extractor) refOf(n *kts.Node) *Ref {
 	if n == nil || e.depth > 16 {
 		return nil
 	}
 	switch n.Kind {
-	case NRef:
+	case kts.NRef:
 		for i := len(e.refs) - 1; i >= 0; i-- {
 			if arg, ok := e.refs[i][n.Name]; ok {
 				saved := e.refs
@@ -726,46 +727,46 @@ func (e *extractor) refOf(n *Node) *Ref {
 		}
 		if v, ok := e.vals[n.Name]; ok && e.s.byObj[n.Name] == nil {
 			switch {
-			case v.Kind == NStr:
+			case v.Kind == kts.NStr:
 				return &Ref{Kind: RefString, Value: e.str(v), Line: n.Line}
-			case v.Kind == NCall && (LastName(v.CallName()) == "AbsoluteId" || LastName(v.CallName()) == "RelativeId"):
+			case v.Kind == kts.NCall && (kts.LastName(v.CallName()) == "AbsoluteId" || kts.LastName(v.CallName()) == "RelativeId"):
 				return e.refOf(v) // val id = AbsoluteId("...")
 			}
 		}
 		return &Ref{Kind: RefObject, Value: n.Name, Line: n.Line}
-	case NBinary:
+	case kts.NBinary:
 		if n.Op == "?:" { // X.id?.value ?: error("...")
 			return e.refOf(n.Value)
 		}
 		return nil
-	case NMember:
+	case kts.NMember:
 		switch n.Name {
 		case "id", "externalId", "value", "absoluteId", "relativeId":
 			return e.refOf(n.Recv)
 		}
 		return &Ref{Kind: RefObject, Value: n.Name, Line: n.Line}
-	case NStr:
+	case kts.NStr:
 		if m := reIdTmpl.FindStringSubmatch(strings.TrimSpace(n.Str)); m != nil {
-			return &Ref{Kind: RefObject, Value: LastName(m[1]), Line: n.Line}
+			return &Ref{Kind: RefObject, Value: kts.LastName(m[1]), Line: n.Line}
 		}
 		s := e.expand(n.Str)
 		if s == "" {
 			return nil
 		}
 		return &Ref{Kind: RefString, Value: s, Line: n.Line}
-	case NCall:
-		switch LastName(n.CallName()) {
+	case kts.NCall:
+		switch kts.LastName(n.CallName()) {
 		case "RelativeId", "AbsoluteId":
 			v := e.str(n.Args0())
-			if v == "" || n.Args0() == nil || n.Args0().Kind != NStr && n.Args0().Kind != NRef {
+			if v == "" || n.Args0() == nil || n.Args0().Kind != kts.NStr && n.Args0().Kind != kts.NRef {
 				return nil // computed id, e.g. RelativeId(Foo.idFor(config))
 			}
-			if LastName(n.CallName()) == "RelativeId" {
+			if kts.LastName(n.CallName()) == "RelativeId" {
 				return &Ref{Kind: RefRelative, Value: v, Line: n.Line}
 			}
 			return &Ref{Kind: RefAbsolute, Value: v, Line: n.Line}
 		case "toString":
-			if n.Recv.Kind == NMember {
+			if n.Recv.Kind == kts.NMember {
 				return e.refOf(n.Recv.Recv)
 			}
 		}
@@ -776,32 +777,22 @@ func (e *extractor) refOf(n *Node) *Ref {
 	return nil
 }
 
-func (n *Node) Args0() *Node {
-	if n == nil || len(n.Args) == 0 {
-		return nil
-	}
-	if a := n.Args[0]; a.Kind == NAssign {
-		return a.Value
-	}
-	return n.Args[0]
-}
-
 // inline expands a call to a user-defined helper function (e.g. an extension
 // "fun Dependencies.dependsOnTemplate(b: BuildType) { dependency(b) {...} }")
 // by handing its body to handle with the arguments bound.
-func (e *extractor) inline(s *Node, handle func([]*Node)) bool {
-	if s.Kind != NCall || e.depth > 8 {
+func (e *extractor) inline(s *kts.Node, handle func([]*kts.Node)) bool {
+	if s.Kind != kts.NCall || e.depth > 8 {
 		return false
 	}
-	fn := e.funs[LastName(s.CallName())]
+	fn := e.funs[kts.LastName(s.CallName())]
 	if fn == nil {
 		return false
 	}
-	sub, refs := map[string]string{}, map[string]*Node{}
+	sub, refs := map[string]string{}, map[string]*kts.Node{}
 	pos := 0
 	for _, a := range s.Args {
 		name, val := "", a
-		if a.Kind == NAssign {
+		if a.Kind == kts.NAssign {
 			name, val = a.Name, a.Value
 		} else if pos < len(fn.Params) {
 			name = fn.Params[pos]
@@ -811,13 +802,13 @@ func (e *extractor) inline(s *Node, handle func([]*Node)) bool {
 			continue
 		}
 		refs[name] = val
-		if v := e.str(val); v != "" && (val.Kind == NStr || val.Kind == NBinary || val.Kind == NNum) {
+		if v := e.str(val); v != "" && (val.Kind == kts.NStr || val.Kind == kts.NBinary || val.Kind == kts.NNum) {
 			sub[name] = v
 		}
 	}
 	body := fn.Body
 	if fn.Value != nil {
-		body = []*Node{fn.Value}
+		body = []*kts.Node{fn.Value}
 	}
 	e.subst = append(e.subst, sub)
 	e.refs = append(e.refs, refs)
@@ -832,7 +823,7 @@ func (e *extractor) inline(s *Node, handle func([]*Node)) bool {
 var reNonID = regexp.MustCompile(`[^A-Za-z0-9_]+`)
 
 // defineBuild extracts a build configuration body.
-func (e *extractor) defineBuild(objName string, body []*Node, template bool, project string, line int) *Build {
+func (e *extractor) defineBuild(objName string, body []*kts.Node, template bool, project string, line int) *Build {
 	b := &Build{ObjName: objName, Project: project, Template: template, File: e.file, Line: line, Params: map[string]string{}}
 	for _, s := range body {
 		e.buildStmt(b, s)
@@ -880,9 +871,9 @@ func (e *extractor) defineBuild(objName string, body []*Node, template bool, pro
 	return b
 }
 
-func (e *extractor) buildStmt(b *Build, s *Node) {
+func (e *extractor) buildStmt(b *Build, s *kts.Node) {
 	switch s.Kind {
-	case NAssign:
+	case kts.NAssign:
 		v := e.str(s.Value)
 		switch s.Name {
 		case "id":
@@ -900,7 +891,7 @@ func (e *extractor) buildStmt(b *Build, s *Node) {
 				b.Composite = true
 			}
 		}
-	case NCall:
+	case kts.NCall:
 		lam := s.Lambda()
 		switch s.CallName() {
 		case "id":
@@ -943,13 +934,13 @@ func (e *extractor) buildStmt(b *Build, s *Node) {
 			}
 		default:
 			// helper functions (fun BuildType.common() {...}); vcs, features, requirements... are not part of the graph
-			e.inline(s, func(body []*Node) {
+			e.inline(s, func(body []*kts.Node) {
 				for _, x := range body {
 					e.buildStmt(b, x)
 				}
 			})
 		}
-	case NBlock: // if (...) { steps {...} }
+	case kts.NBlock: // if (...) { steps {...} }
 		for _, x := range s.Body {
 			e.buildStmt(b, x)
 		}
@@ -962,9 +953,9 @@ func (e *extractor) buildStmt(b *Build, s *Node) {
 // redacted stands in for the value of a password parameter.
 const redacted = "******"
 
-func (e *extractor) params(m map[string]string, body []*Node) {
+func (e *extractor) params(m map[string]string, body []*kts.Node) {
 	for _, s := range body {
-		if s.Kind != NCall {
+		if s.Kind != kts.NCall {
 			continue
 		}
 		switch s.CallName() {
@@ -983,45 +974,45 @@ func (e *extractor) params(m map[string]string, body []*Node) {
 }
 
 // stepFields flattens all assignments (and param("k","v") calls) within a step.
-func (e *extractor) stepFields(body []*Node, f map[string]string, calls *[]string) {
+func (e *extractor) stepFields(body []*kts.Node, f map[string]string, calls *[]string) {
 	for _, s := range body {
 		switch s.Kind {
-		case NAssign:
+		case kts.NAssign:
 			if v := e.str(s.Value); v != "" {
-				f[LastName(s.Name)] = v
+				f[kts.LastName(s.Name)] = v
 			}
 			if lam := s.Value.Lambda(); lam != nil {
-				*calls = append(*calls, LastName(s.Value.CallName()))
+				*calls = append(*calls, kts.LastName(s.Value.CallName()))
 				e.stepFields(lam.Body, f, calls)
 			}
-		case NCall:
+		case kts.NCall:
 			if s.CallName() == "param" && len(s.Args) >= 2 {
 				f[e.str(s.Args[0])] = e.str(s.Args[1])
 			}
 			if lam := s.Lambda(); lam != nil {
-				*calls = append(*calls, LastName(s.CallName()))
+				*calls = append(*calls, kts.LastName(s.CallName()))
 				e.stepFields(lam.Body, f, calls)
 			}
 		}
 	}
 }
 
-func (e *extractor) steps(b *Build, body []*Node) {
+func (e *extractor) steps(b *Build, body []*kts.Node) {
 	for _, s := range body {
-		if s.Kind == NBlock {
-			e.steps(b, append(append([]*Node{}, s.Body...), nilSafe(s.Right)...))
+		if s.Kind == kts.NBlock {
+			e.steps(b, append(append([]*kts.Node{}, s.Body...), nilSafe(s.Right)...))
 			continue
 		}
-		if s.Kind != NCall {
+		if s.Kind != kts.NCall {
 			continue
 		}
-		if e.inline(s, func(body []*Node) { e.steps(b, body) }) {
+		if e.inline(s, func(body []*kts.Node) { e.steps(b, body) }) {
 			continue
 		}
-		typ := LastName(s.CallName())
-		if s.Recv != nil && s.Recv.Kind == NMember && s.Recv.Recv.Kind == NCall {
+		typ := kts.LastName(s.CallName())
+		if s.Recv != nil && s.Recv.Kind == kts.NMember && s.Recv.Recv.Kind == kts.NCall {
 			// helper()?.also { ... } / script { ... }.apply { ... }: the step is the receiver
-			e.steps(b, []*Node{s.Recv.Recv})
+			e.steps(b, []*kts.Node{s.Recv.Recv})
 			continue
 		}
 		if typ == "insert" || typ == "items" || typ == "add" { // patches: insert(0) { script {...} }
@@ -1030,7 +1021,7 @@ func (e *extractor) steps(b *Build, body []*Node) {
 			}
 			continue
 		}
-		if scopeFuncs[typ] || s.Recv == nil || s.Recv.Kind != NRef {
+		if scopeFuncs[typ] || s.Recv == nil || s.Recv.Kind != kts.NRef {
 			continue
 		}
 		if t, ok := strings.CutSuffix(typ, "BuildStep"); ok && t != "" { // ScriptBuildStep { ... }
@@ -1072,11 +1063,11 @@ var scopeFuncs = map[string]bool{
 	"listOf": true, "setOf": true, "mapOf": true, "require": true, "check": true, "error": true, "println": true,
 }
 
-func nilSafe(n *Node) []*Node {
+func nilSafe(n *kts.Node) []*kts.Node {
 	if n == nil {
 		return nil
 	}
-	return []*Node{n}
+	return []*kts.Node{n}
 }
 
 func first(f map[string]string, keys ...string) string {
@@ -1137,19 +1128,19 @@ func summarize(st model.Step) string {
 	return st.Type
 }
 
-func (e *extractor) deps(b *Build, body []*Node) {
+func (e *extractor) deps(b *Build, body []*kts.Node) {
 	for _, s := range body {
-		if s.Kind != NCall {
+		if s.Kind != kts.NCall {
 			continue
 		}
 		name := s.CallName()
 		if name != "snapshot" && name != "artifacts" && name != "dependency" {
-			e.inline(s, func(body []*Node) { e.deps(b, body) })
+			e.inline(s, func(body []*kts.Node) { e.deps(b, body) })
 			continue
 		}
 		var r *Ref
 		for _, a := range s.Args {
-			if a.Kind != NLambda && a.Kind != NAssign {
+			if a.Kind != kts.NLambda && a.Kind != kts.NAssign {
 				r = e.refOf(a)
 				break
 			}
@@ -1162,15 +1153,15 @@ func (e *extractor) deps(b *Build, body []*Node) {
 		if lam := s.Lambda(); lam != nil {
 			for _, x := range lam.Body {
 				switch {
-				case x.Kind == NAssign && x.Name == "artifactRules":
+				case x.Kind == kts.NAssign && x.Name == "artifactRules":
 					d.Rules = e.str(x.Value)
-				case x.Kind == NCall && x.CallName() == "snapshot":
+				case x.Kind == kts.NCall && x.CallName() == "snapshot":
 					d.Snapshot = true
-				case x.Kind == NCall && x.CallName() == "artifacts":
+				case x.Kind == kts.NCall && x.CallName() == "artifacts":
 					d.Artifacts = true
 					if l := x.Lambda(); l != nil {
 						for _, y := range l.Body {
-							if y.Kind == NAssign && y.Name == "artifactRules" {
+							if y.Kind == kts.NAssign && y.Name == "artifactRules" {
 								d.Rules = e.str(y.Value)
 							}
 						}
@@ -1182,15 +1173,15 @@ func (e *extractor) deps(b *Build, body []*Node) {
 	}
 }
 
-func (e *extractor) triggers(b *Build, body []*Node) {
+func (e *extractor) triggers(b *Build, body []*kts.Node) {
 	for _, s := range body {
-		if s.Kind != NCall {
+		if s.Kind != kts.NCall {
 			continue
 		}
-		if e.inline(s, func(body []*Node) { e.triggers(b, body) }) {
+		if e.inline(s, func(body []*kts.Node) { e.triggers(b, body) }) {
 			continue
 		}
-		typ := LastName(s.CallName())
+		typ := kts.LastName(s.CallName())
 		lam := s.Lambda()
 		if lam == nil {
 			b.Triggers = append(b.Triggers, TriggerDef{Trigger: model.Trigger{Type: typ}})
@@ -1212,13 +1203,13 @@ func (e *extractor) triggers(b *Build, body []*Node) {
 			}
 			for _, k := range []string{"dayOfWeek", "hour", "minute", "hours", "minutes", "dayOfMonth", "month", "seconds"} {
 				if v, ok := f[k]; ok {
-					parts = append(parts, k+"="+LastName(v)) // ScheduleTrigger.DAY.Tuesday -> Tuesday
+					parts = append(parts, k+"="+kts.LastName(v)) // ScheduleTrigger.DAY.Tuesday -> Tuesday
 				}
 			}
 			t.Detail = strings.Join(parts, " ")
 		case "finishBuildTrigger":
 			for _, x := range lam.Body {
-				if x.Kind == NAssign && x.Name == "buildType" {
+				if x.Kind == kts.NAssign && x.Name == "buildType" {
 					t.Ref = e.refOf(x.Value)
 				}
 			}

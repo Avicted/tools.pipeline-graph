@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/Avicted/tools.pipeline-graph/internal/ci"
-	"github.com/Avicted/tools.pipeline-graph/internal/kts"
 )
 
 const defaultDir = ".teamcity"
@@ -54,7 +53,7 @@ func (Provider) Load(r ci.Repo) (*ci.Pipelines, error) {
 	if _, err := os.Stat(filepath.Join(r.Root, d)); err != nil {
 		return nil, fmt.Errorf("no TeamCity settings directory %s", d)
 	}
-	s, err := kts.ParseDir(filepath.Join(r.Root, d), r.Root)
+	s, err := ParseDir(filepath.Join(r.Root, d), r.Root)
 	if err != nil {
 		return nil, fmt.Errorf("reading TeamCity settings: %w", err)
 	}
@@ -67,26 +66,26 @@ func (Provider) Load(r ci.Repo) (*ci.Pipelines, error) {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%s:%d: %s", file, line, fmt.Sprintf(format, args...)))
 	}
 	// ref converts a DSL reference; ok is false when it can never resolve.
-	ref := func(x kts.Ref, file string) (ci.Ref, bool) {
+	ref := func(x Ref, file string) (ci.Ref, bool) {
 		out := ci.Ref{Global: x.Value, Line: x.Line}
 		switch x.Kind {
-		case kts.RefObject, kts.RefRelative:
+		case RefObject, RefRelative:
 			if b := s.Lookup(x); b != nil {
 				return ci.Ref{Local: b.Key, Line: x.Line}, true
 			}
-			if x.Kind == kts.RefObject {
+			if x.Kind == RefObject {
 				warn(file, x.Line, "reference to unknown build configuration %s", x.Value)
 				return out, false
 			}
 		default:
 			// "Build" inside a string may be a relative id, not an absolute one
-			if b := s.Lookup(kts.Ref{Kind: kts.RefRelative, Value: x.Value}); b != nil {
+			if b := s.Lookup(Ref{Kind: RefRelative, Value: x.Value}); b != nil {
 				out.Alias = b.Key
 			}
 		}
 		return out, true
 	}
-	dep := func(d kts.Dep, file string) (ci.Dep, bool) {
+	dep := func(d Dep, file string) (ci.Dep, bool) {
 		r, ok := ref(d.Ref, file)
 		return ci.Dep{Ref: r, Artifacts: d.Artifacts, Rules: d.Rules}, ok
 	}

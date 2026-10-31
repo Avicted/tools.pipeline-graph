@@ -34,7 +34,7 @@
     </element>
     <element identifier="id-pkg-kts" xsi:type="ApplicationComponent">
       <name xml:lang="en">internal/kts</name>
-      <documentation xml:lang="en">Tolerant Kotlin tokenizer and parser for the TeamCity DSL.</documentation>
+      <documentation xml:lang="en">Tolerant Kotlin tokenizer and parser; the TeamCity meaning of the tree lives in internal/ci/teamcity.</documentation>
     </element>
     <element identifier="id-pkg-analyze" xsi:type="ApplicationComponent">
       <name xml:lang="en">internal/analyze</name>
@@ -452,7 +452,6 @@
     <relationship identifier="id-pkg-model-serving-pkg-cmd" source="id-pkg-model" target="id-pkg-cmd" xsi:type="Serving"/>
     <relationship identifier="id-pkg-kts-serving-pkg-ci" source="id-pkg-kts" target="id-pkg-ci" xsi:type="Serving"/>
     <relationship identifier="id-pkg-model-serving-pkg-ci" source="id-pkg-model" target="id-pkg-ci" xsi:type="Serving"/>
-    <relationship identifier="id-pkg-model-serving-pkg-kts" source="id-pkg-model" target="id-pkg-kts" xsi:type="Serving"/>
     <relationship identifier="id-pkg-ci-serving-pkg-analyze" source="id-pkg-ci" target="id-pkg-analyze" xsi:type="Serving"/>
     <relationship identifier="id-pkg-shell-serving-pkg-analyze" source="id-pkg-shell" target="id-pkg-analyze" xsi:type="Serving"/>
     <relationship identifier="id-pkg-makefile-serving-pkg-analyze" source="id-pkg-makefile" target="id-pkg-analyze" xsi:type="Serving"/>
@@ -461,7 +460,6 @@
     <relationship identifier="id-pkg-model-serving-pkg-render" source="id-pkg-model" target="id-pkg-render" xsi:type="Serving"/>
     <relationship identifier="id-pkg-model-serving-pkg-layout" source="id-pkg-model" target="id-pkg-layout" xsi:type="Serving"/>
     <relationship identifier="id-pkg-repofs-serving-pkg-ci" source="id-pkg-repofs" target="id-pkg-ci" xsi:type="Serving"/>
-    <relationship identifier="id-pkg-repofs-serving-pkg-kts" source="id-pkg-repofs" target="id-pkg-kts" xsi:type="Serving"/>
     <relationship identifier="id-pkg-repofs-serving-pkg-analyze" source="id-pkg-repofs" target="id-pkg-analyze" xsi:type="Serving"/>
     <relationship identifier="id-pkg-repofs-serving-pkg-makefile" source="id-pkg-repofs" target="id-pkg-makefile" xsi:type="Serving"/>
     <relationship identifier="id-ci-teamcity-association-provider" source="id-ci-teamcity" target="id-provider" xsi:type="Association">
@@ -681,18 +679,18 @@
       <view identifier="id-cli-packages" xsi:type="Diagram">
         <name xml:lang="en">Packages: which Go package imports which?</name>
         <documentation xml:lang="en">The diagram tagged view: cli-packages in docs/architecture/cli.md.</documentation>
-        <node identifier="n-cli-packages-cmd" elementRef="id-pkg-cmd" xsi:type="Element" x="801" y="248" w="156" h="55"/>
-        <node identifier="n-cli-packages-config" elementRef="id-pkg-config" xsi:type="Element" x="603" y="110" w="135" h="55"/>
-        <node identifier="n-cli-packages-fetch" elementRef="id-pkg-fetch" xsi:type="Element" x="206" y="280" w="128" h="55"/>
-        <node identifier="n-cli-packages-ci" elementRef="id-pkg-ci" xsi:type="Element" x="412" y="211" w="120" h="55"/>
-        <node identifier="n-cli-packages-kts" elementRef="id-pkg-kts" xsi:type="Element" x="210" y="153" w="120" h="55"/>
-        <node identifier="n-cli-packages-analyze" elementRef="id-pkg-analyze" xsi:type="Element" x="599" y="185" w="142" h="55"/>
-        <node identifier="n-cli-packages-shell" elementRef="id-pkg-shell" xsi:type="Element" x="408" y="84" w="128" h="55"/>
-        <node identifier="n-cli-packages-makefile" elementRef="id-pkg-makefile" xsi:type="Element" x="195" y="0" w="149" h="55"/>
-        <node identifier="n-cli-packages-repofs" elementRef="id-pkg-repofs" xsi:type="Element" x="0" y="68" w="135" h="55"/>
-        <node identifier="n-cli-packages-render" elementRef="id-pkg-render" xsi:type="Element" x="404" y="312" w="135" h="55"/>
+        <node identifier="n-cli-packages-cmd" elementRef="id-pkg-cmd" xsi:type="Element" x="606" y="169" w="156" h="55"/>
+        <node identifier="n-cli-packages-config" elementRef="id-pkg-config" xsi:type="Element" x="408" y="68" w="135" h="55"/>
+        <node identifier="n-cli-packages-fetch" elementRef="id-pkg-fetch" xsi:type="Element" x="4" y="0" w="128" h="55"/>
+        <node identifier="n-cli-packages-ci" elementRef="id-pkg-ci" xsi:type="Element" x="210" y="52" w="120" h="55"/>
+        <node identifier="n-cli-packages-kts" elementRef="id-pkg-kts" xsi:type="Element" x="8" y="75" w="120" h="55"/>
+        <node identifier="n-cli-packages-analyze" elementRef="id-pkg-analyze" xsi:type="Element" x="404" y="195" w="142" h="55"/>
+        <node identifier="n-cli-packages-shell" elementRef="id-pkg-shell" xsi:type="Element" x="206" y="127" w="128" h="55"/>
+        <node identifier="n-cli-packages-makefile" elementRef="id-pkg-makefile" xsi:type="Element" x="195" y="202" w="149" h="55"/>
+        <node identifier="n-cli-packages-repofs" elementRef="id-pkg-repofs" xsi:type="Element" x="0" y="200" w="135" h="55"/>
+        <node identifier="n-cli-packages-render" elementRef="id-pkg-render" xsi:type="Element" x="408" y="355" w="135" h="55"/>
         <node identifier="n-cli-packages-layout" elementRef="id-pkg-layout" xsi:type="Element" x="202" y="355" w="135" h="55"/>
-        <node identifier="n-cli-packages-model" elementRef="id-pkg-model" xsi:type="Element" x="4" y="208" w="128" h="55"/>
+        <node identifier="n-cli-packages-model" elementRef="id-pkg-model" xsi:type="Element" x="4" y="303" w="128" h="55"/>
         <connection identifier="c-cli-packages-pkg-fetch-flow-pkg-ci" relationshipRef="id-pkg-fetch-flow-pkg-ci" xsi:type="Relationship" source="n-cli-packages-fetch" target="n-cli-packages-ci"/>
         <connection identifier="c-cli-packages-pkg-ci-flow-pkg-analyze" relationshipRef="id-pkg-ci-flow-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-ci" target="n-cli-packages-analyze"/>
         <connection identifier="c-cli-packages-pkg-config-serving-pkg-cmd" relationshipRef="id-pkg-config-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-config" target="n-cli-packages-cmd"/>
@@ -703,7 +701,6 @@
         <connection identifier="c-cli-packages-pkg-model-serving-pkg-cmd" relationshipRef="id-pkg-model-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-cmd"/>
         <connection identifier="c-cli-packages-pkg-kts-serving-pkg-ci" relationshipRef="id-pkg-kts-serving-pkg-ci" xsi:type="Relationship" source="n-cli-packages-kts" target="n-cli-packages-ci"/>
         <connection identifier="c-cli-packages-pkg-model-serving-pkg-ci" relationshipRef="id-pkg-model-serving-pkg-ci" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-ci"/>
-        <connection identifier="c-cli-packages-pkg-model-serving-pkg-kts" relationshipRef="id-pkg-model-serving-pkg-kts" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-kts"/>
         <connection identifier="c-cli-packages-pkg-ci-serving-pkg-analyze" relationshipRef="id-pkg-ci-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-ci" target="n-cli-packages-analyze"/>
         <connection identifier="c-cli-packages-pkg-shell-serving-pkg-analyze" relationshipRef="id-pkg-shell-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-shell" target="n-cli-packages-analyze"/>
         <connection identifier="c-cli-packages-pkg-makefile-serving-pkg-analyze" relationshipRef="id-pkg-makefile-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-makefile" target="n-cli-packages-analyze"/>
@@ -712,7 +709,6 @@
         <connection identifier="c-cli-packages-pkg-model-serving-pkg-render" relationshipRef="id-pkg-model-serving-pkg-render" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-render"/>
         <connection identifier="c-cli-packages-pkg-model-serving-pkg-layout" relationshipRef="id-pkg-model-serving-pkg-layout" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-layout"/>
         <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-ci" relationshipRef="id-pkg-repofs-serving-pkg-ci" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-ci"/>
-        <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-kts" relationshipRef="id-pkg-repofs-serving-pkg-kts" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-kts"/>
         <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-analyze" relationshipRef="id-pkg-repofs-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-analyze"/>
         <connection identifier="c-cli-packages-pkg-repofs-serving-pkg-makefile" relationshipRef="id-pkg-repofs-serving-pkg-makefile" xsi:type="Relationship" source="n-cli-packages-repofs" target="n-cli-packages-makefile"/>
       </view>
