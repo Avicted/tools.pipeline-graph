@@ -22,8 +22,6 @@ func DrawIO(w io.Writer, g *model.Graph, views []View) error {
 	return err
 }
 
-func attr(s string) string { return html.EscapeString(s) }
-
 type cellWriter struct {
 	b  *strings.Builder
 	id int
@@ -35,13 +33,13 @@ func (c *cellWriter) next() string {
 }
 
 func (c *cellWriter) vertex(id, parent, value, style string, x, y, w, h float64) {
-	fmt.Fprintf(c.b, "        <mxCell id=%q value=\"%s\" style=\"%s\" vertex=\"1\" parent=%q>\n", id, attr(value), attr(style), parent)
+	fmt.Fprintf(c.b, "        <mxCell id=%q value=\"%s\" style=\"%s\" vertex=\"1\" parent=%q>\n", id, xmlEscape(value), xmlEscape(style), parent)
 	fmt.Fprintf(c.b, "          <mxGeometry x=\"%.0f\" y=\"%.0f\" width=\"%.0f\" height=\"%.0f\" as=\"geometry\" />\n        </mxCell>\n", x, y, w, h)
 }
 
 func drawioPage(b *strings.Builder, g *model.Graph, v View) {
 	L := v.Layout
-	fmt.Fprintf(b, "  <diagram id=%q name=%q>\n", "pg-"+v.ID, attr(v.Title))
+	fmt.Fprintf(b, "  <diagram id=\"%s\" name=\"%s\">\n", xmlEscape("pg-"+v.ID), xmlEscape(v.Title))
 	fmt.Fprintf(b, "    <mxGraphModel dx=\"1200\" dy=\"800\" grid=\"0\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"0\" pageScale=\"1\" pageWidth=\"%.0f\" pageHeight=\"%.0f\" math=\"0\" shadow=\"0\">\n", L.W, L.H)
 	b.WriteString("      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n")
 	c := &cellWriter{b: b}
@@ -111,7 +109,7 @@ func drawioPage(b *strings.Builder, g *model.Graph, v View) {
 		if e.Kind == model.EdgeRuns {
 			label = "" // step names add noise on the dense make side
 		}
-		fmt.Fprintf(b, "        <mxCell id=%q value=\"%s\" style=\"%s\" edge=\"1\" parent=\"1\" source=%q target=%q>\n", c.next(), attr(label), attr(st), cellOf[e.From], cellOf[e.To])
+		fmt.Fprintf(b, "        <mxCell id=%q value=\"%s\" style=\"%s\" edge=\"1\" parent=\"1\" source=%q target=%q>\n", c.next(), xmlEscape(label), xmlEscape(st), cellOf[e.From], cellOf[e.To])
 		b.WriteString("          <mxGeometry relative=\"1\" as=\"geometry\">")
 		if len(r.Points) > 2 {
 			b.WriteString("\n            <Array as=\"points\">\n")
@@ -200,7 +198,7 @@ func drawioLegend(c *cellWriter, v View, right float64) {
 		}
 		id := c.next()
 		fmt.Fprintf(c.b, "        <mxCell id=%q value=\"\" style=\"%s\" edge=\"1\" parent=%q>\n", id,
-			attr(fmt.Sprintf("endArrow=blockThin;endFill=1;endSize=5;html=1;strokeColor=%s;strokeWidth=%.1f;%s", es.Color, es.Width, dash)), box)
+			xmlEscape(fmt.Sprintf("endArrow=blockThin;endFill=1;endSize=5;html=1;strokeColor=%s;strokeWidth=%.1f;%s", es.Color, es.Width, dash)), box)
 		fmt.Fprintf(c.b, "          <mxGeometry relative=\"1\" as=\"geometry\"><mxPoint x=\"%.0f\" y=\"%.0f\" as=\"sourcePoint\" /><mxPoint x=\"%.0f\" y=\"%.0f\" as=\"targetPoint\" /></mxGeometry>\n        </mxCell>\n", ex, ey+8, ex+36, ey+8)
 		c.vertex(c.next(), box, es.Legend, "text;html=1;fontSize=10;fontColor=#334155;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;", ex+44, ey, colW-50, 16)
 	}

@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/xml"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -254,5 +256,106 @@ func TestDOT(t *testing.T) {
 	}
 	if got := dotQuote("a\"b\\c\nd"); got != `"a\"b\\c\nd"` {
 		t.Errorf("dotQuote: %s", got)
+	}
+}
+
+// Labels come from analysed repositories. XML 1.0 forbids most control characters and
+// invalid UTF-8 whatever the escaping, so one NUL in a job name made draw.io and Visio
+// refuse the whole file.
+const hostile = "a\x00b\x1b[31m\x0b\x7f ￾￿ \xff\xfe \"<&>' back\\slash end"
+
+func hostileGraph() *model.Graph {
+	g := sample()
+	g.Repos = append(g.Repos, model.Repo{Name: hostile, Commit: hostile})
+	g.AddNode(&model.Node{ID: "bt:evil/Job", Kind: model.KindBuild, Repo: hostile, Label: hostile, Sub: hostile, Project: hostile,
+		Steps:     []model.Step{{Type: "script", Summary: hostile, Script: hostile}},
+		Artifacts: []string{hostile}, Params: map[string]string{hostile: hostile},
+		Triggers: []model.Trigger{{Type: "schedule", Detail: hostile}}})
+	g.AddEdge(model.Edge{From: "bt:lib/Pub", To: "bt:evil/Job", Kind: model.EdgeSnapshot, Label: hostile})
+	g.Sort()
+	return g
+}
+
+func wellFormed(t *testing.T, name string, data []byte) {
+	t.Helper()
+	d := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		if _, err := d.Token(); err != nil {
+			if !errors.Is(err, io.EOF) {
+				t.Errorf("%s is not well-formed XML: %v", name, err)
+			}
+			return
+		}
+	}
+}
+
+func TestHostileTextKeepsDrawIOWellFormed(t *testing.T) {
+	g := hostileGraph()
+	views := BuildViews(g, []string{"overview", "full", "per-repo"})
+	var buf bytes.Buffer
+	if err := DrawIO(&buf, g, views); err != nil {
+		t.Fatal(err)
+	}
+	wellFormed(t, "drawio", buf.Bytes())
+
+	// a page name is one escape away from what the user wrote: no extra backslash from %q
+	var f struct {
+		Diagrams []struct {
+			Name string `xml:"name,attr"`
+		} `xml:"diagram"`
+	}
+	if err := xml.Unmarshal(buf.Bytes(), &f); err != nil {
+		return // reported above
+	}
+	for _, d := range f.Diagrams {
+		if strings.Contains(d.Name, `back\\slash`) {
+			t.Errorf("page name %q has its backslash doubled", d.Name)
+		}
+	}
+}
+
+func TestHostileTextKeepsVSDXWellFormed(t *testing.T) {
+	g := hostileGraph()
+	var buf bytes.Buffer
+	if err := VSDX(&buf, g, BuildViewsSized(g, []string{"overview", "full", "per-repo"}, SizeVSDX)); err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range zr.File {
+		if !strings.HasSuffix(f.Name, ".xml") && !strings.HasSuffix(f.Name, ".rels") {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(rc)
+		rc.Close()
+		wellFormed(t, f.Name, b)
+		if bytes.Contains(b, []byte(`back\\slash`)) { // the title as %q would write it
+			t.Errorf("%s has a doubled backslash", f.Name)
+		}
+	}
+}
+
+func TestXMLEscape(t *testing.T) {
+	for in, want := range map[string]string{
+		"plain":           "plain",
+		`<a href="x">&`:   "&lt;a href=&#34;x&#34;&gt;&amp;",
+		"it's":            "it&#39;s",
+		"nul\x00gone":     "nulgone",
+		"esc\x1b[0m":      "esc[0m",
+		"tab\tnl\ncr\r":   "tab\tnl\ncr\r",
+		"bad\xffbyte":     "bad�byte",
+		"￾￿":              "",
+		"emoji 🚀 ünï":     "emoji 🚀 ünï",
+		"\x7f\u0085 kept": "\x7f\u0085 kept", // allowed by XML 1.0, only discouraged
+	} {
+		if got := xmlEscape(in); got != want {
+			t.Errorf("xmlEscape(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

@@ -3,7 +3,6 @@ package render
 import (
 	"archive/zip"
 	"fmt"
-	"html"
 	"io"
 	"math"
 	"strings"
@@ -38,12 +37,12 @@ func VSDX(w io.Writer, g *model.Graph, views []View) error {
 	for i, v := range views {
 		n := i + 1
 		W, H := v.Layout.W/ppi, v.Layout.H/ppi
-		fmt.Fprintf(&pages, `<Page ID="%d" NameU=%q Name=%q ViewScale="-1" ViewCenterX="%.4f" ViewCenterY="%.4f"><PageSheet LineStyle="0" FillStyle="0" TextStyle="0">`+
+		fmt.Fprintf(&pages, `<Page ID="%d" NameU="%s" Name="%s" ViewScale="-1" ViewCenterX="%.4f" ViewCenterY="%.4f"><PageSheet LineStyle="0" FillStyle="0" TextStyle="0">`+
 			`<Cell N="PageWidth" V="%.4f"/><Cell N="PageHeight" V="%.4f"/><Cell N="ShdwOffsetX" V="0.125"/><Cell N="ShdwOffsetY" V="-0.125"/>`+
 			`<Cell N="PageScale" V="1" U="IN_F"/><Cell N="DrawingScale" V="1" U="IN_F"/><Cell N="DrawingSizeType" V="3"/><Cell N="DrawingScaleType" V="0"/>`+
 			`<Cell N="InhibitSnap" V="0"/><Cell N="UIVisibility" V="0"/><Cell N="ShdwType" V="0"/><Cell N="ShdwObliqueAngle" V="0"/><Cell N="ShdwScaleFactor" V="1"/>`+
 			`<Cell N="DrawingResizeType" V="1"/><Cell N="PageShapeSplit" V="1"/></PageSheet><Rel r:id="rId%d"/></Page>`,
-			i, xmlAttr(v.Title), xmlAttr(v.Title), W/2, H/2, W, H, n)
+			i, xmlEscape(v.Title), xmlEscape(v.Title), W/2, H/2, W, H, n)
 		fmt.Fprintf(&pageRels, `<Relationship Id="rId%d" Type="http://schemas.microsoft.com/visio/2010/relationships/page" Target="page%d.xml"/>`, n, n)
 		fmt.Fprintf(&overrides, `<Override PartName="/visio/pages/page%d.xml" ContentType="application/vnd.ms-visio.page+xml"/>`, n)
 	}
@@ -65,7 +64,7 @@ func VSDX(w io.Writer, g *model.Graph, views []View) error {
 			`<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>` +
 			`</Relationships>`},
 		{"docProps/core.xml", xmlHeader + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-			`<dc:title>Pipeline map</dc:title><dc:creator>pipeline-graph</dc:creator><dc:description>` + xmlText(Subtitle(g)) + `</dc:description>` +
+			`<dc:title>Pipeline map</dc:title><dc:creator>pipeline-graph</dc:creator><dc:description>` + xmlEscape(Subtitle(g)) + `</dc:description>` +
 			`<dcterms:modified xsi:type="dcterms:W3CDTF">` + modified.Format(time.RFC3339) + `</dcterms:modified></cp:coreProperties>`},
 		{"docProps/app.xml", xmlHeader + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Visio</Application><AppVersion>16.0000</AppVersion></Properties>`},
 		{"visio/_rels/document.xml.rels", xmlHeader + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
@@ -119,12 +118,6 @@ const vsdxNoStyle = `<StyleSheet ID="0" NameU="No Style" Name="No Style">` +
 	`<Section N="Paragraph"><Row IX="0"><Cell N="IndFirst" V="0"/><Cell N="IndLeft" V="0"/><Cell N="IndRight" V="0"/><Cell N="SpLine" V="-1.2"/><Cell N="SpBefore" V="0"/><Cell N="SpAfter" V="0"/><Cell N="HorzAlign" V="1"/><Cell N="Bullet" V="0"/><Cell N="BulletStr" V=""/><Cell N="BulletFont" V="0"/><Cell N="BulletFontSize" V="-1"/><Cell N="TextPosAfterBullet" V="0"/><Cell N="Flags" V="0"/></Row></Section>` +
 	`</StyleSheet>`
 
-func xmlText(s string) string { return html.EscapeString(s) }
-
-func xmlAttr(s string) string {
-	return strings.NewReplacer(`&`, "&amp;", `<`, "&lt;", `>`, "&gt;", `"`, "&quot;").Replace(s)
-}
-
 // run is a piece of text with its own character formatting.
 type run struct {
 	text  string
@@ -161,7 +154,7 @@ func cell(b *strings.Builder, name string, v any) {
 	case int:
 		fmt.Fprintf(b, `<Cell N="%s" V="%d"/>`, name, x)
 	default:
-		fmt.Fprintf(b, `<Cell N="%s" V="%s"/>`, name, xmlAttr(fmt.Sprint(x)))
+		fmt.Fprintf(b, `<Cell N="%s" V="%s"/>`, name, xmlEscape(fmt.Sprint(x)))
 	}
 }
 
@@ -252,7 +245,7 @@ func writeRuns(b *strings.Builder, runs []run) {
 	}
 	b.WriteString(`<Text>`)
 	for i, r := range runs {
-		fmt.Fprintf(b, `<cp IX="%d"/>%s`, i, xmlText(vsdxSymbols.Replace(r.text)))
+		fmt.Fprintf(b, `<cp IX="%d"/>%s`, i, xmlEscape(vsdxSymbols.Replace(r.text)))
 		if i < len(runs)-1 {
 			b.WriteString("\n")
 		}

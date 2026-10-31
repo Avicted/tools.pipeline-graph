@@ -58,6 +58,9 @@ flowchart LR
 - The Kotlin parser stops nesting at `kts.MaxDepth` (3000) and reports the file with a warning:
   Go cannot recover from a stack overflow, so a file nested millions of levels deep would
   otherwise kill the whole run.
+- Text from the repositories ends up in `.drawio` and `.vsdx` files. It is escaped and stripped
+  of characters XML 1.0 forbids (`render.xmlEscape`), so a NUL in a job name cannot make
+  draw.io or Visio reject the file.
 - The container sees only what `make run` mounts: the project directory, the clone
   cache, and, read-only, what git needs to authenticate.
 - Its only network traffic is git. `-serve` is a local file server for `out/`, mounted
