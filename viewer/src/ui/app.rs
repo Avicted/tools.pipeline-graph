@@ -224,7 +224,7 @@ impl eframe::App for App {
                 welcome(ctx, &pal, err.as_deref(), &mut open);
             }
             Phase::Loading(job, path) => {
-                if let Some(r) = job.poll() {
+                if let Some(r) = job.poll_result() {
                     next = Some(match r {
                         Ok(m) => {
                             let mut ws = Workspace::new(ctx, m);
@@ -799,7 +799,7 @@ impl Workspace {
 
     fn poll_background(&mut self, ctx: &egui::Context) {
         if let Some(job) = &self.reload {
-            if let Some(r) = job.poll() {
+            if let Some(r) = job.poll_result() {
                 self.reload = None;
                 match r {
                     Ok(m) => {

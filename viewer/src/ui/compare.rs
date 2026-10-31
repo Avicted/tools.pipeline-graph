@@ -52,7 +52,7 @@ impl Workspace {
 
     pub fn poll_compare(&mut self) {
         let Some(job) = &self.compare.job else { return };
-        let Some(r) = job.poll() else { return };
+        let Some(r) = job.poll_result() else { return };
         self.compare.job = None;
         match r {
             Ok(df) => {

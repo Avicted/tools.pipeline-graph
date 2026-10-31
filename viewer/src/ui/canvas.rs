@@ -2,7 +2,7 @@
 //! painter that draws only what is on screen, with level of detail.
 
 use super::app::{LineageMode, Model, Screen, Workspace};
-use super::job::Job;
+use super::job::{Job, Poll};
 use super::theme::{self, Palette};
 use crate::core::derive::{Class, ENTRY_CHAINED, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS, NONE};
 use crate::core::diff::Change;
@@ -345,6 +345,8 @@ pub struct LayoutCache {
     map: HashMap<(Scene, usize), Arc<SceneLayout>>,
     order: Vec<(Scene, usize)>,
     pending: HashMap<(Scene, usize), Job<Arc<SceneLayout>>>,
+    /// Layouts whose thread died; not started again.
+    failed: std::collections::HashSet<(Scene, usize)>,
 }
 
 #[derive(Clone, Copy)]
@@ -377,20 +379,27 @@ pub struct CanvasState {
 
 impl Workspace {
     pub fn poll_layouts(&mut self) {
-        let done: Vec<(Scene, usize)> = self
-            .layouts
-            .pending
-            .iter()
-            .filter_map(|(s, j)| j.poll().map(|l| (s.clone(), l)))
-            .map(|(s, l)| {
-                self.layouts.map.insert(s.clone(), l);
-                self.layouts.order.retain(|x| *x != s);
-                self.layouts.order.push(s.clone());
-                s
-            })
-            .collect();
-        for s in done {
-            self.layouts.pending.remove(&s);
+        let mut done: Vec<(Scene, usize)> = vec![];
+        let mut lost: Vec<(Scene, usize)> = vec![];
+        for (key, job) in &self.layouts.pending {
+            match job.poll() {
+                Poll::Pending => {}
+                Poll::Ready(l) => {
+                    self.layouts.map.insert(key.clone(), l);
+                    self.layouts.order.retain(|x| x != key);
+                    self.layouts.order.push(key.clone());
+                    done.push(key.clone());
+                }
+                Poll::Lost => lost.push(key.clone()),
+            }
+        }
+        for key in done.iter().chain(&lost) {
+            self.layouts.pending.remove(key);
+        }
+        if !lost.is_empty() {
+            // remembered, or the next frame would start the same failing layout again
+            self.layouts.failed.extend(lost);
+            self.toast("The layout stopped unexpectedly; pick another view");
         }
         while self.layouts.order.len() > 6 {
             let old = self.layouts.order.remove(0);
@@ -407,7 +416,7 @@ impl Workspace {
         if let Some(l) = self.layouts.map.get(&key) {
             return Some(l.clone());
         }
-        if !self.layouts.pending.contains_key(&key) {
+        if !self.layouts.pending.contains_key(&key) && !self.layouts.failed.contains(&key) {
             let m = self.m.clone();
             let (s, limit) = key.clone();
             self.layouts.pending.insert(key, Job::spawn(ctx, move || Arc::new(build_scene(&m, &s, limit))));
