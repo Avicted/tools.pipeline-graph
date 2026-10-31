@@ -50,7 +50,9 @@ func TestVersionAndUsage(t *testing.T) {
 func TestConfigErrorsExitTwo(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "bad.yaml")
-	os.WriteFile(bad, []byte("repos: [a]\nbogus: 1\n"), 0o644)
+	if err := os.WriteFile(bad, []byte("repos: [a]\nbogus: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	for name, args := range map[string][]string{
 		"no repositories":  {"-out", dir},
 		"missing config":   {"-config", filepath.Join(dir, "absent.yaml")},
@@ -214,7 +216,9 @@ func sshRemotes(t *testing.T, tmp string, srcs map[string]string) (urls []string
 	}
 	remotes := filepath.Join(tmp, "remotes")
 	gitcfg := filepath.Join(tmp, "gitconfig")
-	os.WriteFile(gitcfg, []byte("[url \"file://"+remotes+"/\"]\n\tinsteadOf = git@github.com:acme/\n"), 0o644)
+	if err := os.WriteFile(gitcfg, []byte("[url \"file://"+remotes+"/\"]\n\tinsteadOf = git@github.com:acme/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("GIT_CONFIG_GLOBAL", gitcfg)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("GIT_AUTHOR_NAME", "t")

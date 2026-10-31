@@ -24,10 +24,6 @@ linters:
   exclusions:
     presets:
       - std-error-handling
-    rules:
-      # Test setup writes fixture files; a failure shows up in the assertions.
-      - path: _test\.go
-        linters: [errcheck]
 
 formatters:
   enable:

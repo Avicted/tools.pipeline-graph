@@ -9,14 +9,14 @@ import (
 
 func TestLoadAndFinalize(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "c.yaml")
-	os.WriteFile(f, []byte(`
+	writeFile(t, f, `
 repos:
   - git@github.com:acme/service-a.git
   - url: ssh://git@git.acme.io:7999/plat/base.git
     branch: develop
     teamcity: {project_id: Platform_Base}
 formats: [drawio, mermaid]
-`), 0o644)
+`)
 	c, err := Load(f)
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ type tcSettings struct {
 func load(t *testing.T, yml string) *Config {
 	t.Helper()
 	f := filepath.Join(t.TempDir(), "c.yaml")
-	os.WriteFile(f, []byte(yml), 0o644)
+	writeFile(t, f, yml)
 	c, err := Load(f)
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func TestValidation(t *testing.T) {
 
 func TestUnknownField(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "c.yaml")
-	os.WriteFile(f, []byte("repo: [x]\n"), 0o644)
+	writeFile(t, f, "repo: [x]\n")
 	c, err := Load(f)
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func TestUnknownField(t *testing.T) {
 func TestLocalPathsRelativeToConfig(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "c.yaml")
-	os.WriteFile(f, []byte("repos:\n  - repos/a\n  - git@github.com:acme/b.git\n  - /abs/c\n"), 0o644)
+	writeFile(t, f, "repos:\n  - repos/a\n  - git@github.com:acme/b.git\n  - /abs/c\n")
 	c, err := Load(f)
 	if err != nil {
 		t.Fatal(err)
@@ -201,12 +201,12 @@ func TestNameFromURL(t *testing.T) {
 
 func TestSSHURLList(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "c.yaml")
-	os.WriteFile(f, []byte(`
+	writeFile(t, f, `
 repos:
   - git@github.com:acme/service-a.git
   - git@github.com:acme/service-b.git
   - ssh://git@git.acme.io:7999/plat/base.git
-`), 0o644)
+`)
 	c, err := Load(f)
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +228,7 @@ repos:
 
 func TestProviderField(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "c.yaml")
-	os.WriteFile(f, []byte("repos:\n  - url: git@h:o/a.git\n    provider: github\n  - git@h:o/b.git\n"), 0o644)
+	writeFile(t, f, "repos:\n  - url: git@h:o/a.git\n    provider: github\n  - git@h:o/b.git\n")
 	c, err := Load(f)
 	if err != nil {
 		t.Fatal(err)
@@ -300,5 +300,12 @@ func TestDefaultsAreCopiesNotTheSharedSlices(t *testing.T) {
 	}
 	if b.Views[0] == "tampered" || b.Formats[0] == "tampered" {
 		t.Errorf("the defaults changed: %v %v", b.Views, b.Formats)
+	}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

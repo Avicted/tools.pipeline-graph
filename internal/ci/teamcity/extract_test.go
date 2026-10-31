@@ -311,7 +311,9 @@ func TestParseDirReadsKotlinFilesOnly(t *testing.T) {
 	root := t.TempDir()
 	put := func(p, c string) {
 		full := filepath.Join(root, p)
-		os.MkdirAll(filepath.Dir(full), 0o755)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(full, []byte(c), 0o644); err != nil {
 			t.Fatal(err)
 		}

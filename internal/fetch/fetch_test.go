@@ -216,7 +216,9 @@ func TestLocalDirectoryIsUsedAsIs(t *testing.T) {
 func TestIsLocal(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f")
-	os.WriteFile(file, nil, 0o644)
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	for url, want := range map[string]bool{
 		dir:                           true,
 		file:                          false, // a file is not a checkout

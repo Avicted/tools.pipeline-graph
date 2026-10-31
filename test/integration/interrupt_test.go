@@ -59,8 +59,11 @@ func TestInterruptEndsTheRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
+	done := make(chan struct{})
+	go func() {
+		_ = cmd.Wait() // an interrupted run exits non-zero; the status is read from ProcessState below
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):

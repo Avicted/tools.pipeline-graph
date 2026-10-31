@@ -180,7 +180,9 @@ func TestVSDX(t *testing.T) {
 		have[f.Name] = true
 		rc, _ := f.Open()
 		var b bytes.Buffer
-		b.ReadFrom(rc)
+		if _, err := b.ReadFrom(rc); err != nil {
+			t.Fatal(err)
+		}
 		rc.Close()
 		if strings.HasSuffix(f.Name, ".xml") || strings.HasSuffix(f.Name, ".rels") {
 			if err := xml.Unmarshal(b.Bytes(), new(struct{})); err != nil {
