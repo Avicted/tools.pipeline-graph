@@ -955,15 +955,24 @@ func (e *extractor) buildStmt(b *Build, s *Node) {
 	}
 }
 
+// redacted stands in for the value of a password parameter.
+const redacted = "******"
+
 func (e *extractor) params(m map[string]string, body []*Node) {
 	for _, s := range body {
 		if s.Kind != NCall {
 			continue
 		}
 		switch s.CallName() {
-		case "param", "text", "password", "select", "checkbox":
+		case "param", "text", "select", "checkbox":
 			if len(s.Args) >= 2 {
 				m[e.str(s.Args[0])] = e.str(s.Args[1])
+			}
+		case "password":
+			// The value is a secret, or a reference to one. It never goes into the graph, and
+			// so never into the scripts it is substituted into either.
+			if len(s.Args) >= 2 {
+				m[e.str(s.Args[0])] = redacted
 			}
 		}
 	}

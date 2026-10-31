@@ -304,3 +304,29 @@ project {
 		t.Errorf("warnings: %v", s.Warnings)
 	}
 }
+
+// graph.json and the viewer show parameters and step scripts, and both are shared.
+// A password's value must not be among the parameters, and so cannot be substituted anywhere.
+func TestPasswordParametersAreRedacted(t *testing.T) {
+	s := parse(t, map[string]string{"settings.kts": `
+project { buildType(B) }
+object B : BuildType({
+    id("Bee")
+    params {
+        param("env.TAG", "v1")
+        password("env.TOKEN", "hunter2")
+        password("env.REF", "credentialsJSON:6bb2f4d1-0000-0000-0000-000000000000")
+    }
+    steps { script { scriptContent = "deploy --tag=%env.TAG% --token=%env.TOKEN%" } }
+})
+`})
+	b := s.Builds[0]
+	if b.Params["env.TAG"] != "v1" {
+		t.Errorf("a plain parameter keeps its value: %q", b.Params["env.TAG"])
+	}
+	for _, k := range []string{"env.TOKEN", "env.REF"} {
+		if got := b.Params[k]; got != "******" {
+			t.Errorf("%s = %q, want the value hidden", k, got)
+		}
+	}
+}

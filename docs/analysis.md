@@ -26,7 +26,8 @@
   (`fun deploy(env: String) = BuildType {...}`, `fun Dependencies.dependsOnX(b: BuildType)`),
   inlined with their arguments.
 - `id(...)`, `name`, `type = COMPOSITE`, `templates(...)` (steps, dependencies,
-  triggers and params merged in), `params`, `artifactRules`.
+  triggers and params merged in), `params` (the value of a `password(...)` is shown as
+  `******`: outputs are shared, secrets are not copied into them), `artifactRules`.
 - `dependencies { snapshot(X); artifacts(X) { artifactRules }; dependency(X) { snapshot{}; artifacts{} } }`
   and `X.dependsOn(Y)`.
 - `sequential { buildType(A); parallel { ... } }` chains.

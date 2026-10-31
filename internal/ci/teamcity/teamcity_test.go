@@ -245,3 +245,26 @@ func TestSettingsSymlinkedOutsideTheRepositoryIsSkipped(t *testing.T) {
 		t.Errorf("the refusal must be reported, got %q", got)
 	}
 }
+
+func TestPasswordNeverReachesTheJobs(t *testing.T) {
+	r := checkout(t, map[string]string{".teamcity/settings.kts": `
+project { buildType(Deploy) }
+object Deploy : BuildType({
+    params { password("env.TOKEN", "hunter2") }
+    steps { script { scriptContent = "deploy --token=%env.TOKEN%" } }
+})
+`})
+	p, err := New().Load(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := p.Jobs[0]
+	if got := j.Params["env.TOKEN"]; got != "******" {
+		t.Errorf("param %q", got)
+	}
+	for _, st := range j.Steps {
+		if strings.Contains(st.Script, "hunter2") {
+			t.Errorf("the secret reached a step script: %q", st.Script)
+		}
+	}
+}
