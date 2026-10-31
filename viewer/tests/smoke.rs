@@ -138,3 +138,61 @@ fn the_window_title_names_the_screen_the_graph_and_the_app() {
     assert_eq!(window_title(Screen::Map, Path::new("out/graph.json")), "Map · graph — badger-works/pipeline-graph");
     assert_eq!(window_title(Screen::Snapshot, Path::new("graph.json")), "Snapshot · graph — badger-works/pipeline-graph");
 }
+
+/// graph.json with `extra` more jobs than the fixture, written to a fresh path.
+fn grown_copy(tag: &str, extra: usize) -> std::path::PathBuf {
+    let mut v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string("testdata/acme-previous.json").unwrap()).unwrap();
+    let nodes = v["nodes"].as_array_mut().unwrap();
+    for i in 0..extra {
+        let mut n = nodes[0].clone();
+        n["id"] = format!("bt:infra-terraform/Extra_{i}").into();
+        n["label"] = format!("Extra {i}").into();
+        nodes.push(n);
+    }
+    let dir = std::env::temp_dir().join(format!("pgv-{tag}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let p = dir.join("graph.json");
+    std::fs::write(&p, serde_json::to_string(&v).unwrap()).unwrap();
+    p
+}
+
+/// A comparison is a list indexed by the nodes of the graph it was made against. A reload
+/// swaps the graph, and used to keep the old list: wrong marks, and a crash when the new
+/// graph is bigger.
+#[test]
+fn reloading_a_bigger_graph_with_a_comparison_open_does_not_keep_stale_marks() {
+    let path = grown_copy("reload", 0);
+    let mut r = Rig::new(Model::load(&path).expect("fixture"));
+    r.ws.start_compare(&r.ctx.clone(), std::path::PathBuf::from("testdata/acme-previous.json"));
+    let t = std::time::Instant::now();
+    while r.ws.compare.diff.is_none() && t.elapsed().as_secs() < 10 {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        r.frame();
+    }
+    assert!(r.ws.compare.diff.is_some(), "the comparison must finish first");
+    let before = r.ws.m.g.len();
+
+    let bigger = grown_copy("reload-big", 30);
+    std::fs::copy(&bigger, &path).unwrap();
+    r.ws.start_reload(&r.ctx.clone());
+    let t = std::time::Instant::now();
+    while r.ws.m.g.len() == before && t.elapsed().as_secs() < 10 {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        r.frame();
+    }
+    assert_eq!(r.ws.m.g.len(), before + 30, "the reload must have landed");
+
+    // whatever the table and the map draw now must match the new graph
+    for s in [Screen::Table, Screen::Map, Screen::Compare] {
+        r.ws.go(s);
+        r.settle();
+    }
+    let t = std::time::Instant::now();
+    while r.ws.compare.diff.is_none() && t.elapsed().as_secs() < 10 {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        r.frame();
+    }
+    let d = r.ws.compare.diff.as_ref().expect("the comparison is redone against the new graph");
+    assert_eq!(d.state.len(), r.ws.m.g.len(), "marks must be per node of the graph on screen");
+    assert_eq!(d.added, 30, "the 30 new jobs are what changed");
+}

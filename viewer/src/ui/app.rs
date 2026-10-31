@@ -805,10 +805,18 @@ impl Workspace {
                     Ok(m) => {
                         let (sel_id, screen, table_q) =
                             (self.sel.map(|v| self.m.g.node_id(v).to_string()), self.screen, self.table.query.clone());
-                        let compare = std::mem::take(&mut self.compare);
+                        // A comparison is indexed by the nodes of the graph it was made against, and a job
+                        // still running holds the old model: keep the choice of snapshot, redo the rest.
+                        let mut compare = std::mem::take(&mut self.compare);
+                        let again = compare.old_path.clone();
+                        compare.diff = None;
+                        compare.job = None;
                         let mut fresh = Workspace::new(ctx, m);
                         fresh.compare = compare;
                         fresh.compare.discover(&fresh.m.path);
+                        if let Some(p) = again {
+                            fresh.start_compare(ctx, p);
+                        }
                         fresh.screen = screen;
                         fresh.table.query = table_q;
                         fresh.table.dirty = true;
