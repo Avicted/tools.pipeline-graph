@@ -112,6 +112,8 @@ make unhook             # remove the git hooks
 
 ### Layout
 
+How these fit together, with diagrams: [architecture.md](architecture.md).
+
 ```
 cmd/pipeline-graph   CLI
 internal/config      YAML config
