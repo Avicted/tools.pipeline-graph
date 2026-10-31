@@ -4,6 +4,7 @@ package integration
 
 import (
 	"archive/zip"
+	"crypto/sha256"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -114,6 +115,29 @@ func TestEndToEnd(t *testing.T) {
 		if string(got) != string(want) {
 			t.Errorf("%s differs from golden; run `go test ./test/integration -update` and review the diff", f)
 		}
+	}
+
+	// The drawings are checked for structure below, but a layout change moves every box
+	// without breaking any of that. Their hashes are golden too: a change to what is drawn
+	// shows up here, and `-update` accepts it once the pictures have been looked at.
+	var sums strings.Builder
+	for _, f := range []string{"pipelines.drawio", "pipelines.vsdx"} {
+		got, err := os.ReadFile(filepath.Join(out, f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = []byte(strings.ReplaceAll(string(got), tmp, "$TMP"))
+		fmt.Fprintf(&sums, "%x  %s\n", sha256.Sum256(got), f)
+	}
+	sumsGolden := filepath.Join(root, "test", "integration", "testdata", "drawings.sha256.golden")
+	if *update {
+		if err := os.WriteFile(sumsGolden, []byte(sums.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	} else if want, err := os.ReadFile(sumsGolden); err != nil {
+		t.Fatalf("%v (run with -update to create)", err)
+	} else if sums.String() != string(want) {
+		t.Errorf("the drawings differ from golden:\n%swant:\n%s\nrun `go test ./test/integration -update` after looking at them", sums.String(), want)
 	}
 
 	// draw.io: well-formed, unique ids, every reference resolves
