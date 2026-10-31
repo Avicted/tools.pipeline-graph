@@ -29,7 +29,10 @@ the Go test until the golden file is regenerated, and the regenerated file then 
 pass the Rust test. Both run in the quality gate: the `cargo test` hook runs on a commit that
 touches `viewer/`, `internal/model/` or the golden file, so a Go-only change that alters the
 contract is not waiting for the next viewer commit to be found out. The viewer refuses a file
-newer than it understands instead of showing it half-understood.
+newer than it understands, or without any `schemaVersion`, instead of showing it half-understood.
+What it repairs in an otherwise valid file (an unknown node or edge kind, a repeated node id,
+an edge to a node that is not there) is added to the warnings it shows, one line per kind of
+repair; nothing is dropped silently.
 
 ## Open question
 

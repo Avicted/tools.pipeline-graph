@@ -5,7 +5,7 @@ use super::intern::{Interner, Sym};
 use serde::de::{self, DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer as _};
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::io::Read;
 use std::path::Path;
@@ -22,12 +22,13 @@ pub enum Kind {
 }
 
 impl Kind {
-    fn parse(s: &str) -> Kind {
+    fn parse(s: &str) -> Option<Kind> {
         match s {
-            "external" => Kind::External,
-            "make" => Kind::Make,
-            "image" => Kind::Image,
-            _ => Kind::Build,
+            "build" => Some(Kind::Build),
+            "external" => Some(Kind::External),
+            "make" => Some(Kind::Make),
+            "image" => Some(Kind::Image),
+            _ => None,
         }
     }
 }
@@ -51,19 +52,19 @@ impl Ek {
     pub const ALL: [Ek; 10] =
         [Ek::Snapshot, Ek::Artifact, Ek::Trigger, Ek::Produces, Ek::Consumes, Ek::Derives, Ek::RunsIn, Ek::Runs, Ek::Depends, Ek::Calls];
 
-    fn parse(s: &str) -> Ek {
+    fn parse(s: &str) -> Option<Ek> {
         match s {
-            "snapshot" => Ek::Snapshot,
-            "artifact" => Ek::Artifact,
-            "trigger" => Ek::Trigger,
-            "runs" => Ek::Runs,
-            "depends" => Ek::Depends,
-            "calls" => Ek::Calls,
-            "produces" => Ek::Produces,
-            "consumes" => Ek::Consumes,
-            "derives" => Ek::Derives,
-            "runsIn" => Ek::RunsIn,
-            _ => Ek::Other,
+            "snapshot" => Some(Ek::Snapshot),
+            "artifact" => Some(Ek::Artifact),
+            "trigger" => Some(Ek::Trigger),
+            "runs" => Some(Ek::Runs),
+            "depends" => Some(Ek::Depends),
+            "calls" => Some(Ek::Calls),
+            "produces" => Some(Ek::Produces),
+            "consumes" => Some(Ek::Consumes),
+            "derives" => Some(Ek::Derives),
+            "runsIn" => Some(Ek::RunsIn),
+            _ => None,
         }
     }
 
@@ -438,6 +439,31 @@ struct RawRepo {
 struct Builder {
     g: Graph,
     edges: Vec<(Sym, Sym, Ek, Sym)>,
+    /// What had to be repaired, counted by value; reported once each as warnings.
+    unknown_node_kinds: BTreeMap<String, u32>,
+    unknown_edge_kinds: BTreeMap<String, u32>,
+}
+
+/// "a ×2, b" for a count per name, most frequent first; "(none)" stands for an empty one.
+fn tally(m: &BTreeMap<String, u32>) -> String {
+    let mut v: Vec<_> = m.iter().collect();
+    v.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    v.iter()
+        .take(5)
+        .map(|(k, n)| {
+            let k = if k.is_empty() { "(none)" } else { k.as_str() };
+            if **n > 1 {
+                format!("{k} ×{n}")
+            } else {
+                k.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn plural(n: u32, one: &str, many: &str) -> String {
+    format!("{n} {}", if n == 1 { one } else { many })
 }
 
 struct NodesSeed<'a>(&'a mut Builder);
@@ -476,7 +502,11 @@ impl<'de> DeserializeSeed<'de> for EdgesSeed<'_> {
                 while let Some(e) = seq.next_element::<RawEdge>()? {
                     let b = &mut *self.0;
                     let (f, t, l) = (b.g.strs.intern(&e.from), b.g.strs.intern(&e.to), b.g.strs.intern(&e.label));
-                    b.edges.push((f, t, Ek::parse(&e.kind), l));
+                    let kind = Ek::parse(&e.kind).unwrap_or_else(|| {
+                        *b.unknown_edge_kinds.entry(e.kind.clone()).or_default() += 1;
+                        Ek::Other
+                    });
+                    b.edges.push((f, t, kind, l));
                 }
                 Ok(())
             }
@@ -562,14 +592,18 @@ impl Builder {
             node_of: vec![],
         };
         g.generated = Sym(0);
-        Builder { g, edges: vec![] }
+        Builder { g, edges: vec![], unknown_node_kinds: BTreeMap::new(), unknown_edge_kinds: BTreeMap::new() }
     }
 
     fn add_node(&mut self, n: RawNode) {
+        let kind = Kind::parse(&n.kind).unwrap_or_else(|| {
+            *self.unknown_node_kinds.entry(n.kind.clone()).or_default() += 1;
+            Kind::Build
+        });
         let g = &mut self.g;
         let s = &mut g.strs;
         g.id.push(s.intern(&n.id));
-        g.kind.push(Kind::parse(&n.kind));
+        g.kind.push(kind);
         g.repo.push(s.intern(&n.repo));
         g.label.push(s.intern(&n.label));
         g.sub.push(s.intern(&n.sub));
@@ -609,6 +643,9 @@ impl Builder {
 
     fn finish(mut self) -> Result<Graph, LoadError> {
         let mut g = self.g;
+        if g.schema == 0 {
+            return Err(LoadError("graph.json has no schemaVersion: this is not a pipeline-graph file".into()));
+        }
         if g.schema > SCHEMA {
             return Err(LoadError(format!(
                 "graph.json has schemaVersion {}, this viewer understands up to {}: update pipeline-graph",
@@ -617,19 +654,77 @@ impl Builder {
         }
         let n = g.id.len();
         g.node_of = vec![u32::MAX; g.strs.len()];
+        let mut repeated = vec![];
         for (i, s) in g.id.iter().enumerate() {
+            if g.node_of[s.0 as usize] != u32::MAX {
+                repeated.push(*s);
+            }
             g.node_of[s.0 as usize] = i as u32;
         }
+        let mut duplicates: BTreeMap<String, u32> = BTreeMap::new();
+        for s in repeated {
+            *duplicates.entry(g.s(s).to_string()).or_default() += 1;
+        }
+        let (mut dangling, mut selfish) = (0u32, 0u32);
         let (mut from, mut to, mut kind, mut label) = (vec![], vec![], vec![], vec![]);
         for (f, t, k, l) in self.edges.drain(..) {
             let (a, b) = (g.node_of[f.0 as usize], g.node_of[t.0 as usize]);
-            if a == u32::MAX || b == u32::MAX || a == b {
+            if a == u32::MAX || b == u32::MAX {
+                dangling += 1;
+                continue;
+            }
+            if a == b {
+                selfish += 1;
                 continue;
             }
             from.push(a);
             to.push(b);
             kind.push(k);
             label.push(l);
+        }
+        // What was repaired is said in the file's own warning list, which the viewer shows in full.
+        let mut repairs: Vec<String> = vec![];
+        let unknown = self.unknown_node_kinds.values().sum::<u32>();
+        if unknown > 0 {
+            repairs.push(format!(
+                "{} have a kind the viewer does not know ({}); they are shown as builds",
+                plural(unknown, "node", "nodes"),
+                tally(&self.unknown_node_kinds)
+            ));
+        }
+        if !duplicates.is_empty() {
+            repairs.push(format!(
+                "{} appears more than once ({}); links use the last one",
+                plural(duplicates.len() as u32, "node id", "node ids"),
+                tally(&duplicates)
+            ));
+        }
+        let unknown = self.unknown_edge_kinds.values().sum::<u32>();
+        if unknown > 0 {
+            repairs.push(format!(
+                "{} {} a kind the viewer does not know ({}); shown as plain links",
+                plural(unknown, "edge", "edges"),
+                if unknown == 1 { "has" } else { "have" },
+                tally(&self.unknown_edge_kinds)
+            ));
+        }
+        if dangling > 0 {
+            repairs.push(if dangling == 1 {
+                "1 edge points at a node that is not in the file; it is left out".to_string()
+            } else {
+                format!("{dangling} edges point at a node that is not in the file; they are left out")
+            });
+        }
+        if selfish > 0 {
+            repairs.push(if selfish == 1 {
+                "1 edge starts and ends at the same node; it is left out".to_string()
+            } else {
+                format!("{selfish} edges start and end at the same node; they are left out")
+            });
+        }
+        for r in repairs {
+            let w = g.strs.intern(&format!("graph.json: {r}"));
+            g.warnings.push(w);
         }
         g.flow = g.build_flow(n, &from, &to, &kind, &label);
         g.full = Net::build(n, from, to, kind, label);
@@ -929,7 +1024,8 @@ pub(crate) mod tests {
         let g = sample();
         assert_eq!(g.len(), 9);
         assert_eq!(g.full.len(), 9, "the edge from an unknown node is dropped");
-        assert_eq!(g.warnings.len(), 1);
+        assert_eq!(g.warnings.len(), 2, "the file's own warning, and one line for the dropped edge");
+        assert_eq!(g.s(g.warnings[1]), "graph.json: 1 edge points at a node that is not in the file; it is left out");
         let app = g.node_by_id("bt:r2/App").unwrap();
         assert_eq!(g.node_label(app), "App build & test");
         let keys: Vec<_> = g.params(app).iter().map(|(k, _)| g.s(*k)).collect();
@@ -984,5 +1080,54 @@ pub(crate) mod tests {
         }
         assert_eq!(b.iter().collect::<Vec<_>>(), vec![3, 64, 150, 199]);
         assert_eq!(b.count(), 4);
+    }
+
+    fn load(json: &str) -> Result<Graph, LoadError> {
+        Graph::from_slice(json.as_bytes())
+    }
+
+    fn repairs(g: &Graph) -> Vec<String> {
+        g.warnings.iter().map(|w| g.s(*w).to_string()).filter(|w| w.starts_with("graph.json:")).collect()
+    }
+
+    #[test]
+    fn a_file_without_a_schema_version_is_not_a_pipeline_graph_file() {
+        for json in ["{}", r#"{"nodes":[],"edges":[]}"#, r#"{"schemaVersion":0,"nodes":[]}"#] {
+            let e = load(json).err().expect(json);
+            assert!(e.0.contains("schemaVersion"), "{json}: {}", e.0);
+        }
+    }
+
+    #[test]
+    fn what_the_loader_repairs_is_reported_not_dropped_silently() {
+        let g = load(
+            r#"{"schemaVersion":1,"repos":[],
+              "nodes":[
+                {"id":"a","kind":"build"},{"id":"b","kind":"widget"},{"id":"c","kind":"widget"},{"id":"d","kind":""},
+                {"id":"a","kind":"build","label":"second a"}],
+              "edges":[
+                {"from":"a","to":"b","kind":"snapshot"},{"from":"a","to":"b","kind":"teleport"},
+                {"from":"a","to":"ghost","kind":"snapshot"},{"from":"ghost","to":"a","kind":"snapshot"},
+                {"from":"a","to":"a","kind":"snapshot"}]}"#,
+        )
+        .unwrap();
+        let r = repairs(&g).join("\n");
+        assert!(r.contains("3 nodes have a kind the viewer does not know") && r.contains("widget ×2"), "{r}");
+        assert!(r.contains("1 node id appears more than once") && r.contains("a"), "{r}");
+        assert!(r.contains("1 edge has a kind the viewer does not know") && r.contains("teleport"), "{r}");
+        assert!(r.contains("2 edges point at a node that is not in the file"), "{r}");
+        assert!(r.contains("1 edge starts and ends at the same node"), "{r}");
+        assert_eq!(g.warnings.len(), 5, "one line per kind of repair, not one per item: {r}");
+    }
+
+    #[test]
+    fn a_clean_file_adds_no_warnings_of_its_own() {
+        let g = load(
+            r#"{"schemaVersion":1,"warnings":["r: kept as is"],"nodes":[{"id":"a","kind":"build"},{"id":"b","kind":"make"}],
+              "edges":[{"from":"a","to":"b","kind":"runs"}]}"#,
+        )
+        .unwrap();
+        assert!(repairs(&g).is_empty());
+        assert_eq!(g.warnings.len(), 1);
     }
 }

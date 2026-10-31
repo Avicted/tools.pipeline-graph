@@ -1096,7 +1096,7 @@ impl Workspace {
                 .default_size([760.0, 420.0])
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
-                    ui.label(RichText::new("Everything the analysis could not resolve. Nothing is dropped silently.").color(pal.muted));
+                    ui.label(RichText::new("Everything the analysis could not resolve, and anything in this file the viewer had to repair. Nothing is dropped silently.").color(pal.muted));
                     ui.add(egui::TextEdit::singleline(&mut self.warn_filter).hint_text("Filter…").desired_width(f32::INFINITY));
                     let f = self.warn_filter.to_lowercase();
                     egui::ScrollArea::vertical().show(ui, |ui| {
