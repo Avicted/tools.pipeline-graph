@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -550,14 +551,7 @@ func (a *analyzer) imageNodes() {
 	}
 }
 
-func keys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
+func keys(m map[string]bool) []string { return slices.Sorted(maps.Keys(m)) }
 
 // inlineScript flattens a script to one line, a newline becoming "; ".
 func inlineScript(s string) string {

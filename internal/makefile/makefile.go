@@ -7,10 +7,11 @@ import (
 	"bufio"
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
@@ -281,14 +282,7 @@ func stripComment(l string) string {
 
 func appendUnique(list []string, items ...string) []string {
 	for _, it := range items {
-		dup := false
-		for _, x := range list {
-			if x == it {
-				dup = true
-				break
-			}
-		}
-		if !dup {
+		if !slices.Contains(list, it) {
 			list = append(list, it)
 		}
 	}
@@ -372,14 +366,7 @@ func matchParen(s string, open int) int {
 }
 
 // Targets returns all explicit targets in sorted order.
-func (m *Makefile) Targets() []string {
-	out := make([]string, 0, len(m.Rules))
-	for t := range m.Rules {
-		out = append(out, t)
-	}
-	sort.Strings(out)
-	return out
-}
+func (m *Makefile) Targets() []string { return slices.Sorted(maps.Keys(m.Rules)) }
 
 // ExpandRecipe expands a recipe line in the context of a rule (automatic variables included).
 func (m *Makefile) ExpandRecipe(r *Rule, line string) string {

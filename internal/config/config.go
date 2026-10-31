@@ -4,10 +4,11 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -116,7 +117,7 @@ func (c *Config) Finalize() error {
 		return fmt.Errorf("no repositories configured (add repos: to the config or pass URLs as arguments)")
 	}
 	for _, v := range c.Views {
-		if !contains(AllViews, v) {
+		if !slices.Contains(AllViews, v) {
 			return fmt.Errorf("unknown view %q (valid: %s)", v, strings.Join(AllViews, ", "))
 		}
 	}
@@ -124,7 +125,7 @@ func (c *Config) Finalize() error {
 		if f == "html" {
 			return fmt.Errorf("the html format was removed; open graph.json with pipeline-graph-viewer (make view)")
 		}
-		if !contains(AllFormats, f) {
+		if !slices.Contains(AllFormats, f) {
 			return fmt.Errorf("unknown format %q (valid: %s)", f, strings.Join(AllFormats, ", "))
 		}
 	}
@@ -197,7 +198,7 @@ func foldLegacy(blocks *map[string]yaml.Node, block, key, val, old, where string
 func (c *Config) CheckBlocks(known []string) error {
 	check := func(where string, blocks map[string]yaml.Node) error {
 		for _, k := range sortedKeys(blocks) {
-			if !contains(known, k) {
+			if !slices.Contains(known, k) {
 				return fmt.Errorf("%s: unknown field %q (provider settings: %s)", where, k, strings.Join(known, ", "))
 			}
 		}
@@ -238,14 +239,7 @@ func (c *Config) Settings(i int, name string, v any) error {
 	return nil
 }
 
-func sortedKeys(m map[string]yaml.Node) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
+func sortedKeys(m map[string]yaml.Node) []string { return slices.Sorted(maps.Keys(m)) }
 
 // NameFromURL turns git@host:org/service-a.git or https://host/org/service-a into "service-a".
 func NameFromURL(u string) string {
@@ -262,13 +256,4 @@ func isRelativePath(u string) bool {
 	return u != "" && !filepath.IsAbs(u) && !strings.Contains(u, "://") && !strings.Contains(u, "@") && !strings.HasPrefix(u, "~")
 }
 
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *Config) Has(format string) bool { return contains(c.Formats, format) }
+func (c *Config) Has(format string) bool { return slices.Contains(c.Formats, format) }
