@@ -48,6 +48,9 @@ flowchart LR
 
 - Repository content is **parsed, never executed**. The only programs the CLI starts are
   `git`, in `internal/fetch`, and Graphviz `dot`, on its own `pipelines.dot`.
+- git is the only program that touches the network. It may use only http, https, ssh, git and
+  file URLs (`GIT_ALLOW_PROTOCOL`), the clone cache is private to the user (mode 0700), and a
+  failed clone never deletes a directory the run did not create.
 - Repository files are read only through `internal/repofs`: a path that leaves the
   repository (`..`, an absolute path, a symlink out), anything that is not a regular file
   (fifo, device) and any file over 4 MiB is refused with a warning, so a hostile

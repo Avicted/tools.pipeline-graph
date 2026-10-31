@@ -93,7 +93,10 @@ func (c *Config) Finalize() error {
 		c.CacheDir = filepath.Join(base, "pipeline-graph")
 	}
 	if strings.HasPrefix(c.CacheDir, "~/") {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("cache_dir %q: cannot find your home directory: %w", c.CacheDir, err)
+		}
 		c.CacheDir = filepath.Join(home, c.CacheDir[2:])
 	}
 	if c.OutDir == "" {

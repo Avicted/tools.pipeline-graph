@@ -267,3 +267,13 @@ func TestFinalizeDefaultsAndErrors(t *testing.T) {
 		t.Errorf("no config file is fine: %v", err)
 	}
 }
+
+func TestCacheDirTildeNeedsAHome(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	c := &Config{CacheDir: "~/pg-cache"}
+	err := c.Finalize()
+	if err == nil || !strings.Contains(err.Error(), "home directory") {
+		t.Errorf("a ~ that cannot be expanded must be an error, not the relative path %q: %v", c.CacheDir, err)
+	}
+}

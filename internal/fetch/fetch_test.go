@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -242,5 +243,123 @@ func TestGitDoesNotPrompt(t *testing.T) {
 	_, err = git(context.Background(), t.TempDir(), "no-such-subcommand")
 	if err == nil || !strings.Contains(err.Error(), "no-such-subcommand") {
 		t.Errorf("error should name the command: %v", err)
+	}
+}
+
+// A URL made only of characters the cache key strips used to give an empty key, so the
+// checkout directory was the cache itself and a failed clone deleted all of it.
+func TestHostileURLNeverTouchesTheCache(t *testing.T) {
+	_, cache := setup(t)
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(cache, "other-repo-checkout")
+	if err := os.WriteFile(keep, []byte("precious"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, url := range []string{"@@", "://", "@", "@@@@"} {
+		res := All(context.Background(), []Request{{URL: url}}, cache, 1, false)
+		if res[0].Err == nil {
+			t.Errorf("%q: cloning nonsense must fail", url)
+		}
+		if _, err := os.Stat(keep); err != nil {
+			t.Fatalf("%q: a failed clone destroyed the cache: %v", url, err)
+		}
+	}
+}
+
+// git runs a remote helper named git-remote-<x> for the URL "<x>::...". The allowed
+// protocols are listed, so a URL cannot make git start a program of the repository's choosing.
+func TestUnlistedProtocolsAreRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a shell script")
+	}
+	remotes, cache := setup(t)
+	bin := filepath.Join(remotes, "bin")
+	marker := filepath.Join(remotes, "helper-ran")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\ntouch " + marker + "\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(bin, "git-remote-evil"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	res := All(context.Background(), []Request{{URL: "evil::anything"}}, cache, 1, false)
+	if res[0].Err == nil {
+		t.Error("an unlisted protocol must fail")
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("git started a remote helper for a protocol that is not allowed")
+	}
+}
+
+func TestCacheKeys(t *testing.T) {
+	// Requests that differ at all must not share a directory, even when their readable parts match.
+	reqs := [][2]string{
+		{"a/b", ""}, {"a:b", ""}, {"a_b", ""}, {"x", "main"}, {"x@main", ""}, {"x", ""}, {"x", "dev"},
+		{"git@github.com:acme/svc.git", ""}, {"https://github.com/acme/svc.git", ""},
+	}
+	seen := map[string][2]string{}
+	for _, r := range reqs {
+		k := cacheKey(r[0], r[1])
+		if prev, dup := seen[k]; dup {
+			t.Errorf("%q and %q share the key %q", prev, r, k)
+		}
+		seen[k] = r
+		if k == "" || k != filepath.Base(k) || strings.HasPrefix(k, ".") {
+			t.Errorf("%q: %q is not one safe path element", r, k)
+		}
+	}
+	// nothing readable survives: still a name, never empty or a dot segment
+	for _, u := range []string{"@@", "://", "..", ".", ""} {
+		if k := cacheKey(u, ""); !strings.HasPrefix(k, "repo-") {
+			t.Errorf("%q: %q", u, k)
+		}
+	}
+	if k := cacheKey("https://github.com/acme/svc.git", ""); !strings.HasPrefix(k, "https_github.com_acme_svc.git-") {
+		t.Errorf("the key should stay readable: %q", k)
+	}
+	if k := cacheKey(strings.Repeat("a/", 100)+"svc", ""); len(k) > 80 {
+		t.Errorf("a long URL gives a %d-byte name", len(k))
+	}
+}
+
+// What is already at the checkout path is not ours: a failed clone must leave it alone.
+func TestForeignDirectoryAtTheCheckoutPathSurvives(t *testing.T) {
+	remotes, cache := setup(t)
+	req := Request{URL: "file://" + filepath.Join(remotes, "missing")}
+	dir := filepath.Join(cache, cacheKey(req.URL, req.Branch))
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(keep, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := All(context.Background(), []Request{req}, cache, 1, false)
+	if res[0].Err == nil || !strings.Contains(res[0].Err.Error(), "not a git checkout") {
+		t.Errorf("want an error that says what is wrong, got %v", res[0].Err)
+	}
+	if _, err := os.Stat(keep); err != nil {
+		t.Errorf("a directory this run did not create was deleted: %v", err)
+	}
+}
+
+func TestCacheDirectoryIsPrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no unix modes on windows")
+	}
+	remotes, cache := setup(t)
+	src := remote(t, remotes, "svc", "one")
+	if res := All(context.Background(), []Request{{URL: "file://" + src}}, cache, 1, false); res[0].Err != nil {
+		t.Fatal(res[0].Err)
+	}
+	fi, err := os.Stat(cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode().Perm() != 0o700 {
+		t.Errorf("cache dir mode %v: other users could plant a checkout in it", fi.Mode().Perm())
 	}
 }

@@ -5,7 +5,11 @@ package fetch
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,6 +31,25 @@ type Result struct {
 }
 
 var reUnsafe = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
+
+// allowedProtocols are the transports git may use for a configured URL. Listing them
+// keeps a URL such as "evil::x" from making git start a remote helper of that name.
+const allowedProtocols = "http:https:ssh:git:file"
+
+// cacheKey names the checkout of url@branch: a readable tail of the URL, so a person can
+// tell the directories apart, and a hash of the exact request, so two requests never
+// share one and the name is never empty or a path component like "..".
+func cacheKey(url, branch string) string {
+	sum := sha256.Sum256([]byte(url + "\x00" + branch))
+	name := strings.Trim(reUnsafe.ReplaceAllString(url, "_"), "_.")
+	if len(name) > 48 {
+		name = name[len(name)-48:]
+	}
+	if name == "" {
+		name = "repo"
+	}
+	return name + "-" + hex.EncodeToString(sum[:6])
+}
 
 // IsLocal reports whether url refers to an existing local directory (used as-is, no clone).
 func IsLocal(url string) bool {
@@ -74,15 +97,14 @@ func All(ctx context.Context, reqs []Request, cacheDir string, concurrency int, 
 
 func one(ctx context.Context, r Request, cacheDir string, offline bool) Result {
 	if IsLocal(r.URL) {
-		dir, _ := filepath.Abs(r.URL)
-		commit, _ := git(ctx, dir, "rev-parse", "HEAD")
+		dir, err := filepath.Abs(r.URL)
+		if err != nil {
+			return Result{Err: err}
+		}
+		commit, _ := git(ctx, dir, "rev-parse", "HEAD") // a plain directory has no commit
 		return Result{Dir: dir, Commit: commit}
 	}
-	key := r.URL
-	if r.Branch != "" {
-		key += "@" + r.Branch
-	}
-	dir := filepath.Join(cacheDir, strings.Trim(reUnsafe.ReplaceAllString(key, "_"), "_"))
+	dir := filepath.Join(cacheDir, cacheKey(r.URL, r.Branch))
 	_, statErr := os.Stat(filepath.Join(dir, ".git"))
 	exists := statErr == nil
 	switch {
@@ -104,8 +126,19 @@ func one(ctx context.Context, r Request, cacheDir string, offline bool) Result {
 			return Result{Err: err}
 		}
 	default:
-		if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
+		if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 			return Result{Err: err}
+		}
+		// Only a directory this run creates may be removed again. Anything already
+		// there is not ours: refuse it rather than clone into it or delete it.
+		fresh := false
+		switch entries, err := os.ReadDir(dir); {
+		case errors.Is(err, fs.ErrNotExist):
+			fresh = true
+		case err != nil:
+			return Result{Err: err}
+		case len(entries) > 0:
+			return Result{Err: fmt.Errorf("%s exists but is not a git checkout; remove it to fetch again", dir)}
 		}
 		args := []string{"clone", "--depth", "1", "--quiet", "--no-tags"}
 		if r.Branch != "" {
@@ -114,7 +147,9 @@ func one(ctx context.Context, r Request, cacheDir string, offline bool) Result {
 		// "--" so a URL starting with "-" is never read as a git option
 		args = append(args, "--", r.URL, dir)
 		if _, err := git(ctx, "", args...); err != nil {
-			os.RemoveAll(dir)
+			if fresh {
+				os.RemoveAll(dir)
+			}
 			return Result{Err: err}
 		}
 	}
@@ -128,6 +163,9 @@ func git(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	if os.Getenv("GIT_ALLOW_PROTOCOL") == "" {
+		cmd.Env = append(cmd.Env, "GIT_ALLOW_PROTOCOL="+allowedProtocols)
+	}
 	if os.Getenv("GIT_SSH_COMMAND") == "" {
 		// never hang on a password / host-key prompt
 		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
