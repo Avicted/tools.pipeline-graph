@@ -11,6 +11,7 @@ stated under its heading.
 *Answers: what does the tool understand?*
 
 ```mermaid
+%% view: domain
 erDiagram
     BUILD }o--o{ BUILD : "snapshot · artifact · trigger"
     EXTERNAL }o--o{ BUILD : "snapshot · artifact · trigger"
@@ -58,6 +59,7 @@ repository becomes an `external` stub and a warning.
 *Answers: what happens in one run, and what flows between stages?*
 
 ```mermaid
+%% view: one-run
 flowchart LR
     cfg["config.Load<br/>pipeline-graph.yaml"] -- "Config" --> fetch["fetch.All<br/>N in parallel · cache<br/>or offline from cache"]
     fetch -- "checkout + commit" --> sel{"ci: which<br/>providers?"}
@@ -139,6 +141,7 @@ An arrow is an import. Only `cmd/pipeline-graph` wires the stages together; `con
 *Answers: what does adding a CI system cost?*
 
 ```mermaid
+%% view: provider-seam
 classDiagram
     direction LR
     class Provider {

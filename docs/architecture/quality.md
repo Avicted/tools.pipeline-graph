@@ -14,6 +14,7 @@ There is no CI/CD. Every check runs locally, in the same pinned Docker image
 (`Dockerfile.pre-commit`), on the contributor's machine and again on the maintainer's.
 
 ```mermaid
+%% view: gate
 flowchart LR
     subgraph contributor["contributor's machine · make hooks"]
         commit["git commit<br/>pre-commit hook<br/>staged files"]
@@ -58,6 +59,7 @@ focused, a fixed 2000×1250 output, no animation, the time comes from the commit
 (`SOURCE_DATE_EPOCH`), and the load time is left out. `SOURCE` records the commit.
 
 ```mermaid
+%% view: screenshots
 sequenceDiagram
     actor dev as developer
     participant mk as make viewer-shots-check
@@ -78,6 +80,7 @@ sequenceDiagram
 *Answers: how is a version cut?*
 
 ```mermaid
+%% view: release
 sequenceDiagram
     actor dev as maintainer
     participant mk as make new-version

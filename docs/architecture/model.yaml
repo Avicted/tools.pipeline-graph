@@ -1,0 +1,456 @@
+# The architecture of pipeline-graph as an ArchiMate model: the source of
+# model.archimate.xml (make archimate). Each view is one Mermaid diagram in the
+# architecture docs; its nodes are keyed by that diagram's node ids (m), which
+# tools/archimate's tests compare. How the diagrams map onto ArchiMate, and
+# what is lost on the way, is in archimate.md.
+
+name: pipeline-graph architecture
+documentation: >-
+  The two programs of pipeline-graph, the graph.json contract between them, and
+  how changes are checked and released. Generated from docs/architecture/model.yaml.
+
+elements:
+  # The programs and their parts.
+  - {id: cli, type: ApplicationComponent, name: pipeline-graph (Go CLI), doc: "cmd/pipeline-graph: reads CI/CD definitions and writes diagrams plus graph.json. Parses, runs nothing from the repositories."}
+  - {id: pkg-cmd, type: ApplicationComponent, name: cmd/pipeline-graph, doc: Wires the stages together.}
+  - {id: pkg-config, type: ApplicationComponent, name: internal/config, doc: Loads pipeline-graph.yaml.}
+  - {id: pkg-fetch, type: ApplicationComponent, name: internal/fetch, doc: "Shallow git clones, N in parallel, cached."}
+  - {id: pkg-ci, type: ApplicationComponent, name: internal/ci, doc: The provider seam and the neutral job model.}
+  - {id: ci-teamcity, type: ApplicationComponent, name: internal/ci/teamcity, doc: Reads the .teamcity Kotlin DSL.}
+  - {id: ci-github, type: ApplicationComponent, name: internal/ci/github, doc: Reads .github/workflows.}
+  - {id: pkg-kts, type: ApplicationComponent, name: internal/kts, doc: Tolerant Kotlin tokenizer and parser for the TeamCity DSL.}
+  - {id: pkg-analyze, type: ApplicationComponent, name: internal/analyze, doc: Turns every provider's jobs into one graph and resolves references across repositories.}
+  - {id: pkg-shell, type: ApplicationComponent, name: internal/shell, doc: "Finds make, docker and script calls in step text."}
+  - {id: pkg-makefile, type: ApplicationComponent, name: internal/makefile, doc: Parses Makefiles.}
+  - {id: pkg-render, type: ApplicationComponent, name: internal/render, doc: Every output format.}
+  - {id: pkg-layout, type: ApplicationComponent, name: internal/layout, doc: Layered left-to-right layout with repository lanes.}
+  - {id: pkg-model, type: ApplicationComponent, name: internal/model, doc: "The graph types and graph.json (SchemaVersion = 1)."}
+  - {id: viewer, type: ApplicationComponent, name: pipeline-graph-viewer (Rust), doc: "viewer/: the desktop app for exploring graph.json."}
+  - {id: v-main, type: ApplicationComponent, name: viewer main.rs, doc: The window and the command-line flags.}
+  - {id: v-ui, type: ApplicationComponent, name: viewer ui (egui), doc: "app, screens, canvas, job, shots, headless, theme."}
+  - {id: v-core, type: ApplicationComponent, name: viewer core (headless), doc: Doesn't depend on egui.}
+  - {id: v-core-graph, type: ApplicationComponent, name: core::graph, doc: The graph.json loader; refuses a newer schemaVersion.}
+  - {id: v-core-derive, type: ApplicationComponent, name: core::derive}
+  - {id: v-core-search, type: ApplicationComponent, name: core::search}
+  - {id: v-core-diff, type: ApplicationComponent, name: core::diff}
+  - {id: v-core-intern, type: ApplicationComponent, name: core::intern}
+  - {id: v-core-layout, type: ApplicationComponent, name: core::layout}
+  - {id: v-core-spatial, type: ApplicationComponent, name: core::spatial}
+  - {id: it-test, type: ApplicationComponent, name: Go integration test, doc: "test/integration: the real binary against fixture repositories over file://."}
+  - {id: contract-test, type: ApplicationComponent, name: viewer/tests/contract.rs, doc: The Rust side of the graph.json contract.}
+
+  # The provider seam.
+  - {id: provider, type: ApplicationInterface, name: ci.Provider, doc: "System() System; Detect(Repo) bool; Load(Repo) Pipelines."}
+  - {id: configurable, type: ApplicationInterface, name: ci.Configurable, doc: "NewSettings() any."}
+  - {id: pipelines, type: DataObject, name: ci.Pipelines, doc: "Jobs, CrossDeps, Warnings."}
+  - {id: job, type: DataObject, name: ci.Job, doc: "Key, QualID, Aliases, Steps, Deps, Triggers."}
+  - {id: ref, type: DataObject, name: ci.Ref, doc: Local or Global or Alias.}
+
+  # Data.
+  - {id: analysed-repos, type: DataObject, name: Analysed repositories, doc: "Untrusted input: TeamCity DSL, workflows, Makefiles, Dockerfiles."}
+  - {id: graph-json, type: DataObject, name: graph.json, doc: The contract between the two programs.}
+  - {id: golden, type: DataObject, name: graph.json.golden, doc: test/integration/testdata/graph.json.golden.}
+  - {id: diagram-files, type: DataObject, name: Diagrams, doc: "drawio, vsdx, html, mmd, dot."}
+  - {id: drawings, type: DataObject, name: "drawio · vsdx · html"}
+  - {id: text-diagrams, type: DataObject, name: "mmd · dot"}
+  - {id: warnings, type: DataObject, name: warnings.txt, doc: What the analysis could not resolve.}
+  - {id: project-dir, type: DataObject, name: "Project directory (/work, rw)", doc: "Config in, out/ written."}
+  - {id: clone-cache, type: DataObject, name: "Clone cache (~/.cache/pipeline-graph, rw)"}
+  - {id: git-creds, type: DataObject, name: "ssh-agent socket · known_hosts · /etc/passwd (ro)", doc: Auth for git only.}
+  - {id: viewer-model, type: DataObject, name: "Model (Arc, immutable)", doc: "Graph, Derived, SearchIndex."}
+  - {id: workspace, type: DataObject, name: Workspace (mutable), doc: "UI thread only: screen, selection, lineage, table."}
+
+  # The graph.json domain.
+  - {id: d-build, type: DataObject, name: build, doc: A TeamCity build configuration or a GitHub Actions job.}
+  - {id: d-make, type: DataObject, name: make target, doc: A target in a Makefile that a step reaches.}
+  - {id: d-image, type: DataObject, name: image, doc: Produced by an analysed pipeline.}
+  - {id: d-external, type: DataObject, name: external, doc: "Referenced, not in any analysed repo."}
+
+  # One run of the CLI.
+  - {id: p-config, type: ApplicationProcess, name: config.Load}
+  - {id: p-fetch, type: ApplicationProcess, name: fetch.All, doc: "N in parallel, cached, or offline from cache."}
+  - {id: p-select, type: ApplicationProcess, name: Select the providers}
+  - {id: p-load, type: ApplicationProcess, name: Provider.Load}
+  - {id: p-analyze, type: ApplicationProcess, name: analyze.Run, doc: "Steps to shell and makefile; cross-repo ids."}
+  - {id: p-views, type: ApplicationProcess, name: render.BuildViews, doc: "Overview, full, per repo."}
+
+  # The viewer at run time.
+  - {id: s-welcome, type: ApplicationProcess, name: Welcome}
+  - {id: s-loading, type: ApplicationProcess, name: Loading}
+  - {id: s-ready, type: ApplicationProcess, name: Ready}
+  - {id: t-threads, type: Grouping, name: Background threads (ui::job)}
+  - {id: t-load, type: ApplicationProcess, name: Load / reload (Model::load)}
+  - {id: t-layout, type: ApplicationProcess, name: Layout (build_scene)}
+  - {id: t-compare, type: ApplicationProcess, name: Compare (core::diff)}
+  - {id: t-frame, type: ApplicationProcess, name: Frame loop (App::update)}
+  - {id: t-screens, type: ApplicationProcess, name: Draw the screens, doc: "snapshot, table, map, prod, images, compare, inspector."}
+
+  # Where it runs.
+  - {id: users, type: BusinessActor, name: "Pipeline designers · tech leads · QA · DevSecOps"}
+  - {id: untrusted, type: Grouping, name: Untrusted}
+  - {id: out-dir, type: Grouping, name: out/}
+  - {id: machine, type: Node, name: Your machine}
+  - {id: container, type: SystemSoftware, name: Docker container (runs as your uid)}
+
+  # Checks and release.
+  - {id: contributor-machine, type: Node, name: Contributor's machine (make hooks)}
+  - {id: maintainer-machine, type: Node, name: Maintainer's machine}
+  - {id: g-commit, type: TechnologyProcess, name: git commit (pre-commit hook), doc: Staged files.}
+  - {id: g-push, type: TechnologyProcess, name: git push (pre-push hook), doc: "All files, plus govulncheck and the history secret scan."}
+  - {id: g-review, type: TechnologyProcess, name: Review the branch (make pre-commit-pr-run)}
+  - {id: g-manual, type: TechnologyProcess, name: viewer-shots-check · viewer-bench, doc: "By hand, when the UI or speed changed."}
+  - {id: g-merge, type: TechnologyProcess, name: Merge to master}
+  - {id: developer, type: BusinessActor, name: Developer}
+  - {id: maintainer, type: BusinessActor, name: Maintainer}
+  - {id: shots-check, type: TechnologyProcess, name: make viewer-shots-check}
+  - {id: worktree, type: Artifact, name: Temporary worktree at SOURCE}
+  - {id: new-version, type: TechnologyProcess, name: make new-version}
+  - {id: local-repo, type: Artifact, name: Local repo (master)}
+  - {id: origin, type: Artifact, name: origin (git remote), doc: Branches and tags only.}
+
+  # The ArchiMate model itself.
+  - {id: arch-docs, type: DataObject, name: Architecture docs (Mermaid), doc: "docs/architecture.md and docs/architecture/*.md; each Mermaid block is tagged with its view."}
+  - {id: model-yaml, type: DataObject, name: model.yaml, doc: The hand-written source of the ArchiMate model.}
+  - {id: archimate-tool, type: ApplicationComponent, name: tools/archimate, doc: make archimate.}
+  - {id: exchange-file, type: DataObject, name: model.archimate.xml, doc: "Generated; the Open Group exchange format, ArchiMate 3.1."}
+  - {id: archimate-tests, type: ApplicationComponent, name: tools/archimate tests}
+  - {id: modelling-tool, type: ApplicationComponent, name: "Archi · Sparx EA · …", doc: Any tool that imports the exchange format.}
+
+relationships:
+  # Composition of the programs.
+  - {type: Composition, source: cli, target: pkg-cmd}
+  - {type: Composition, source: cli, target: pkg-config}
+  - {type: Composition, source: cli, target: pkg-fetch}
+  - {type: Composition, source: cli, target: pkg-ci}
+  - {type: Composition, source: cli, target: pkg-kts}
+  - {type: Composition, source: cli, target: pkg-analyze}
+  - {type: Composition, source: cli, target: pkg-shell}
+  - {type: Composition, source: cli, target: pkg-makefile}
+  - {type: Composition, source: cli, target: pkg-render}
+  - {type: Composition, source: cli, target: pkg-layout}
+  - {type: Composition, source: cli, target: pkg-model}
+  - {type: Composition, source: pkg-ci, target: ci-teamcity}
+  - {type: Composition, source: pkg-ci, target: ci-github}
+  - {type: Composition, source: viewer, target: v-main}
+  - {type: Composition, source: viewer, target: v-ui}
+  - {type: Composition, source: viewer, target: v-core}
+  - {type: Composition, source: v-core, target: v-core-graph}
+  - {type: Composition, source: v-core, target: v-core-derive}
+  - {type: Composition, source: v-core, target: v-core-search}
+  - {type: Composition, source: v-core, target: v-core-diff}
+  - {type: Composition, source: v-core, target: v-core-intern}
+  - {type: Composition, source: v-core, target: v-core-layout}
+  - {type: Composition, source: v-core, target: v-core-spatial}
+  - {type: Composition, source: diagram-files, target: drawings}
+  - {type: Composition, source: diagram-files, target: text-diagrams}
+  - {type: Composition, source: project-dir, target: graph-json}
+  - {type: Composition, source: project-dir, target: diagram-files}
+  - {type: Composition, source: project-dir, target: warnings}
+  - {type: Composition, source: machine, target: container}
+
+  # Overview.
+  - {type: Access, access: Read, source: cli, target: analysed-repos, name: "git clone, parsed, never run"}
+  - {type: Access, access: Write, source: cli, target: graph-json, name: writes}
+  - {type: Access, access: Write, source: cli, target: diagram-files, name: writes}
+  - {type: Access, access: Read, source: viewer, target: graph-json, name: reads}
+  - {type: Flow, source: pkg-fetch, target: pkg-ci, name: shallow clones}
+  - {type: Flow, source: pkg-ci, target: pkg-analyze, name: neutral jobs}
+  - {type: Serving, source: v-core, target: v-ui}
+
+  # Trust boundaries.
+  - {type: Access, access: Read, source: cli, target: git-creds, name: auth for git only}
+  - {type: Access, access: ReadWrite, source: cli, target: clone-cache}
+  - {type: Access, access: Write, source: cli, target: project-dir, name: "drawio · vsdx · html · mmd · dot · graph.json"}
+  - {type: Access, access: Read, source: viewer, target: project-dir, name: graph.json}
+  - {type: Serving, source: viewer, target: users}
+  - {type: Association, source: users, target: project-dir, name: "browser · draw.io · Miro"}
+  - {type: Serving, source: container, target: cli, name: runs}
+
+  # The graph.json domain: every relationship is many-to-many.
+  - {type: Association, source: d-build, target: d-build, name: "snapshot · artifact · trigger"}
+  - {type: Association, source: d-external, target: d-build, name: "snapshot · artifact · trigger"}
+  - {type: Association, source: d-build, target: d-make, name: runs}
+  - {type: Association, source: d-make, target: d-make, name: "depends · calls"}
+  - {type: Association, source: d-build, target: d-image, name: "produces · consumes · runsIn"}
+  - {type: Association, source: d-make, target: d-image, name: "produces · consumes · runsIn"}
+  - {type: Association, source: d-image, target: d-image, name: derives}
+
+  # One run.
+  - {type: Flow, source: p-config, target: p-fetch, name: Config}
+  - {type: Flow, source: p-fetch, target: p-select, name: checkout + commit}
+  - {type: Flow, source: p-select, target: p-load, name: ci.Repo}
+  - {type: Flow, source: p-load, target: p-analyze, name: ci.Pipelines}
+  - {type: Flow, source: p-analyze, target: p-views, name: "*model.Graph"}
+  - {type: Access, access: Write, source: p-analyze, target: text-diagrams, name: overview}
+  - {type: Access, access: Write, source: p-analyze, target: warnings, name: "[]warning"}
+  - {type: Access, access: Write, source: p-analyze, target: graph-json, name: "*model.Graph, and history/ if changed"}
+  - {type: Access, access: Write, source: p-views, target: drawings}
+  - {type: Assignment, source: pkg-config, target: p-config}
+  - {type: Assignment, source: pkg-fetch, target: p-fetch}
+  - {type: Assignment, source: pkg-ci, target: p-select}
+  - {type: Assignment, source: pkg-ci, target: p-load}
+  - {type: Assignment, source: pkg-analyze, target: p-analyze}
+  - {type: Assignment, source: pkg-render, target: p-views}
+
+  # Go packages: B serves A when A imports B.
+  - {type: Serving, source: pkg-config, target: pkg-cmd}
+  - {type: Serving, source: pkg-fetch, target: pkg-cmd}
+  - {type: Serving, source: pkg-ci, target: pkg-cmd}
+  - {type: Serving, source: pkg-analyze, target: pkg-cmd}
+  - {type: Serving, source: pkg-render, target: pkg-cmd}
+  - {type: Serving, source: pkg-model, target: pkg-cmd}
+  - {type: Serving, source: pkg-kts, target: pkg-ci}
+  - {type: Serving, source: pkg-model, target: pkg-ci}
+  - {type: Serving, source: pkg-model, target: pkg-kts}
+  - {type: Serving, source: pkg-ci, target: pkg-analyze}
+  - {type: Serving, source: pkg-shell, target: pkg-analyze}
+  - {type: Serving, source: pkg-makefile, target: pkg-analyze}
+  - {type: Serving, source: pkg-model, target: pkg-analyze}
+  - {type: Serving, source: pkg-layout, target: pkg-render}
+  - {type: Serving, source: pkg-model, target: pkg-render}
+  - {type: Serving, source: pkg-model, target: pkg-layout}
+
+  # The provider seam.
+  - {type: Association, source: ci-teamcity, target: provider, name: implements}
+  - {type: Association, source: ci-github, target: provider, name: implements}
+  - {type: Association, source: ci-teamcity, target: configurable, name: implements}
+  - {type: Association, source: provider, target: pipelines, name: Load returns}
+  - {type: Composition, source: pipelines, target: job}
+  - {type: Association, source: job, target: ref, name: Deps and Triggers name}
+
+  # The graph.json contract.
+  - {type: Specialization, source: golden, target: graph-json}
+  - {type: Access, access: Write, source: pkg-model, target: golden, name: writes}
+  - {type: Access, access: Read, source: it-test, target: golden, name: "must equal (-update rewrites)"}
+  - {type: Access, access: Read, source: contract-test, target: golden, name: must parse}
+  - {type: Serving, source: v-core-graph, target: contract-test, name: the same loader}
+
+  # Viewer modules: B serves A when A uses B.
+  - {type: Serving, source: v-ui, target: v-main}
+  - {type: Serving, source: v-core-search, target: v-ui}
+  - {type: Serving, source: v-core-derive, target: v-ui}
+  - {type: Serving, source: v-core-diff, target: v-ui}
+  - {type: Serving, source: v-core-graph, target: v-ui}
+  - {type: Serving, source: v-core-layout, target: v-ui}
+  - {type: Serving, source: v-core-spatial, target: v-ui}
+  - {type: Serving, source: v-core-derive, target: v-core-search}
+  - {type: Serving, source: v-core-graph, target: v-core-search}
+  - {type: Serving, source: v-core-graph, target: v-core-derive}
+  - {type: Serving, source: v-core-intern, target: v-core-derive}
+  - {type: Serving, source: v-core-graph, target: v-core-diff}
+  - {type: Serving, source: v-core-intern, target: v-core-graph}
+  - {type: Serving, source: v-core-spatial, target: v-core-layout}
+
+  # Viewer phases.
+  - {type: Triggering, source: s-welcome, target: s-loading, name: "open · drop a file · start with a path"}
+  - {type: Triggering, source: s-loading, target: s-ready, name: Model loaded}
+  - {type: Triggering, source: s-loading, target: s-welcome, name: "error, shown on the welcome page"}
+  - {type: Triggering, source: s-ready, target: s-loading, name: open another file}
+  - {type: Triggering, source: s-ready, target: s-welcome, name: File → Close}
+  - {type: Triggering, source: s-ready, target: s-ready, name: "reload · compare (background job, state kept)"}
+
+  # Viewer ownership.
+  - {type: Access, access: Write, source: t-load, target: viewer-model, name: new Model}
+  - {type: Access, access: Read, source: t-layout, target: viewer-model, name: read (Arc clone)}
+  - {type: Access, access: Read, source: t-compare, target: viewer-model, name: read (Arc clone)}
+  - {type: Association, source: viewer-model, target: workspace, name: read}
+  - {type: Access, access: Write, source: t-layout, target: workspace, name: Arc<SceneLayout>}
+  - {type: Access, access: Write, source: t-compare, target: workspace, name: Diff}
+  - {type: Access, access: ReadWrite, source: t-frame, target: workspace, name: each frame}
+  - {type: Access, access: Read, source: t-screens, target: workspace, name: draws}
+
+  # The quality gate.
+  - {type: Triggering, source: g-commit, target: g-push}
+  - {type: Triggering, source: g-push, target: g-review, name: branch on origin}
+  - {type: Triggering, source: g-review, target: g-merge}
+  - {type: Triggering, source: g-manual, target: g-merge}
+
+  # Reproducible screenshots.
+  - {type: Association, source: developer, target: shots-check, name: run}
+  - {type: Access, access: Write, source: shots-check, target: worktree, name: "git worktree add, make viewer-shots, cmp, remove"}
+  - {type: Association, source: worktree, target: viewer, name: "pipeline-graph-viewer --shot: 11 PNGs"}
+
+  # Release.
+  - {type: Association, source: maintainer, target: new-version, name: "BUMP=major, minor or patch"}
+  - {type: Access, access: Write, source: new-version, target: local-repo, name: "VERSION, Cargo files, commit and annotated tag"}
+  - {type: Association, source: maintainer, target: origin, name: git push origin HEAD vX.Y.Z}
+
+  # The ArchiMate model itself.
+  - {type: Access, access: Read, source: archimate-tool, target: model-yaml, name: read}
+  - {type: Access, access: Write, source: archimate-tool, target: exchange-file, name: write}
+  - {type: Access, access: Read, source: archimate-tests, target: arch-docs, name: same node ids}
+  - {type: Access, access: Read, source: archimate-tests, target: model-yaml, name: same node ids}
+  - {type: Access, access: Read, source: archimate-tests, target: exchange-file, name: byte for byte}
+  - {type: Access, access: Read, source: modelling-tool, target: exchange-file, name: import}
+
+views:
+  - id: overview
+    doc: docs/architecture.md
+    name: "Overview: what is the whole system, on one page?"
+    rels: [cli-access-analysed-repos, cli-access-graph-json, cli-access-diagram-files, viewer-access-graph-json, pkg-fetch-flow-pkg-ci, pkg-ci-flow-pkg-analyze, v-core-serving-v-ui]
+    nodes:
+      - {m: repos, el: analysed-repos}
+      - {m: cli, el: cli}
+      - {m: fetch, el: pkg-fetch, in: cli}
+      - {m: prov, el: pkg-ci, in: cli}
+      - {m: an, el: pkg-analyze, in: cli}
+      - {m: out, el: out-dir}
+      - {m: json, el: graph-json, in: out}
+      - {m: diagrams, el: diagram-files, in: out}
+      - {m: viewer, el: viewer}
+      - {m: core, el: v-core, in: viewer}
+      - {m: ui, el: v-ui, in: viewer}
+
+  - id: security
+    doc: docs/architecture/security.md
+    name: "Context and trust boundaries: where does untrusted input enter, and what can it touch?"
+    nodes:
+      - {m: users, el: users}
+      - {m: untrusted, el: untrusted}
+      - {m: repos, el: analysed-repos, in: untrusted}
+      - {m: host, el: machine}
+      - {m: box, el: container, in: host}
+      - {m: cli, el: cli, in: box}
+      - {m: creds, el: git-creds, in: host}
+      - {m: cache, el: clone-cache, in: host}
+      - {m: out, el: project-dir, in: host}
+      - {m: viewer, el: viewer, in: host}
+
+  - id: domain
+    doc: docs/architecture/cli.md
+    name: "Domain model: what does the tool understand?"
+    nodes:
+      - {m: BUILD, el: d-build}
+      - {m: EXTERNAL, el: d-external}
+      - {m: MAKE_TARGET, el: d-make}
+      - {m: IMAGE, el: d-image}
+
+  - id: one-run
+    doc: docs/architecture/cli.md
+    name: "One run: what happens in one run, and what flows between stages?"
+    nodes:
+      - {m: cfg, el: p-config}
+      - {m: fetch, el: p-fetch}
+      - {m: sel, el: p-select}
+      - {m: load, el: p-load}
+      - {m: an, el: p-analyze}
+      - {m: views, el: p-views}
+      - {m: text, el: text-diagrams}
+      - {m: warn, el: warnings}
+      - {m: json, el: graph-json}
+      - {m: files, el: drawings}
+
+  - id: cli-packages
+    doc: docs/architecture/cli.md
+    name: "Packages: which Go package imports which?"
+    nodes:
+      - {m: cmd, el: pkg-cmd}
+      - {m: config, el: pkg-config}
+      - {m: fetch, el: pkg-fetch}
+      - {m: ci, el: pkg-ci}
+      - {m: kts, el: pkg-kts}
+      - {m: analyze, el: pkg-analyze}
+      - {m: shell, el: pkg-shell}
+      - {m: makefile, el: pkg-makefile}
+      - {m: render, el: pkg-render}
+      - {m: layout, el: pkg-layout}
+      - {m: model, el: pkg-model}
+
+  - id: provider-seam
+    doc: docs/architecture/cli.md
+    name: "The provider seam: what does adding a CI system cost?"
+    nodes:
+      - {m: Provider, el: provider}
+      - {m: Configurable, el: configurable}
+      - {m: Pipelines, el: pipelines}
+      - {m: Job, el: job}
+      - {m: Ref, el: ref}
+      - {m: teamcity, el: ci-teamcity}
+      - {m: github, el: ci-github}
+
+  - id: contract
+    doc: docs/architecture/contract.md
+    name: "The graph.json contract: how can the Go and Rust halves never drift apart?"
+    nodes:
+      - {m: model, el: pkg-model}
+      - {m: golden, el: golden}
+      - {m: integ, el: it-test}
+      - {m: contract, el: contract-test}
+      - {m: loader, el: v-core-graph}
+
+  - id: viewer-modules
+    doc: docs/architecture/viewer.md
+    name: "Modules: which module uses which, and what keeps core free of the UI?"
+    nodes:
+      - {m: main, el: v-main}
+      - {m: ui, el: v-ui}
+      - {m: core, el: v-core}
+      - {m: core_search, el: v-core-search, in: core}
+      - {m: core_derive, el: v-core-derive, in: core}
+      - {m: core_diff, el: v-core-diff, in: core}
+      - {m: core_graph, el: v-core-graph, in: core}
+      - {m: core_intern, el: v-core-intern, in: core}
+      - {m: core_layout, el: v-core-layout, in: core}
+      - {m: core_spatial, el: v-core-spatial, in: core}
+
+  - id: viewer-phases
+    doc: docs/architecture/viewer.md
+    name: "Run time, phases: what states does the app move through?"
+    nodes:
+      - {m: Welcome, el: s-welcome}
+      - {m: Loading, el: s-loading}
+      - {m: Ready, el: s-ready}
+
+  - id: viewer-ownership
+    doc: docs/architecture/viewer.md
+    name: "Run time, ownership: what is shared, what is mutable, and what runs off the UI thread?"
+    nodes:
+      - {m: bg, el: t-threads}
+      - {m: jl, el: t-load, in: bg}
+      - {m: jy, el: t-layout, in: bg}
+      - {m: jc, el: t-compare, in: bg}
+      - {m: model, el: viewer-model}
+      - {m: ws, el: workspace}
+      - {m: frame, el: t-frame}
+      - {m: screens, el: t-screens}
+
+  - id: gate
+    doc: docs/architecture/quality.md
+    name: "Defence in depth: where is a mistake stopped before it reaches master?"
+    nodes:
+      - {m: contributor, el: contributor-machine}
+      - {m: commit, el: g-commit, in: contributor}
+      - {m: push, el: g-push, in: contributor}
+      - {m: maintainer, el: maintainer-machine}
+      - {m: review, el: g-review, in: maintainer}
+      - {m: manual, el: g-manual, in: maintainer}
+      - {m: merge, el: g-merge, in: maintainer}
+
+  - id: screenshots
+    doc: docs/architecture/quality.md
+    name: "Reproducible screenshots: how do we know the pictures in the docs are the real app at a known commit?"
+    nodes:
+      - {m: dev, el: developer}
+      - {m: mk, el: shots-check}
+      - {m: wt, el: worktree}
+      - {m: v, el: viewer}
+
+  - id: release
+    doc: docs/architecture/quality.md
+    name: "Release: how is a version cut?"
+    nodes:
+      - {m: dev, el: maintainer}
+      - {m: mk, el: new-version}
+      - {m: local, el: local-repo}
+      - {m: origin, el: origin}
+
+  - id: archimate
+    doc: docs/architecture/archimate.md
+    name: "The ArchiMate model: what is the source, what is generated, and what fails when they drift?"
+    nodes:
+      - {m: docs, el: arch-docs}
+      - {m: yaml, el: model-yaml}
+      - {m: tool, el: archimate-tool}
+      - {m: xml, el: exchange-file}
+      - {m: tests, el: archimate-tests}
+      - {m: archi, el: modelling-tool}

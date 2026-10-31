@@ -201,6 +201,10 @@ test: ## Unit + end-to-end tests (needs git)
 golden: ## Regenerate golden files after an intended output change (review the diff!)
 	$(GO) test ./test/integration -update
 
+.PHONY: archimate
+archimate: ## Regenerate docs/architecture/model.archimate.xml from model.yaml (after changing an architecture diagram)
+	$(GO) run ./tools/archimate
+
 .PHONY: fmt
 fmt: ## gofmt all packages
 	$(GO) fmt ./...

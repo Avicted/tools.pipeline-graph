@@ -62,6 +62,7 @@ use a stub provider as a template.
 make          # menu of all targets
 make test     # unit tests + end-to-end test against the fixture repos (golden files); `go test -cover ./...` for coverage
 make golden   # accept an intended output change, then review the diff in test/integration/testdata
+make archimate  # after changing an architecture diagram: regenerate the ArchiMate model (docs/architecture/archimate.md)
 ```
 
 Output is deterministic: the same commits give the same files. Set
@@ -136,6 +137,8 @@ internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
 test/fixtures/repos  sample repos covering the recognised constructs
 examples/acme        larger fictional TeamCity example (`make example`)
 examples/github      fictional GitHub Actions example (`make example-github`)
+test/docs            checks the package and module diagrams against the code
+tools/archimate      docs/architecture/model.yaml → model.archimate.xml (`make archimate`)
 scripts              screenshots.mjs, scenes.json: regenerate docs/screenshots (`make screenshots`)
 ```
 
