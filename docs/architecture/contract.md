@@ -26,8 +26,10 @@ flowchart LR
 
 The golden file is the only interface between the two languages. A model change fails
 the Go test until the golden file is regenerated, and the regenerated file then has to
-pass the Rust test. Both run in the quality gate. The viewer refuses a file newer than
-it understands instead of showing it half-understood.
+pass the Rust test. Both run in the quality gate: the `cargo test` hook runs on a commit that
+touches `viewer/`, `internal/model/` or the golden file, so a Go-only change that alters the
+contract is not waiting for the next viewer commit to be found out. The viewer refuses a file
+newer than it understands instead of showing it half-understood.
 
 ## Open question
 

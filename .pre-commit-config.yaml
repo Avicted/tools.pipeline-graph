@@ -11,8 +11,9 @@
 # machine. The local hooks call binaries baked into Dockerfile.pre-commit, so
 # they are meant to run in that image rather than on the host.
 
-# Golden files are byte-exact tool output; the fixers must not touch them.
-exclude: ^test/integration/testdata/.*\.golden$
+# Golden files are byte-exact tool output; the three fixers below must not touch them. They
+# are excluded per hook, not globally, so that a change to a golden file still runs the hooks
+# that depend on it (cargo-test: the Rust contract test reads graph.json.golden).
 
 repos:
   # ---- Generic hygiene -------------------------------------------------------
@@ -21,9 +22,12 @@ repos:
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: &golden ^test/integration/testdata/.*\.golden$
       - id: end-of-file-fixer
+        exclude: *golden
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: *golden
       - id: check-yaml
       - id: check-merge-conflict
       - id: check-case-conflict
@@ -96,11 +100,13 @@ repos:
         files: ^viewer/
         pass_filenames: false
 
+      # Also when the Go side changes the contract: internal/model defines graph.json and the
+      # golden file is what the Rust contract test (viewer/tests/contract.rs) parses.
       - id: cargo-test
         name: cargo test
         entry: cargo test --manifest-path viewer/Cargo.toml --locked
         language: system
-        files: ^viewer/
+        files: ^(viewer/|internal/model/|test/integration/testdata/graph\.json\.golden$)
         pass_filenames: false
 
       - id: shellcheck
