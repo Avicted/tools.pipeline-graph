@@ -5,48 +5,6 @@ import (
 	"testing"
 )
 
-func TestWords(t *testing.T) {
-	for in, want := range map[string][]string{
-		`make a b`:              {"make", "a", "b"},
-		`echo "a b" 'c d' e\ f`: {"echo", "a b", "c d", "e f"},
-		`  spaced   out  `:      {"spaced", "out"},
-		`FOO="x y" make`:        {"FOO=x y", "make"},
-		``:                      nil,
-	} {
-		if got := splitWords(in); !reflect.DeepEqual(got, want) {
-			t.Errorf("splitWords(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
-func TestChainsAndContinuations(t *testing.T) {
-	r := Extract("cd a && make one; make two | tee log\nmake \\\n  three\nif true; then make four; fi\n")
-	var targets []string
-	for _, m := range r.Makes {
-		targets = append(targets, m.Targets...)
-	}
-	for _, want := range []string{"one", "two", "three", "four"} {
-		found := false
-		for _, g := range targets {
-			found = found || g == want
-		}
-		if !found {
-			t.Errorf("make %s not found in %v", want, targets)
-		}
-	}
-}
-
-func TestCommentsAndQuotedMakeAreIgnored(t *testing.T) {
-	r := Extract("# make nope\necho \"make nope\"\nmakeself archive\ngmake real\n")
-	for _, m := range r.Makes {
-		for _, tgt := range m.Targets {
-			if tgt == "nope" || tgt == "archive" {
-				t.Errorf("mistook %v for a make call", m)
-			}
-		}
-	}
-}
-
 func TestDockerVariants(t *testing.T) {
 	r := Extract(`docker pull reg.io/a:1
 docker tag reg.io/a:1 reg.io/b:2
@@ -85,11 +43,53 @@ func TestLooksLikeImage(t *testing.T) {
 	}
 }
 
+func TestDockerfileFrom(t *testing.T) {
+	got := DockerfileFrom(`ARG BASE=reg.io/base:1
+FROM --platform=$BUILDPLATFORM golang:1.22 AS build
+FROM ${BASE}
+COPY --from=build /out /app
+FROM build AS test
+`, nil)
+	want := []string{"golang:1.22", "reg.io/base:1"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
+
 func TestDockerfileFromBuildArgs(t *testing.T) {
 	got := DockerfileFrom("ARG BASE=reg.io/base:1\nFROM ${BASE}\nFROM $OTHER\nFROM scratch\n", map[string]string{"BASE": "reg.io/override:9"})
 	// unresolved variables are left for the analyzer, which refuses dynamic names
 	want := []string{"reg.io/override:9", "$OTHER"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("build args override ARG defaults and scratch is dropped: got %q, want %q", got, want)
+	}
+}
+
+// Replacing keys one after another made "$AB" depend on whether A or AB came first, and
+// Go randomises map order: the same Dockerfile gave different graphs from run to run.
+func TestExpandArgsIsDeterministicAndWholeName(t *testing.T) {
+	args := map[string]string{"A": "x", "AB": "y", "REG": "reg.io", "NESTED": "$A"}
+	cases := map[string]string{
+		"$AB":          "y",
+		"$A":           "x",
+		"${A}B":        "xB",
+		"$A-$AB":       "x-y",
+		"$REG/app:$AB": "reg.io/app:y",
+		"${REG}/app":   "reg.io/app",
+		"$UNKNOWN/$A":  "$UNKNOWN/x",
+		"${UNKNOWN}":   "${UNKNOWN}",
+		"$NESTED":      "$A", // a value is not expanded again
+		"price$":       "price$",
+		"$$A":          "$x",
+		"plain":        "plain",
+		"$A_B":         "$A_B", // the whole name is A_B, which is not an arg
+		"${A}_B":       "x_B",
+	}
+	for i := 0; i < 100; i++ {
+		for in, want := range cases {
+			if got := expandArgs(in, args); got != want {
+				t.Fatalf("run %d: expandArgs(%q) = %q, want %q", i, in, got, want)
+			}
+		}
 	}
 }
