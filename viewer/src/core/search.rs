@@ -115,7 +115,12 @@ impl SearchIndex {
         for v in 0..n as u32 {
             ix.name_off.push(ix.names.len() as u32);
             let label = g.node_label(v).to_lowercase();
-            ix.label_len.push(label.len().min(u16::MAX as usize) as u16);
+            // a prefix of the label, so it must end on a character boundary
+            let mut len = label.len().min(u16::MAX as usize);
+            while !label.is_char_boundary(len) {
+                len -= 1;
+            }
+            ix.label_len.push(len as u16);
             ix.names.push_str(&label);
             for part in [g.s(g.sub[v as usize]), g.node_id(v), g.node_repo(v), g.s(g.project[v as usize])] {
                 ix.names.push('\u{1}');
@@ -284,5 +289,22 @@ mod tests {
     fn palette_ranking() {
         let r = fuzzy_rank("tbl", [(0, "Go to Table"), (1, "Toggle theme")]);
         assert_eq!(r[0].0, 0);
+    }
+
+    /// Labels come from graph.json. One longer than the 16-bit length kept for it, made of
+    /// multi-byte characters, was cut in the middle of a character and panicked.
+    #[test]
+    fn a_very_long_non_ascii_label_is_searchable() {
+        let label = "é".repeat(40_000); // 80,000 bytes
+        let json = format!(
+            r#"{{"schemaVersion":1,"repos":[{{"name":"r"}}],"nodes":[{{"id":"bt:r/A","kind":"build","repo":"r","label":"{label}"}}],"edges":[]}}"#
+        );
+        let g = Graph::from_slice(json.as_bytes()).unwrap();
+        let d = Derived::compute(&g);
+        let ix = SearchIndex::build(&g);
+        assert_eq!(ix.search(&g, &d, &Query::parse("éé")).len(), 1, "substring search");
+        assert_eq!(ix.search(&g, &d, &Query::parse("zzzz")).len(), 0);
+        // the fuzzy path slices the label too
+        let _ = ix.search(&g, &d, &Query::parse("ééx"));
     }
 }

@@ -78,8 +78,9 @@ pub fn commit_url(repo_url: &str, commit: &str) -> Option<String> {
     Some(format!("{}/commit/{}", f.base, commit))
 }
 
+/// The first 8 characters (a commit id is ASCII, but graph.json is not trusted to say so).
 pub fn short(s: &str) -> &str {
-    &s[..s.len().min(8)]
+    s.char_indices().nth(8).map_or(s, |(i, _)| &s[..i])
 }
 
 pub fn encode(s: &str) -> String {
@@ -100,8 +101,9 @@ pub fn decode(s: &str) -> String {
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'%' && i + 2 < b.len() {
-            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                out.push(v);
+            // bytes, not a str slice: i + 3 may fall inside a multi-byte character
+            if let (Some(h), Some(l)) = ((b[i + 1] as char).to_digit(16), (b[i + 2] as char).to_digit(16)) {
+                out.push((h * 16 + l) as u8);
                 i += 3;
                 continue;
             }
@@ -164,5 +166,28 @@ mod tests {
         assert_eq!(num(0), "0");
         assert_eq!(num(1234567), "1,234,567");
         assert_eq!(num(999), "999");
+    }
+
+    #[test]
+    fn short_cuts_on_characters_not_bytes() {
+        assert_eq!(short("0123456789abcdef"), "01234567");
+        assert_eq!(short("abc"), "abc");
+        assert_eq!(short(""), "");
+        // graph.json is untrusted: a non-ASCII commit string must not panic
+        assert_eq!(short("ééééééééééé"), "éééééééé");
+        assert_eq!(short("🚀🚀🚀🚀🚀🚀🚀🚀🚀"), "🚀🚀🚀🚀🚀🚀🚀🚀");
+    }
+
+    #[test]
+    fn decode_survives_percent_signs_before_multibyte_characters() {
+        assert_eq!(decode("a%20b"), "a b");
+        assert_eq!(decode("%41%42"), "AB");
+        assert_eq!(decode("100%"), "100%");
+        assert_eq!(decode("%4"), "%4");
+        assert_eq!(decode("%zz"), "%zz");
+        assert_eq!(decode("%é1"), "%é1");
+        assert_eq!(decode("%1é"), "%1é");
+        assert_eq!(decode("%🚀"), "%🚀");
+        assert_eq!(decode(&encode("a b/é")), "a b/é");
     }
 }
