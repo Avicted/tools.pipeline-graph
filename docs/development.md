@@ -167,8 +167,11 @@ and the viewer's About dialog derive from it. On a clean `master`:
 ```sh
 make new-version BUMP=minor   # or major / patch: bumps VERSION and viewer/Cargo.toml, commits, tags vX.Y.Z
 git push origin HEAD vX.Y.Z
-gh release create vX.Y.Z --generate-notes   # publishing runs .github/workflows/release.yml
 ```
+
+A release is that commit and its tag. pipeline-graph is an internal tool, so
+nothing is built or published: check out the tag and run `make build` and
+`make viewer`.
 
 `make undo-version` drops the release commit and tag again as long as neither
 is pushed.

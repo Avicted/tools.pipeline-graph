@@ -40,15 +40,11 @@ flowchart LR
         out[("project dir → /work (rw)<br/>config in · out/ written")]
         viewer["pipeline-graph-viewer"]
     end
-    subgraph gh["GitHub"]
-        rel["Releases · viewer builds"]
-    end
     repos -- "git clone --depth 1" --> cli
     creds -. "auth for git only" .-> cli
     cli <--> cache
     cli -- "drawio · vsdx · html · mmd · dot · graph.json" --> out
     out -- "graph.json" --> viewer
-    rel -. "download" .-> viewer
     users --> viewer
     users -- "browser · draw.io · Miro" --> out
 
@@ -56,18 +52,15 @@ flowchart LR
     classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
     classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
     classDef rust fill:#dcfce7,stroke:#15803d,color:#0a2e16
-    classDef hosted fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef actor fill:#ffffff,stroke:#111827,color:#111827
     class repos untrusted
     class cli go
     class creds,cache,out data
     class viewer rust
-    class rel hosted
     class users actor
     style untrusted fill:none,stroke:#c0392b,stroke-dasharray:6 4
     style host fill:none,stroke:#6b7280,stroke-dasharray:6 4
     style box fill:none,stroke:#1d4ed8,stroke-dasharray:6 4
-    style gh fill:none,stroke:#6d28d9,stroke-dasharray:6 4
 ```
 
 - Repository content is **parsed, never executed**. The only programs the CLI starts are
@@ -310,10 +303,8 @@ flowchart LR
     end
     subgraph ci["GitHub Actions"]
         pr["lint.yml · pull request + master<br/>commit-stage hooks on the PR's changes"]
-        rl["release.yml · release published<br/>viewer for 3 platforms"]
     end
     commit --> push --> pr
-    pr -- "merge, tag, publish" --> rl
     manual -.-> push
 
     classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
@@ -321,7 +312,7 @@ flowchart LR
     classDef output fill:#e5e7eb,stroke:#4b5563,color:#111827
     class commit,push go
     class manual output
-    class pr,rl hosted
+    class pr hosted
     style local fill:none,stroke:#6b7280,stroke-dasharray:6 4
     style ci fill:none,stroke:#6d28d9,stroke-dasharray:6 4
 ```
@@ -367,28 +358,26 @@ sequenceDiagram
 
 ## 9. Release
 
-*Answers: how does a version get from a commit to a download?*
+*Answers: how is a version cut?*
 
 ```mermaid
 sequenceDiagram
     actor dev as maintainer
     participant mk as make new-version
     participant local as local repo (master)
-    participant origin as origin (GitHub)
-    participant ci as release.yml
+    participant origin as origin
     dev->>mk: BUMP=major, minor or patch
     mk->>mk: refuse unless on a clean master
     mk->>local: VERSION, viewer/Cargo.toml, Cargo.lock
     mk->>local: commit "chore(release): vX.Y.Z" + annotated tag
     dev->>origin: git push origin HEAD vX.Y.Z
-    dev->>origin: publish the GitHub release for the tag
-    origin->>ci: release: published
-    ci->>origin: attach linux-amd64, windows-amd64, macos-arm64
 ```
 
 `VERSION` is the only place the version lives. `pipeline-graph -version`, the Docker
 image tag and the viewer's About dialog derive from it. Until the push, `make
-undo-version` takes the release back.
+undo-version` takes the release back. A release is the commit and its tag. Nothing is
+built or published: whoever needs a version checks out the tag and runs `make build`
+and `make viewer`.
 
 ## Decisions
 

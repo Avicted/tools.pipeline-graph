@@ -274,8 +274,8 @@ shell: pre-commit-image ## Open a shell in the pre-commit image
 ##@ Release
 # VERSION is the one place the version lives: the binary's -version, the docker
 # image tag and the viewer's About dialog derive from it. The viewer reads it
-# from viewer/Cargo.toml, which new-version keeps equal. Publishing the GitHub
-# release for the tag runs .github/workflows/release.yml.
+# from viewer/Cargo.toml, which new-version keeps equal. A release is that commit
+# and tag; nothing is built or published, everyone builds from source.
 BUMP ?=
 CARGO_TOML := viewer/Cargo.toml
 CARGO_LOCK := viewer/Cargo.lock
@@ -302,7 +302,7 @@ new-version: ## Bump VERSION on master, commit and tag vX.Y.Z: make new-version 
 		|| { echo "new-version: could not write $$new into $(CARGO_TOML) and $(CARGO_LOCK)"; git checkout -- VERSION $(CARGO_TOML) $(CARGO_LOCK); exit 1; }; \
 	git commit -q -m "chore(release): $$tag" VERSION $(CARGO_TOML) $(CARGO_LOCK) && \
 	git tag -a "$$tag" -m "pipeline-graph $$new" && \
-	printf "$(CYAN)$$old -> $$new, tagged $$tag.$(RESET) Release it with: git push origin HEAD $$tag && gh release create $$tag --generate-notes\n"
+	printf "$(CYAN)$$old -> $$new, tagged $$tag.$(RESET) Push it with: git push origin HEAD $$tag\n"
 
 .PHONY: undo-version
 undo-version: ## Undo the last new-version (drops its commit and tag) while it is unpushed
