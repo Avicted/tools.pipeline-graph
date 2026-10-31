@@ -72,7 +72,8 @@ published; git hooks are the quality gate.
 system (TeamCity Kotlin DSL, GitHub Actions) turn their files into neutral jobs, and
 analyses those jobs into one graph: builds, make targets and images, linked across
 repositories. A new CI system is one package behind `ci.Provider`; analysis and
-rendering don't change. → [The CLI](architecture/cli.md)
+rendering don't change. Its package diagram is tested against the real imports.
+→ [The CLI](architecture/cli.md)
 
 **Security.** The analysed repositories are the only untrusted input. Their content is
 parsed, never executed, inside a Docker container that sees only the project
@@ -84,9 +85,10 @@ written by the Go integration test must also parse in the Rust contract test, so
 the two halves can't drift apart. → [The contract](architecture/contract.md)
 
 **The viewer.** A headless `core` (graph, search, layout, diff; no egui) under an egui
-`ui`. One immutable model is shared; the mutable workspace lives on the UI thread;
-loading, layout and compare run on background threads.
-→ [The viewer at run time](architecture/viewer.md)
+`ui`; a test fails if `core` ever uses `ui` or egui. One immutable model is shared;
+the mutable workspace lives on the UI thread; loading, layout and compare run on
+background threads.
+→ [The viewer](architecture/viewer.md)
 
 **The quality gate.** Every check runs locally in one pinned Docker image: on commit,
 on push, and again when the maintainer reviews a branch. The doc screenshots are
@@ -97,10 +99,10 @@ reproducible from a recorded commit, and a release is a version commit plus a ta
 
 | If you want to … | Read |
 |---|---|
-| know what the tool understands, what one run does, or add a CI system | [cli.md](architecture/cli.md) |
+| know what the tool understands, what one run does, how the packages depend on each other, or add a CI system | [cli.md](architecture/cli.md) |
 | know what untrusted input can reach | [security.md](architecture/security.md) |
 | change the shape of `graph.json` | [contract.md](architecture/contract.md) |
-| work on the viewer's state, threads or screens | [viewer.md](architecture/viewer.md) |
+| work on the viewer: its modules, state, threads or screens | [viewer.md](architecture/viewer.md) |
 | know what checks a commit, refresh screenshots, or cut a release | [quality.md](architecture/quality.md) |
 | run the commands | [development.md](development.md) |
 
