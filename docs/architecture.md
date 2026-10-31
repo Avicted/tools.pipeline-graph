@@ -18,7 +18,6 @@ Each diagram below answers one question, stated under its heading.
 | 🟨 amber | data files and the contract between the two programs |
 | 🟩 green | the Rust viewer |
 | ⬜ grey | generated output |
-| 🟪 purple | hosted on GitHub |
 | dashed box | a trust or runtime boundary |
 
 ## 1. Context and trust boundaries
@@ -292,42 +291,43 @@ flowchart TB
 
 ## 7. Defence in depth
 
-*Answers: where is a mistake stopped before it ships?*
+*Answers: where is a mistake stopped before it reaches master?*
+
+There is no CI/CD. Every check runs locally, in the same pinned Docker image
+(`Dockerfile.pre-commit`), on the contributor's machine and again on the maintainer's.
 
 ```mermaid
 flowchart LR
-    subgraph local["your machine"]
-        commit["git commit<br/>pre-commit hook:<br/>staged files"]
-        push["git push<br/>pre-push hook: all files<br/>+ govulncheck + history secrets"]
-        manual["by hand<br/>viewer-shots-check<br/>viewer-bench"]
+    subgraph contributor["contributor's machine · make hooks"]
+        commit["git commit<br/>pre-commit hook<br/>staged files"]
+        push["git push<br/>pre-push hook · all files<br/>+ govulncheck + history secrets"]
     end
-    subgraph ci["GitHub Actions"]
-        pr["lint.yml · pull request + master<br/>commit-stage hooks on the PR's changes"]
+    subgraph maintainer["maintainer's machine"]
+        review["review the branch<br/>make pre-commit-pr-run<br/>FROM_REF=master TO_REF=branch"]
+        manual["when the UI or speed changed<br/>viewer-shots-check · viewer-bench"]
+        merge["merge to master"]
     end
-    commit --> push --> pr
-    manual -.-> push
+    commit --> push -- "branch on origin" --> review --> merge
+    manual -.-> merge
 
     classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
-    classDef hosted fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef output fill:#e5e7eb,stroke:#4b5563,color:#111827
-    class commit,push go
+    class commit,push,review,merge go
     class manual output
-    class pr hosted
-    style local fill:none,stroke:#6b7280,stroke-dasharray:6 4
-    style ci fill:none,stroke:#6d28d9,stroke-dasharray:6 4
+    style contributor fill:none,stroke:#1d4ed8,stroke-dasharray:6 4
+    style maintainer fill:none,stroke:#6b7280,stroke-dasharray:6 4
 ```
 
-The hooks and `lint.yml` share one pre-commit configuration and one pinned Docker image
-(`Dockerfile.pre-commit`), so a hook that passes locally passes in CI. CI runs only the
-commit-stage hooks, though; see Known limits.
+The review step is what catches a branch from someone who never ran `make hooks`. It
+runs the commit-stage hooks on exactly the branch's changes.
 
 | Check | Catches | Runs at |
 |---|---|---|
-| gofmt, go vet, golangci-lint | Go style and bugs | commit, push, PR |
+| gofmt, go vet, golangci-lint | Go style and bugs | commit, push, review |
 | govulncheck | known vulnerabilities in Go dependencies | push only |
-| `go test`: unit, integration (golden), `TestReadmeSampleOutput` | analyzer behaviour, a stale README sample | commit, push, PR |
-| cargo fmt, clippy, `cargo test`: unit, contract, headless smoke | Rust style, the `graph.json` contract, panics on any screen | commit, push, PR |
-| shellcheck, hadolint, Makefile parse | scripts, Dockerfiles, the Makefile | commit, push, PR |
+| `go test`: unit, integration (golden), `TestReadmeSampleOutput` | analyzer behaviour, a stale README sample | commit, push, review |
+| cargo fmt, clippy, `cargo test`: unit, contract, headless smoke | Rust style, the `graph.json` contract, panics on any screen | commit, push, review |
+| shellcheck, hadolint, Makefile parse | scripts, Dockerfiles, the Makefile | commit, push, review |
 | gitleaks: staged / full history / working tree | committed secrets | commit / push / `make secrets` |
 | `make viewer-bench` | load, search, layout and frame budgets | by hand |
 | `make viewer-shots-check` | screenshots that no longer match their commit | by hand (needs a display) |
@@ -389,17 +389,19 @@ and `make viewer`.
 | Graphs with tens of thousands of nodes | A native egui viewer next to the HTML one | Interactive at that size, at the cost of a second UI and builds per platform |
 | The docs must show the real UI | The apps take their own screenshots | They can be rebuilt and checked; that needs a display (native) or a Chromium image (web) |
 | The same results on every machine | The quality gate runs in a pinned Docker image | Docker is required |
+| An internal tool; nothing is published | No CI/CD: git hooks on every machine plus a review run before merging | Nothing hosted to maintain or pay for, and no secrets in a CI system. The gate holds only if everyone runs `make hooks` and reviews really run `pre-commit-pr-run` |
 
 ## Known limits
 
 - **Viewer screenshots are byte-identical only at the same display scaling.** At another
   scaling the map and commit → prod pictures differ in the anti-aliasing of curved
   links. The camera is identical, so the cause is in rasterization, and it isn't found yet.
-- **CI doesn't run `govulncheck` or the full-history secret scan.** Both are pre-push
-  hooks, and `lint.yml` runs the commit stage. A PR from someone without the hooks
-  installed is merged without them.
-- **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is in the
-  gate or in CI.
+- **The gate is only as good as its habits.** Nothing enforces `make hooks`. A branch
+  from someone without hooks is checked only when the maintainer reviews it, and that
+  review runs the commit stage: `govulncheck` and the history secret scan run only on
+  push, on machines that have the hooks.
+- **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is part
+  of the gate.
 - **Chromium isn't version-pinned** in `Dockerfile.screenshots`, because Debian removes
   superseded builds. The web screenshots can shift after a security update.
 - **`make new-version` and `make undo-version` have no automated test.** Only their
