@@ -18,7 +18,6 @@ PLATFORMS := linux/amd64 linux/arm64 windows/amd64 darwin/arm64
 CONFIG    ?= pipeline-graph.yaml
 
 PC_IMAGE  := pipeline-graph-pre-commit:local
-SHOTS_IMAGE := pipeline-graph-screenshots:local
 CACHE_DIR := $(HOME)/.cache/pipeline-graph-pre-commit
 HOOKS_DIR  = $(shell git -C "$(ROOT_DIR)" rev-parse --path-format=absolute --git-path hooks)
 
@@ -64,9 +63,6 @@ build-all: ## Cross-compile linux/windows/darwin binaries into dist/
 # when you have them - the bundled demo needs neither.
 # shortcut: /etc/passwd is mounted so ssh finds your uid; Linux hosts only,
 # Docker Desktop on macOS maps ownership itself - add a uname switch if it bites.
-# The viewer is served on localhost and opened via $$BROWSER (set by VS Code
-# devcontainers), else xdg-open / open; only on a terminal, never from a hook or script.
-# shortcut: serves out/, so it assumes out_dir is out/.
 PG_CACHE := $(HOME)/.cache/pipeline-graph
 PG_DOCKER = mkdir -p "$(PG_CACHE)" && \
 	docker run --rm --user "$$(id -u):$$(id -g)" -e HOME="$(HOME)" \
@@ -83,25 +79,7 @@ pipeline-graph.yaml:
 .PHONY: run
 run: docker-build $(CONFIG) ## Generate the diagrams from $(CONFIG) into out/ (first run: demo)
 	@$(PG_DOCKER) -config $(CONFIG)
-	@$(MAKE) --no-print-directory serve
-
-# file:// links open as text in VS Code, so the viewer is served over http
-# instead, by the tool itself (-serve): no extra image needed.
-PORT ?= 8080
-# Inside a devcontainer, localhost is the devcontainer, not the host Docker
-# daemon's host: share its network so VS Code can forward the port to your browser.
-SERVE_NET = $$(if [ -f /.dockerenv ] && docker inspect "$$HOSTNAME" >/dev/null 2>&1; then echo --network "container:$$HOSTNAME"; else echo -p "$(PORT):$(PORT)"; fi)
-.PHONY: serve
-serve: docker-build ## Serve out/ at http://localhost:$(PORT) in the background and open it (stop with make stop)
-	@docker rm -f $(BINARY)-viewer >/dev/null 2>&1 || true
-	@docker run -d --rm --name $(BINARY)-viewer $(SERVE_NET) -v "$(ROOT_DIR)/out:/www:ro" \
-	  $(BINARY):$(VERSION) -serve :$(PORT) -out /www >/dev/null
-	@url="http://localhost:$(PORT)/pipelines.html"; printf "$(GREEN)$$url$(RESET)  (make stop to stop serving)\n"; \
-	  if [ -t 1 ]; then ( "$${BROWSER:-$$(command -v xdg-open || command -v open || echo true)}" "$$url" >/dev/null 2>&1 || true ); fi
-
-.PHONY: stop
-stop: ## Stop the viewer server
-	@docker rm -f $(BINARY)-viewer >/dev/null 2>&1 || true
+	@printf "$(GREEN)explore it with: make view GRAPH=out/graph.json$(RESET)  (the native viewer; needs Rust and a display)\n"
 
 .PHONY: example
 example: docker-build ## Generate diagrams for the Acme example (7 linked repos) into out/acme/
@@ -114,9 +92,6 @@ example-github: docker-build ## Generate diagrams for the GitHub Actions example
 .PHONY: docker-build
 docker-build: ## Build the pipeline-graph docker image
 	@docker build -q --build-arg VERSION=$(VERSION) -t $(BINARY):$(VERSION) . >/dev/null
-
-.PHONY: docker-run
-docker-run: run ## Alias for run
 
 ##@ Viewer
 # The native viewer in viewer/. Uses the local Rust toolchain; the
@@ -173,24 +148,6 @@ viewer-shots-check: ## Check that the viewer screenshots are reproduced byte for
 		cmp -s "$$f" "$$wt/$$f" || { echo "differs: $$f"; bad=1; }; \
 	done && \
 	if [ $$bad = 0 ]; then printf "$(GREEN)viewer screenshots reproduced from $${src:0:8}$(RESET)\n"; else exit 1; fi
-
-##@ Docs
-# Screenshots are taken in Docker (Dockerfile.screenshots) so that browser and
-# fonts, and therefore the pixels, are the same on every machine.
-SHOTS_RUN = docker build -q -t $(SHOTS_IMAGE) - < "$(ROOT_DIR)/Dockerfile.screenshots" >/dev/null && \
-  docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(ROOT_DIR)":/repo -w /repo $(SHOTS_IMAGE) node scripts/screenshots.mjs
-
-.PHONY: screenshots
-screenshots: build ## Regenerate the README screenshots in docs/screenshots from the Acme example
-	SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml
-	@$(SHOTS_RUN) out/acme/pipelines.html docs/screenshots
-
-HTML   ?= out/acme/pipelines.html
-SCENES ?= scripts/scenes.json
-.PHONY: shot
-shot: build ## Render scenes into out/shots: make shot [SCENE=focus,table] [SCENES=file] [HTML=file] (paths inside the repo)
-	$(if $(filter out/acme/pipelines.html,$(HTML)),SOURCE_DATE_EPOCH=$$(git -C "$(ROOT_DIR)" log -1 --format=%ct) ./$(BINARY) -config examples/acme/pipeline-graph.yaml)
-	@$(SHOTS_RUN) $(HTML) out/shots --scenes $(SCENES) $(if $(SCENE),--only $(SCENE))
 
 ##@ Test
 .PHONY: test
@@ -326,13 +283,13 @@ undo-version: ## Undo the last new-version (drops its commit and tag) while it i
 
 ##@ Cleanup
 .PHONY: clean
-clean: stop ## Remove build artifacts and generated diagrams
+clean: ## Remove build artifacts and generated diagrams
 	rm -f $(BINARY)
 	rm -rf $(DIST) out
 
 .PHONY: clean-all
 clean-all: clean ## Also remove the pre-commit image and its cache
-	@docker image rm -f $(PC_IMAGE) $(SHOTS_IMAGE) >/dev/null 2>&1 || true
+	@docker image rm -f $(PC_IMAGE) >/dev/null 2>&1 || true
 	@rm -rf "$(CACHE_DIR)"
 
 ##@ Help
