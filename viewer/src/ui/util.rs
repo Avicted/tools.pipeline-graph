@@ -36,10 +36,11 @@ pub fn forge(url: &str) -> Option<Forge> {
         (h.split(':').next()?, p)
     };
     let path = path.trim_end_matches('/').trim_end_matches(".git");
-    if host.is_empty() || path.is_empty() {
+    // graph.json is not trusted: only a hostname may become the host of a link
+    if host.is_empty() || path.is_empty() || !host.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')) {
         return None;
     }
-    Some(Forge { base: format!("https://{}/{}", host.to_lowercase(), path), host: host.to_lowercase() })
+    Some(Forge { base: format!("https://{}/{}", host.to_lowercase(), encode(path)), host: host.to_lowercase() })
 }
 
 fn blob_kind(host: &str) -> &'static str {
@@ -67,7 +68,7 @@ pub fn source_url(repo_url: &str, commit: &str, source: &str) -> Option<String> 
         (Some(l), false) => format!("#L{l}"),
         (None, _) => String::new(),
     };
-    Some(format!("{}{}{}/{}{}", f.base, blob_kind(&f.host), commit, file.trim_start_matches("./"), anchor))
+    Some(format!("{}{}{}/{}{}", f.base, blob_kind(&f.host), encode_segment(commit), encode(file.trim_start_matches("./")), anchor))
 }
 
 pub fn commit_url(repo_url: &str, commit: &str) -> Option<String> {
@@ -75,7 +76,7 @@ pub fn commit_url(repo_url: &str, commit: &str) -> Option<String> {
     if commit.is_empty() {
         return None;
     }
-    Some(format!("{}/commit/{}", f.base, commit))
+    Some(format!("{}/commit/{}", f.base, encode_segment(commit)))
 }
 
 /// The first 8 characters (a commit id is ASCII, but graph.json is not trusted to say so).
@@ -93,6 +94,11 @@ pub fn encode(s: &str) -> String {
         }
     }
     o
+}
+
+/// Like `encode`, but a `/` is escaped too: one path segment, such as a commit id.
+fn encode_segment(s: &str) -> String {
+    encode(s).replace('/', "%2F")
 }
 
 pub fn decode(s: &str) -> String {
@@ -189,5 +195,31 @@ mod tests {
         assert_eq!(decode("%1é"), "%1é");
         assert_eq!(decode("%🚀"), "%🚀");
         assert_eq!(decode(&encode("a b/é")), "a b/é");
+    }
+
+    // repos[].url, commit and source come from graph.json, so they are not trusted to be
+    // well formed: whatever they hold must stay one path on the forge host they name.
+    #[test]
+    fn link_pieces_are_percent_encoded() {
+        assert_eq!(
+            source_url("https://github.com/o/r.git", "abc", "a b/c#d?e.kts:3").unwrap(),
+            "https://github.com/o/r/blob/abc/a%20b/c%23d%3Fe.kts#L3"
+        );
+        assert_eq!(commit_url("https://github.com/o/r", "a/b?c#d").unwrap(), "https://github.com/o/r/commit/a%2Fb%3Fc%23d");
+        assert_eq!(forge("https://github.com/o/r?x=1#f").unwrap().base, "https://github.com/o/r%3Fx%3D1%23f");
+        // ordinary links are unchanged
+        assert_eq!(
+            source_url("git@github.com:org/repo.git", "0123abc", "ci/build.kts:10").unwrap(),
+            "https://github.com/org/repo/blob/0123abc/ci/build.kts#L10"
+        );
+    }
+
+    #[test]
+    fn a_host_that_is_not_a_hostname_is_no_forge() {
+        for url in ["https://exa mple.com/o/r", "git@h?x:o/r", "https://ex\u{202e}ample.com/o/r", "https://:@/o/r"] {
+            assert!(forge(url).is_none(), "{url}");
+        }
+        assert!(forge("https://git.acme.io:7999/plat/base.git").is_some(), "a port is not part of the host");
+        assert!(forge("git@gitlab.example-corp.com:g/p.git").is_some());
     }
 }

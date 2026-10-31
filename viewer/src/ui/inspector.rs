@@ -175,7 +175,8 @@ impl Workspace {
                         let url = repo.and_then(|r| util::source_url(g.s(r.url), g.s(r.commit), src));
                         match url {
                             Some(u) => {
-                                if ui.link(RichText::new(src).monospace()).on_hover_text("Open at the analysed commit").clicked() {
+                                // the hover shows the address itself: what is opened is never a surprise
+                                if ui.link(RichText::new(src).monospace()).on_hover_text(format!("Open {u}")).clicked() {
                                     acts.url = Some(u);
                                 }
                             }
@@ -192,7 +193,7 @@ impl Workspace {
                         ui.label(RichText::new("Commit").color(pal.muted));
                         ui.horizontal(|ui| match util::commit_url(g.s(r.url), g.s(r.commit)) {
                             Some(u) => {
-                                if ui.link(RichText::new(util::short(g.s(r.commit))).monospace()).clicked() {
+                                if ui.link(RichText::new(util::short(g.s(r.commit))).monospace()).on_hover_text(format!("Open {u}")).clicked() {
                                     acts.url = Some(u);
                                 }
                             }
