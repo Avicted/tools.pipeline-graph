@@ -40,7 +40,7 @@ type analyzer struct {
 	warnings  []string
 	byAbs     map[string]string   // job QualID -> node id
 	byRel     map[string][]string // job key -> node ids (all repos)
-	makefiles map[string]*makefile.Makefile
+	makefiles map[string]loadedMakefile
 	expanded  map[string]bool
 	images    map[string]*imageUse
 	systems   map[string]ci.System // the systems that loaded at least one repo, by name
@@ -68,7 +68,7 @@ func Run(repos []Repo, opts Options) (*model.Graph, []string) {
 		g:         model.New(),
 		byAbs:     map[string]string{},
 		byRel:     map[string][]string{},
-		makefiles: map[string]*makefile.Makefile{},
+		makefiles: map[string]loadedMakefile{},
 		expanded:  map[string]bool{},
 		images:    map[string]*imageUse{},
 		systems:   map[string]ci.System{},
@@ -293,10 +293,17 @@ func (a *analyzer) commands(r Repo, script, dir, owner, label string, depth int)
 	}
 }
 
-func (a *analyzer) loadMakefile(r Repo, dir, file string, vars map[string]string) *makefile.Makefile {
+// loadedMakefile is what loading one makefile gave, kept so a failure is reported with its
+// reason each time it is asked for, not only the first.
+type loadedMakefile struct {
+	m   *makefile.Makefile
+	err error
+}
+
+func (a *analyzer) loadMakefile(r Repo, dir, file string, vars map[string]string) (*makefile.Makefile, error) {
 	key := r.Name + "\x00" + dir + "\x00" + file + "\x00" + fmt.Sprint(sortedKV(vars))
-	if m, ok := a.makefiles[key]; ok {
-		return m
+	if l, ok := a.makefiles[key]; ok {
+		return l.m, l.err
 	}
 	m, err := makefile.Load(r.Root, dir, file, vars)
 	if err != nil {
@@ -306,8 +313,8 @@ func (a *analyzer) loadMakefile(r Repo, dir, file string, vars map[string]string
 			a.warn(r.Name, "", 0, "%s", w)
 		}
 	}
-	a.makefiles[key] = m
-	return m
+	a.makefiles[key] = loadedMakefile{m, err}
+	return m, err
 }
 
 func sortedKV(m map[string]string) []string {
@@ -328,9 +335,13 @@ func (a *analyzer) makeCall(r Repo, dir, file string, targets []string, vars map
 		a.warn(r.Name, "", 0, "make -C %s (from %s) cannot be resolved statically", dir, a.g.Node(owner).Label)
 		return
 	}
-	m := a.loadMakefile(r, dir, file, vars)
+	m, err := a.loadMakefile(r, dir, file, vars)
 	if m == nil {
-		a.warn(r.Name, "", 0, "%s runs make in %q but no makefile was found there", a.g.Node(owner).Label, dir)
+		why := "no makefile was found there"
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			why = "its makefile was not read: " + repofs.Reason(err)
+		}
+		a.warn(r.Name, "", 0, "%s runs make in %q but %s", a.g.Node(owner).Label, dir, why)
 		return
 	}
 	if len(targets) == 0 {

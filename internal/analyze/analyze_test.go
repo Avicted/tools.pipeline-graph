@@ -160,3 +160,27 @@ func TestFilesOutsideTheRepositoryAreNotRead(t *testing.T) {
 		})
 	}
 }
+
+// "no makefile was found" blamed a makefile that existed but was refused or unreadable.
+func TestMakeWarningSaysWhyTheMakefileWasNotRead(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "repo")
+	if err := os.MkdirAll(filepath.Join(root, ".teamcity"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "outside.mk"), []byte("all:\n\techo hi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	settings := `object App : BuildType({ steps { script { scriptContent = "make -f ../outside.mk all\nmake -C nowhere" } } })`
+	if err := os.WriteFile(filepath.Join(root, ".teamcity", "settings.kts"), []byte(settings), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, warnings := Run([]Repo{{Name: "app", Root: root}}, Options{Providers: tc})
+	got := strings.Join(warnings, "\n")
+	if !strings.Contains(got, `"." but its makefile was not read: path escapes from the repository`) {
+		t.Errorf("a refused makefile must say why:\n%s", got)
+	}
+	if !strings.Contains(got, `"nowhere" but no makefile was found there`) {
+		t.Errorf("a missing makefile keeps the old wording:\n%s", got)
+	}
+}

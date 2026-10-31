@@ -212,3 +212,29 @@ func TestIncludeCannotLeaveTheRepository(t *testing.T) {
 		t.Error("Load must refuse a makefile outside the repository")
 	}
 }
+
+// The scanner stopped silently at a line over 1 MiB, and everything after it was lost.
+func TestVeryLongLineDoesNotHideTheRules(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": "BIG := " + strings.Repeat("x", 2<<20) + "\nall:\n\techo hi\n"})
+	m, err := Load(root, ".", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Rules["all"] == nil {
+		t.Error("the rule after a 2 MiB line was dropped")
+	}
+}
+
+func TestCRLFLineContinuation(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{"Makefile": "all:\r\n\tgo build \\\r\n\t  ./cmd\r\n"})
+	m, err := Load(root, ".", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := m.Rules["all"]
+	if r == nil || len(r.Recipe) != 1 || strings.ContainsAny(r.Recipe[0], "\r\\") {
+		t.Errorf("recipe %+v", r)
+	}
+}

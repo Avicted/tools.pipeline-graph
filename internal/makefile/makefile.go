@@ -76,7 +76,8 @@ func (m *Makefile) parseFile(root, rel string, cmdVars map[string]string, depth 
 	var lines []string
 	var lineNo []int
 	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
+	// repofs refuses files over MaxFileSize, so no line can be longer than the buffer.
+	sc.Buffer(make([]byte, 64*1024), repofs.MaxFileSize+1)
 	n := 0
 	for sc.Scan() {
 		n++
@@ -88,6 +89,9 @@ func (m *Makefile) parseFile(root, rel string, cmdVars map[string]string, depth 
 		}
 		lines = append(lines, l)
 		lineNo = append(lineNo, n)
+	}
+	if err := sc.Err(); err != nil {
+		return err
 	}
 
 	var cur []*Rule // rules receiving recipe lines
