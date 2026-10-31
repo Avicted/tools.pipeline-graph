@@ -184,6 +184,27 @@ func SizeVSDX(n *model.Node) (float64, float64) {
 
 func clamp(v, lo, hi float64) float64 { return max(lo, min(hi, v)) }
 
+// laneNames are the swimlanes of a diagram, in order: every repository, then the nodes of no repository.
+func laneNames(g *model.Graph) []string {
+	lanes := make([]string, 0, len(g.Repos)+1)
+	for _, r := range g.Repos {
+		lanes = append(lanes, r.Name)
+	}
+	return append(lanes, ExternalLane)
+}
+
+// edgeLabel is the text on an edge in every output: a trigger says so, and the plain
+// "step runs make target" link is not worth a label.
+func edgeLabel(e model.Edge) string {
+	switch e.Kind {
+	case model.EdgeTrigger:
+		return strings.TrimSpace("triggers " + e.Label)
+	case model.EdgeRuns:
+		return ""
+	}
+	return e.Label
+}
+
 func laneOf(n *model.Node) string {
 	if n.Repo == "" {
 		return ExternalLane
@@ -222,14 +243,9 @@ func BuildViewsSized(g *model.Graph, names []string, size func(*model.Node) (flo
 }
 
 func layoutView(g *model.Graph, id, title string, sub *model.Graph, size func(*model.Node) (float64, float64)) View {
-	var lanes []string
-	for _, r := range g.Repos {
-		lanes = append(lanes, r.Name)
-	}
-	lanes = append(lanes, ExternalLane)
 	opts := layout.DefaultOptions()
 	opts.TopOffset = 96
-	return View{ID: id, Title: title, Graph: sub, Layout: layout.Compute(sub, size, lanes, laneOf, opts)}
+	return View{ID: id, Title: title, Graph: sub, Layout: layout.Compute(sub, size, laneNames(g), laneOf, opts)}
 }
 
 // WithoutMake hides make targets. Images produced or consumed inside make are

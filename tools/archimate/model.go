@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"slices"
@@ -57,7 +58,7 @@ func load(path string) (*Model, error) {
 		return nil, err
 	}
 	var m Model
-	dec := yaml.NewDecoder(strings.NewReader(string(src)))
+	dec := yaml.NewDecoder(bytes.NewReader(src))
 	dec.KnownFields(true)
 	if err := dec.Decode(&m); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)

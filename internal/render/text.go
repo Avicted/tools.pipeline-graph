@@ -21,11 +21,7 @@ func shortIDs(g *model.Graph) map[string]string {
 }
 
 func groupByLane(g *model.Graph) ([]string, map[string][]*model.Node) {
-	lanes := []string{}
-	for _, r := range g.Repos {
-		lanes = append(lanes, r.Name)
-	}
-	lanes = append(lanes, ExternalLane)
+	lanes := laneNames(g)
 	by := map[string][]*model.Node{}
 	for _, n := range g.Nodes {
 		by[laneOf(n)] = append(by[laneOf(n)], n)
@@ -98,13 +94,7 @@ func Mermaid(w io.Writer, g *model.Graph) error {
 		if e.Kind == model.EdgeTrigger {
 			arrow = "==>"
 		}
-		label := e.Label
-		if e.Kind == model.EdgeTrigger {
-			label = strings.TrimSpace("triggers " + label)
-		}
-		if e.Kind == model.EdgeRuns {
-			label = ""
-		}
+		label := edgeLabel(e)
 		if label != "" {
 			fmt.Fprintf(&b, "  %s %s|\"%s\"| %s\n", ids[e.From], arrow, mermaidText(label), ids[e.To])
 		} else {
@@ -169,13 +159,7 @@ func DOT(w io.Writer, g *model.Graph) error {
 		case "dot":
 			st = "dotted"
 		}
-		label := e.Label
-		if e.Kind == model.EdgeTrigger {
-			label = strings.TrimSpace("triggers " + label)
-		}
-		if e.Kind == model.EdgeRuns {
-			label = ""
-		}
+		label := edgeLabel(e)
 		fmt.Fprintf(&b, "  %s -> %s [color=%q, penwidth=%.1f, style=%s, label=%s];\n", ids[e.From], ids[e.To], es.Color, es.Width, st, dotQuote(label))
 	}
 	b.WriteString("}\n")

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -68,7 +69,7 @@ func Load(file string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		dec := yaml.NewDecoder(strings.NewReader(string(b)))
+		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(c); err != nil {
 			return nil, fmt.Errorf("%s: %w", file, err)
@@ -228,7 +229,7 @@ func (c *Config) Settings(i int, name string, v any) error {
 		if err != nil {
 			return err
 		}
-		dec := yaml.NewDecoder(strings.NewReader(string(raw)))
+		dec := yaml.NewDecoder(bytes.NewReader(raw))
 		dec.KnownFields(true)
 		if err := dec.Decode(v); err != nil {
 			return fmt.Errorf("%s: %s: %w", b.where, name, err)

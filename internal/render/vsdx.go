@@ -348,16 +348,6 @@ func vsdxPage(g *model.Graph, v View) string {
 	return b.String()
 }
 
-func edgeLabel(e model.Edge) string {
-	switch e.Kind {
-	case model.EdgeTrigger:
-		return strings.TrimSpace("triggers " + e.Label)
-	case model.EdgeRuns:
-		return ""
-	}
-	return e.Label
-}
-
 func linePattern(dash string) int {
 	switch dash {
 	case "dash":
