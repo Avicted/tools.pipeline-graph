@@ -18,7 +18,7 @@ There is no CI/CD. Every check runs locally, in the same pinned Docker image
 flowchart LR
     subgraph contributor["contributor's machine · make hooks"]
         commit["git commit<br/>pre-commit hook<br/>staged files"]
-        push["git push<br/>pre-push hook · all files<br/>+ govulncheck + history secrets"]
+        push["git push<br/>pre-push hook · all files<br/>+ govulncheck · cargo deny<br/>+ history secrets"]
     end
     subgraph maintainer["maintainer's machine"]
         review["review the branch<br/>make pre-commit-pr-run<br/>FROM_REF=master TO_REF=branch"]
@@ -43,6 +43,7 @@ runs the commit-stage hooks on exactly the branch's changes.
 |---|---|---|
 | gofmt, go vet, golangci-lint | Go style and bugs | commit, push, review |
 | govulncheck | known vulnerabilities in Go dependencies | push only |
+| cargo-deny (`deny.toml`) | RustSec advisories, licences and sources of the viewer's dependencies | push only |
 | `go test`: unit, integration (golden), `TestReadmeSampleOutput` | analyzer behaviour, a stale README sample | commit, push, review |
 | cargo fmt, clippy, `cargo test`: unit, contract, headless smoke | Rust style, the `graph.json` contract, panics on any screen | commit, push, review |
 | shellcheck, hadolint, Makefile parse | scripts, Dockerfiles, the Makefile | commit, push, review |
@@ -106,7 +107,7 @@ and `make viewer`.
   links. The camera is identical, so the cause is in rasterization, and it isn't found yet.
 - **The gate is only as good as its habits.** Nothing enforces `make hooks`. A branch
   from someone without hooks is checked only when the maintainer reviews it, and that
-  review runs the commit stage: `govulncheck` and the history secret scan run only on
+  review runs the commit stage: `govulncheck`, `cargo deny` and the history secret scan run only on
   push, on machines that have the hooks.
 - **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is part
   of the gate.

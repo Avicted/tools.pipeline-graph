@@ -275,7 +275,7 @@
     </element>
     <element identifier="id-g-push" xsi:type="TechnologyProcess">
       <name xml:lang="en">git push (pre-push hook)</name>
-      <documentation xml:lang="en">All files, plus govulncheck and the history secret scan.</documentation>
+      <documentation xml:lang="en">All files, plus govulncheck, cargo deny and the history secret scan.</documentation>
     </element>
     <element identifier="id-g-review" xsi:type="TechnologyProcess">
       <name xml:lang="en">Review the branch (make pre-commit-pr-run)</name>

@@ -192,9 +192,10 @@ unhook: ## Remove the git hooks
 
 ##@ Quality
 .PHONY: pre-commit-run
-pre-commit-run: pre-commit-image ## Run every hook on every file, plus govulncheck and a secret scan of the tree
+pre-commit-run: pre-commit-image ## Run every hook on every file, plus govulncheck, cargo-deny and a secret scan of the tree
 	@$(DOCKER_RUN) run --all-files
 	@$(DOCKER_RUN) run --all-files --hook-stage manual govulncheck
+	@$(DOCKER_RUN) run --all-files --hook-stage manual cargo-deny
 	@$(DOCKER_RUN) run --all-files --hook-stage manual gitleaks-tree
 
 # Hooks on the files changed in FROM_REF..TO_REF, and gitleaks on those commits

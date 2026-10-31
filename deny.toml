@@ -1,0 +1,54 @@
+# Dependency policy for the viewer (viewer/Cargo.lock): `cargo deny check`, run by the
+# pre-commit hook `cargo-deny` on push and by `make pre-commit-run`. Like govulncheck it
+# needs the network, for the RustSec advisory database.
+
+[advisories]
+version = 2
+yanked = "deny"
+# A known vulnerability or an unsound crate fails the check. An exception is listed with its
+# reason, so it is reviewed rather than silenced. These four are "unmaintained" notices for
+# crates we do not choose: they arrive through egui and rfd, and go when those are upgraded.
+ignore = [
+    # ttf-parser, through egui's font stack (epaint -> ab_glyph). Goes with an egui upgrade;
+    # we are on 0.31, the current release is 0.37.
+    { id = "RUSTSEC-2026-0192", reason = "transitive via egui; resolved by upgrading egui" },
+    # zbus_names, zvariant, zvariant_derive, through rfd's xdg-portal file dialog. rfd 0.17
+    # no longer pulls them in (checked: it builds and the tree drops by 79 crates), but it
+    # changes the Linux dialog backend, which needs trying by hand before it is adopted.
+    { id = "RUSTSEC-2026-0370", reason = "transitive via rfd 0.15; resolved by rfd 0.17, to be tried by hand" },
+    { id = "RUSTSEC-2026-0371", reason = "transitive via rfd 0.15; resolved by rfd 0.17, to be tried by hand" },
+    { id = "RUSTSEC-2026-0372", reason = "transitive via rfd 0.15; resolved by rfd 0.17, to be tried by hand" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# The project is GPL-3.0-only, so everything permissive is fine. LGPL is not listed: the two
+# crates that mention it offer a permissive alternative, which is the one that counts.
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "GPL-3.0-only", # this crate
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "OFL-1.1",          # egui's bundled emoji font
+    "Ubuntu-font-1.0",  # egui's bundled Ubuntu-Light
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[bans]
+# GUI stacks carry many duplicate versions; they are listed, not failed.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

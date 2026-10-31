@@ -76,7 +76,7 @@ and digest (`name:tag@sha256:...`).
 
 ```sh
 make hooks              # once per clone: run the gate on every commit and push
-make pre-commit-run     # every hook on every file, plus govulncheck and a secret scan
+make pre-commit-run     # every hook on every file, plus govulncheck, cargo deny and a secret scan
 make pre-commit-pr-run  # hooks on FROM_REF..TO_REF (default origin/master..HEAD): review a branch
 make secrets            # gitleaks over the working tree and the full history
 make unhook             # remove the git hooks
@@ -85,7 +85,7 @@ make unhook             # remove the git hooks
 | Stage | What runs |
 |-------|-----------|
 | commit (staged files) | hygiene fixers, gofmt, `go mod tidy -diff`, `go vet`, golangci-lint, `go test`, cargo fmt, clippy, `cargo test`, shellcheck, hadolint, Makefile parse, gitleaks on the staged diff |
-| push (all files) | all of the above, plus govulncheck and gitleaks over the full history |
+| push (all files) | all of the above, plus govulncheck, cargo deny and gitleaks over the full history |
 
 There is no CI/CD. The hooks are the gate, so `make hooks` is required in every
 clone. Before merging a branch, the maintainer runs

@@ -109,6 +109,16 @@ repos:
         files: ^(viewer/|internal/model/|test/integration/testdata/graph\.json\.golden$)
         pass_filenames: false
 
+      # The Rust counterpart of govulncheck: RustSec advisories, the licence list and the
+      # sources of the viewer's dependencies (deny.toml). Needs the network, so not on every commit.
+      - id: cargo-deny
+        name: cargo deny
+        entry: cargo deny --manifest-path viewer/Cargo.toml --log-level error check
+        language: system
+        files: ^(viewer/Cargo\.(toml|lock)|deny\.toml)$
+        pass_filenames: false
+        stages: [pre-push, manual]
+
       - id: shellcheck
         name: shellcheck
         entry: shellcheck -x

@@ -99,7 +99,7 @@ elements:
   - {id: contributor-machine, type: Node, name: Contributor's machine (make hooks)}
   - {id: maintainer-machine, type: Node, name: Maintainer's machine}
   - {id: g-commit, type: TechnologyProcess, name: git commit (pre-commit hook), doc: Staged files.}
-  - {id: g-push, type: TechnologyProcess, name: git push (pre-push hook), doc: "All files, plus govulncheck and the history secret scan."}
+  - {id: g-push, type: TechnologyProcess, name: git push (pre-push hook), doc: "All files, plus govulncheck, cargo deny and the history secret scan."}
   - {id: g-review, type: TechnologyProcess, name: Review the branch (make pre-commit-pr-run)}
   - {id: g-manual, type: TechnologyProcess, name: viewer-shots-check · viewer-bench, doc: "By hand, when the UI or speed changed."}
   - {id: g-merge, type: TechnologyProcess, name: Merge to master}
