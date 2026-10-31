@@ -78,3 +78,32 @@ FROM build AS test
 		t.Errorf("got %q want %q", got, want)
 	}
 }
+
+// Replacing keys one after another made "$AB" depend on whether A or AB came first, and
+// Go randomises map order: the same Dockerfile gave different graphs from run to run.
+func TestExpandArgsIsDeterministicAndWholeName(t *testing.T) {
+	args := map[string]string{"A": "x", "AB": "y", "REG": "reg.io", "NESTED": "$A"}
+	cases := map[string]string{
+		"$AB":          "y",
+		"$A":           "x",
+		"${A}B":        "xB",
+		"$A-$AB":       "x-y",
+		"$REG/app:$AB": "reg.io/app:y",
+		"${REG}/app":   "reg.io/app",
+		"$UNKNOWN/$A":  "$UNKNOWN/x",
+		"${UNKNOWN}":   "${UNKNOWN}",
+		"$NESTED":      "$A", // a value is not expanded again
+		"price$":       "price$",
+		"$$A":          "$x",
+		"plain":        "plain",
+		"$A_B":         "$A_B", // the whole name is A_B, which is not an arg
+		"${A}_B":       "x_B",
+	}
+	for i := 0; i < 100; i++ {
+		for in, want := range cases {
+			if got := expandArgs(in, args); got != want {
+				t.Fatalf("run %d: expandArgs(%q) = %q, want %q", i, in, got, want)
+			}
+		}
+	}
+}

@@ -5,6 +5,7 @@ package shell
 
 import (
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -502,10 +503,20 @@ func DockerfileFrom(content string, buildArgs map[string]string) []string {
 	return out
 }
 
+var reArgRef = regexp.MustCompile(`\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*`)
+
+// expandArgs replaces $NAME and ${NAME} by the value of that ARG, in one pass over the
+// whole names: "$AB" is the argument AB, whether or not an argument A exists, and a value
+// that itself contains "$A" is left as it is. Unknown names stay unexpanded.
 func expandArgs(s string, args map[string]string) string {
-	for k, v := range args {
-		s = strings.ReplaceAll(s, "${"+k+"}", v)
-		s = strings.ReplaceAll(s, "$"+k, v)
-	}
-	return s
+	return reArgRef.ReplaceAllStringFunc(s, func(ref string) string {
+		name := ref[1:]
+		if strings.HasPrefix(name, "{") {
+			name = name[1 : len(name)-1]
+		}
+		if v, ok := args[name]; ok {
+			return v
+		}
+		return ref
+	})
 }
