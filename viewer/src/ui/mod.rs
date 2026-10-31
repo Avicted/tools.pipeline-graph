@@ -6,6 +6,7 @@ pub mod help;
 pub mod images;
 pub mod inspector;
 pub mod job;
+pub mod paint;
 pub mod palette;
 pub mod prod;
 pub mod shell;
