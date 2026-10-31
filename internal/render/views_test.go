@@ -39,21 +39,3 @@ func TestWithoutMakeLiftsImageEdges(t *testing.T) {
 		}
 	}
 }
-
-func TestFocusAndFlowViews(t *testing.T) {
-	g := sample()
-	var build FocusView
-	for _, f := range FocusViews(g) {
-		if f.Root == "bt:app/Build" {
-			build = f
-		}
-	}
-	// upstream: lib/Pub, app/All, ext:Other_X; downstream: the image (make target is lifted away)
-	if build.Up != 3 || build.Down != 1 || build.Graph.Node("mk:app/Makefile:image") != nil {
-		t.Errorf("focus: up=%d down=%d", build.Up, build.Down)
-	}
-	flows := FlowViews(g)
-	if len(flows) != 1 || flows[0].ID != "flow:lib" || flows[0].Graph.Node("bt:app/All") != nil {
-		t.Errorf("flows: %+v", flows)
-	}
-}

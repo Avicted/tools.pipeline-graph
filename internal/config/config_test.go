@@ -15,7 +15,7 @@ repos:
   - url: ssh://git@git.acme.io:7999/plat/base.git
     branch: develop
     teamcity: {project_id: Platform_Base}
-formats: [drawio, html]
+formats: [drawio, mermaid]
 `), 0o644)
 	c, err := Load(f)
 	if err != nil {
@@ -27,7 +27,7 @@ formats: [drawio, html]
 	if c.Repos[0].Name != "service-a" || c.Repos[1].Name != "base" || c.Repos[1].Branch != "develop" {
 		t.Errorf("repos: %+v", c.Repos)
 	}
-	if !c.Has("html") || c.Has("dot") || len(c.Views) != 3 {
+	if !c.Has("mermaid") || c.Has("dot") || len(c.Views) != 3 {
 		t.Errorf("defaults: %+v", c)
 	}
 	var s tcSettings
@@ -275,5 +275,13 @@ func TestCacheDirTildeNeedsAHome(t *testing.T) {
 	err := c.Finalize()
 	if err == nil || !strings.Contains(err.Error(), "home directory") {
 		t.Errorf("a ~ that cannot be expanded must be an error, not the relative path %q: %v", c.CacheDir, err)
+	}
+}
+
+func TestRemovedHTMLFormatSaysWhatToDo(t *testing.T) {
+	c := &Config{Repos: []Repo{{URL: "a"}}, Formats: []string{"json", "html"}}
+	err := c.Finalize()
+	if err == nil || !strings.Contains(err.Error(), "html format was removed") || !strings.Contains(err.Error(), "pipeline-graph-viewer") {
+		t.Errorf("got %v", err)
 	}
 }

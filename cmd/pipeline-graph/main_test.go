@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"maps"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -117,7 +114,7 @@ func TestLocalReposWriteEveryOutput(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d\n%s", code, errs)
 	}
-	for _, f := range []string{"pipelines.drawio", "pipelines.vsdx", "pipelines.html", "pipelines.mmd", "pipelines.dot", "graph.json", "warnings.txt"} {
+	for _, f := range []string{"pipelines.drawio", "pipelines.vsdx", "pipelines.mmd", "pipelines.dot", "graph.json", "warnings.txt"} {
 		if st, err := os.Stat(filepath.Join(out, f)); err != nil || st.Size() == 0 {
 			t.Errorf("%s not written: %v", f, err)
 		}
@@ -128,8 +125,8 @@ func TestLocalReposWriteEveryOutput(t *testing.T) {
 	if !strings.Contains(errs, "3 repos,") || !strings.Contains(errs, "jobs,") {
 		t.Errorf("summary missing:\n%s", errs)
 	}
-	html, _ := os.ReadFile(filepath.Join(out, "pipelines.html"))
-	if !strings.Contains(string(html), "2026-01-01 00:00 UTC") {
+	graph, _ := os.ReadFile(filepath.Join(out, "graph.json"))
+	if !strings.Contains(string(graph), "2026-01-01 00:00 UTC") {
 		t.Error("SOURCE_DATE_EPOCH must pin the generated timestamp")
 	}
 }
@@ -419,32 +416,6 @@ func TestMixedSystems(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"bt:platform-base/`) || !strings.Contains(string(b), `"bt:base-images/images/base-go"`) {
 		t.Errorf("both systems' jobs belong in the graph:\n%s", errs)
-	}
-}
-
-func TestServe(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "pipelines.html"), []byte("hello"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr := l.Addr().String()
-	_ = l.Close()
-	go run(context.Background(), []string{"-serve", addr, "-out", dir}, io.Discard, io.Discard)
-	var body []byte
-	for i := 0; i < 50; i++ {
-		if resp, err := http.Get("http://" + addr + "/pipelines.html"); err == nil {
-			body, _ = io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if string(body) != "hello" {
-		t.Errorf("served %q", body)
 	}
 }
 

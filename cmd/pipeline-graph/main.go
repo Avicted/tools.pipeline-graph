@@ -12,7 +12,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -94,7 +93,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	outDir := fs.String("out", "", "output directory (overrides out_dir)")
 	offline := fs.Bool("offline", false, "do not fetch; use cached checkouts")
 	strict := fs.Bool("strict", false, "exit with status 3 when the analysis produced warnings")
-	serve := fs.String("serve", "", "serve the -out directory over http at this address (e.g. :8080) instead of analysing")
 	showVersion := fs.Bool("version", false, "print version and exit")
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "usage: pipeline-graph [-config file.yaml] [-out dir] [-offline] [-strict] [repo-url ...]\n\n")
@@ -106,12 +104,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if *showVersion {
 		fmt.Fprintln(stdout, "pipeline-graph", version)
 		return 0
-	}
-	if *serve != "" {
-		srv := &http.Server{Addr: *serve, Handler: http.FileServer(http.Dir(*outDir)), ReadHeaderTimeout: 10 * time.Second}
-		fmt.Fprintf(stderr, "pipeline-graph: serving %s on %s\n", *outDir, *serve)
-		fmt.Fprintln(stderr, "pipeline-graph:", srv.ListenAndServe())
-		return 1
 	}
 	cfg, err := config.Load(*cfgFile)
 	if err != nil {
@@ -253,7 +245,6 @@ func writeOutputs(ctx context.Context, cfg *config.Config, g *model.Graph, views
 	}{
 		{"drawio", "pipelines.drawio", func(w io.Writer) error { return render.DrawIO(w, g, views) }},
 		{"vsdx", "pipelines.vsdx", func(w io.Writer) error { return render.VSDX(w, g, vsdxViews) }},
-		{"html", "pipelines.html", func(w io.Writer) error { return render.HTML(w, g, views, warnings) }},
 		{"mermaid", "pipelines.mmd", func(w io.Writer) error { return render.Mermaid(w, overview(g)) }},
 		{"dot", "pipelines.dot", func(w io.Writer) error { return render.DOT(w, overview(g)) }},
 		{"json", "graph.json", func(w io.Writer) error { return g.WriteJSON(w) }},

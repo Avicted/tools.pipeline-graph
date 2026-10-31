@@ -158,20 +158,6 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	checkVSDX(t, filepath.Join(out, "pipelines.vsdx"), len(pages))
-
-	h, err := os.ReadFile(filepath.Join(out, "pipelines.html"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(h), "/*DATA*/null") || !strings.Contains(string(h), `"bt:service-a/Package"`) {
-		t.Error("html: graph data not embedded")
-	}
-	if !strings.Contains(string(h), `"repos":[{"name":`) {
-		t.Error("html: repositories not embedded (needed for source links)")
-	}
-	if strings.Contains(string(h), "<script src=") || strings.Contains(string(h), `href="http`) || strings.Contains(string(h), "@import") {
-		t.Error("html must be self-contained")
-	}
 }
 
 // checkVSDX validates the Visio package: required OPC parts, well-formed XML,

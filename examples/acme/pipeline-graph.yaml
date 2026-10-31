@@ -13,4 +13,4 @@ repos:
 
 out_dir: out/acme
 views: [overview, full, per-repo]
-formats: [drawio, vsdx, html, mermaid, dot, json]
+formats: [drawio, vsdx, mermaid, dot, json]

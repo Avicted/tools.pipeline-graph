@@ -26,8 +26,8 @@ repos:
 
 # cache_dir: ~/.cache/pipeline-graph   # shallow clones are kept and refreshed here
 out_dir: out
-views: [overview, full, per-repo]       # draw.io pages / HTML tabs
-formats: [drawio, vsdx, html, mermaid, dot, json]
+views: [overview, full, per-repo]       # draw.io / Visio pages
+formats: [drawio, vsdx, mermaid, dot, json]
 concurrency: 4
 
 # Settings of one CI system, for every repo (a repo's own block overrides them).

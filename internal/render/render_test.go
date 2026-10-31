@@ -121,27 +121,6 @@ func TestBuildViews(t *testing.T) {
 	}
 }
 
-func TestHTML(t *testing.T) {
-	g := sample()
-	var buf bytes.Buffer
-	if err := HTML(&buf, g, BuildViews(g, []string{"overview", "full"}), []string{"app: a warning"}); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	if strings.Contains(out, "/*DATA*/null") {
-		t.Error("the data placeholder must be replaced")
-	}
-	for _, want := range []string{`"bt:lib/Pub"`, `"overview"`, `"app: a warning"`, `"edgeStyles"`, "composite", `"focus:bt:lib/Pub"`, `"kind":"focus"`, `"flow:lib"`} {
-		if !strings.Contains(out, want) {
-			t.Errorf("page lacks %s", want)
-		}
-	}
-	// labels cannot break out of the <script> element
-	if strings.Count(out, "</script>") != strings.Count(viewerTemplate, "</script>") || strings.Contains(out, `<&>`) {
-		t.Error("data must be escaped inside the script")
-	}
-}
-
 func TestDrawIO(t *testing.T) {
 	g := sample()
 	views := BuildViews(g, []string{"overview", "per-repo"})

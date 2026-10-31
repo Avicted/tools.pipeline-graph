@@ -58,7 +58,7 @@ type Config struct {
 
 var (
 	AllViews   = []string{"overview", "full", "per-repo"}
-	AllFormats = []string{"drawio", "vsdx", "html", "mermaid", "dot", "json"}
+	AllFormats = []string{"drawio", "vsdx", "mermaid", "dot", "json"}
 )
 
 func Load(file string) (*Config, error) {
@@ -120,6 +120,9 @@ func (c *Config) Finalize() error {
 		}
 	}
 	for _, f := range c.Formats {
+		if f == "html" {
+			return fmt.Errorf("the html format was removed; open graph.json with pipeline-graph-viewer (make view)")
+		}
 		if !contains(AllFormats, f) {
 			return fmt.Errorf("unknown format %q (valid: %s)", f, strings.Join(AllFormats, ", "))
 		}
