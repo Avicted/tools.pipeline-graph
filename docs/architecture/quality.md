@@ -110,5 +110,10 @@ and `make viewer`.
   push, on machines that have the hooks.
 - **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is part
   of the gate.
+- **The Rust toolchain is pinned by the gate image, not by a `rust-toolchain.toml`.** The image
+  is `rust:1.99-alpine3.24` by digest. A toolchain file at the repository root was tried: the
+  gate's container then downloaded a toolchain on every run, and the compiler became whatever
+  `1.99` resolved to that day. Host builds use your own rustup default. `rust-version = "1.85"`
+  in `viewer/Cargo.toml` is a declaration; nothing builds with 1.85 to check it.
 - **`make new-version` and `make undo-version` have no automated test.** Only their
   guards have been checked.
