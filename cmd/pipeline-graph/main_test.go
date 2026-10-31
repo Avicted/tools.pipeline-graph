@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"maps"
@@ -11,10 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Avicted/tools.pipeline-graph/internal/ci"
 )
 
 var fixtures = filepath.Join("..", "..", "test", "fixtures", "repos")
@@ -22,8 +26,13 @@ var fixtures = filepath.Join("..", "..", "test", "fixtures", "repos")
 // cli runs the tool in-process and returns its exit code and output.
 func cli(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
+	return cliContext(t, context.Background(), args...)
+}
+
+func cliContext(t *testing.T, ctx context.Context, args ...string) (code int, stdout, stderr string) {
+	t.Helper()
 	var out, errb bytes.Buffer
-	code = run(args, &out, &errb)
+	code = run(ctx, args, &out, &errb)
 	return code, out.String(), errb.String()
 }
 
@@ -424,7 +433,7 @@ func TestServe(t *testing.T) {
 	}
 	addr := l.Addr().String()
 	_ = l.Close()
-	go run([]string{"-serve", addr, "-out", dir}, io.Discard, io.Discard)
+	go run(context.Background(), []string{"-serve", addr, "-out", dir}, io.Discard, io.Discard)
 	var body []byte
 	for i := 0; i < 50; i++ {
 		if resp, err := http.Get("http://" + addr + "/pipelines.html"); err == nil {
@@ -436,5 +445,74 @@ func TestServe(t *testing.T) {
 	}
 	if string(body) != "hello" {
 		t.Errorf("served %q", body)
+	}
+}
+
+// Ctrl-C used to be ignored until the current git command finished, and then the run went
+// on to write everything. An interrupted run stops and writes nothing.
+func TestInterruptStopsBeforeAnythingIsWritten(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "out")
+	cfg := writeConfig(t, tmp, "cache_dir: "+filepath.Join(tmp, "cache")+"\nout_dir: "+out+"\nrepos:\n  - file://"+fixture("service-a")+"\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	code, _, errs := cliContext(t, ctx, "-config", cfg)
+	if code != 130 || !strings.Contains(errs, "interrupted") {
+		t.Errorf("exit %d, stderr %q", code, errs)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("an interrupted run wrote output")
+	}
+}
+
+// dot gets a deadline: a wedged Graphviz must not hang the run for ever.
+func TestSlowDotIsStopped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a shell script")
+	}
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "dot"), []byte("#!/bin/sh\nexec sleep 30\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	old := dotTimeout
+	dotTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { dotTimeout = old })
+
+	start := time.Now()
+	code, _, errs := cli(t, "-out", filepath.Join(t.TempDir(), "out"), fixture("service-a"))
+	if code != 1 || !strings.Contains(errs, "dot -Tsvg: timed out") {
+		t.Errorf("exit %d, stderr %q", code, errs)
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Error("the run waited for the slow dot")
+	}
+}
+
+type detectRecorder struct{ roots *[]string }
+
+func (detectRecorder) System() ci.System { return ci.System{Name: "recorder"} }
+func (d detectRecorder) Detect(r ci.Repo) bool {
+	*d.roots = append(*d.roots, r.Root)
+	return false
+}
+func (detectRecorder) Load(ci.Repo) (*ci.Pipelines, error) { return &ci.Pipelines{}, nil }
+
+// Checking the -provider name used to call Detect on an empty repo, which looks at the
+// current directory: whatever happened to be there decided nothing, but it was read.
+func TestDetectOnlyRunsOnRealCheckouts(t *testing.T) {
+	var roots []string
+	old := providers
+	providers = []ci.Provider{detectRecorder{&roots}}
+	t.Cleanup(func() { providers = old })
+
+	cli(t, "-out", filepath.Join(t.TempDir(), "out"), fixture("service-a"))
+	if len(roots) == 0 {
+		t.Fatal("the provider was never asked")
+	}
+	for _, r := range roots {
+		if r == "" {
+			t.Error("Detect ran on a repo without a root")
+		}
 	}
 }

@@ -8,15 +8,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Avicted/tools.pipeline-graph/internal/analyze"
@@ -30,6 +33,9 @@ import (
 )
 
 var version = "dev"
+
+// dotTimeout is how long Graphviz gets to draw the SVG.
+var dotTimeout = 2 * time.Minute
 
 // providers are the CI/CD systems that can be read; add new ones here.
 var providers = []ci.Provider{teamcity.New(), github.New()}
@@ -62,10 +68,26 @@ func providerSettings(cfg *config.Config, i int) (map[string]any, error) {
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	// Ctrl-C or SIGTERM cancels the context: git and dot are stopped and nothing half-done is written.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	code := run(ctx, os.Args[1:], os.Stdout, os.Stderr)
+	stop()
+	os.Exit(code)
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
+// exitInterrupted is the conventional status of a run ended by SIGINT.
+const exitInterrupted = 130
+
+// interrupted reports, and says so on stderr, that the run was cancelled.
+func interrupted(ctx context.Context, stderr io.Writer) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	fmt.Fprintln(stderr, "pipeline-graph: interrupted")
+	return true
+}
+
+func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("pipeline-graph", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	cfgFile := fs.String("config", "", "YAML config file (see pipeline-graph.example.yaml)")
@@ -108,7 +130,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	for _, r := range cfg.Repos {
-		if _, err := ci.Pick(providers, r.Provider, ci.Repo{}); r.Provider != "" && err != nil {
+		if r.Provider == "" {
+			continue // detected per checkout, once there is one
+		}
+		if _, err := ci.Pick(providers, r.Provider, ci.Repo{}); err != nil {
 			fmt.Fprintf(stderr, "pipeline-graph: %s: %v\n", r.Name, err)
 			return 2
 		}
@@ -135,7 +160,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		reqs[i] = fetch.Request{URL: r.URL, Branch: r.Branch}
 	}
 	fmt.Fprintf(stderr, "pipeline-graph: fetching %d repositories into %s\n", len(reqs), cfg.CacheDir)
-	results := fetch.All(context.Background(), reqs, cfg.CacheDir, cfg.Concurrency, *offline)
+	results := fetch.All(ctx, reqs, cfg.CacheDir, cfg.Concurrency, *offline)
+	if interrupted(ctx, stderr) {
+		return exitInterrupted
+	}
 	var repos []analyze.Repo
 	failed := 0
 	for i, res := range results {
@@ -155,6 +183,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// 2. analyse
 	g, warnings := analyze.Run(repos, analyze.Options{Providers: providers, ExternalIDs: cfg.ExternalIDs})
 	g.Generated = generatedAt()
+	if interrupted(ctx, stderr) {
+		return exitInterrupted
+	}
 
 	// 3. render
 	if err := os.MkdirAll(cfg.OutDir, 0o755); err != nil {
@@ -167,7 +198,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		vsdxViews = render.BuildViewsSized(g, cfg.Views, render.SizeVSDX)
 	}
 	g.Warnings = warnings
-	written, err := writeOutputs(cfg, g, views, vsdxViews, warnings)
+	written, err := writeOutputs(ctx, cfg, g, views, vsdxViews, warnings)
 	for _, f := range written {
 		fmt.Fprintln(stdout, f)
 	}
@@ -202,7 +233,7 @@ func generatedAt() string {
 	return t.Format("2006-01-02 15:04 UTC")
 }
 
-func writeOutputs(cfg *config.Config, g *model.Graph, views, vsdxViews []render.View, warnings []string) ([]string, error) {
+func writeOutputs(ctx context.Context, cfg *config.Config, g *model.Graph, views, vsdxViews []render.View, warnings []string) ([]string, error) {
 	var written []string
 	write := func(name string, fn func(io.Writer) error) error {
 		var buf bytes.Buffer
@@ -252,7 +283,14 @@ func writeOutputs(cfg *config.Config, g *model.Graph, views, vsdxViews []render.
 		if _, err := exec.LookPath("dot"); err == nil {
 			dotFile := filepath.Join(cfg.OutDir, "pipelines.dot")
 			svgFile := filepath.Join(cfg.OutDir, "pipelines.svg")
-			if out, err := exec.Command("dot", "-Tsvg", dotFile, "-o", svgFile).CombinedOutput(); err != nil {
+			dctx, cancel := context.WithTimeout(ctx, dotTimeout)
+			out, err := exec.CommandContext(dctx, "dot", "-Tsvg", dotFile, "-o", svgFile).CombinedOutput()
+			timedOut := errors.Is(dctx.Err(), context.DeadlineExceeded)
+			cancel()
+			switch {
+			case timedOut:
+				return written, fmt.Errorf("dot -Tsvg: timed out after %s", dotTimeout)
+			case err != nil:
 				return written, fmt.Errorf("dot -Tsvg: %w: %s", err, out)
 			}
 			written = append(written, svgFile)
