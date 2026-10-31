@@ -41,7 +41,6 @@ flowchart LR
         viewer["pipeline-graph-viewer"]
     end
     subgraph gh["GitHub"]
-        pages["Pages · HTML demo"]
         rel["Releases · viewer builds"]
     end
     repos -- "git clone --depth 1" --> cli
@@ -52,7 +51,6 @@ flowchart LR
     rel -. "download" .-> viewer
     users --> viewer
     users -- "browser · draw.io · Miro" --> out
-    users -.-> pages
 
     classDef untrusted fill:#fde2e1,stroke:#c0392b,color:#3b0d0a,stroke-width:2px
     classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
@@ -64,7 +62,7 @@ flowchart LR
     class cli go
     class creds,cache,out data
     class viewer rust
-    class pages,rel hosted
+    class rel hosted
     class users actor
     style untrusted fill:none,stroke:#c0392b,stroke-dasharray:6 4
     style host fill:none,stroke:#6b7280,stroke-dasharray:6 4
@@ -312,11 +310,9 @@ flowchart LR
     end
     subgraph ci["GitHub Actions"]
         pr["lint.yml · pull request + master<br/>commit-stage hooks on the PR's changes"]
-        pg["pages.yml · push to master<br/>rebuild the live demo"]
         rl["release.yml · release published<br/>viewer for 3 platforms"]
     end
     commit --> push --> pr
-    pr -- "merge" --> pg
     pr -- "merge, tag, publish" --> rl
     manual -.-> push
 
@@ -325,7 +321,7 @@ flowchart LR
     classDef output fill:#e5e7eb,stroke:#4b5563,color:#111827
     class commit,push go
     class manual output
-    class pr,pg,rl hosted
+    class pr,rl hosted
     style local fill:none,stroke:#6b7280,stroke-dasharray:6 4
     style ci fill:none,stroke:#6d28d9,stroke-dasharray:6 4
 ```
