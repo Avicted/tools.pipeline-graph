@@ -46,6 +46,7 @@ object Package : BuildType({
             scriptContent = """
                 docker build -t $imageName:%build.number% --build-arg BASE=registry.acme.io/base:latest .
                 make publish IMAGE=$imageName
+                make smoke
             """.trimIndent()
         }
     }

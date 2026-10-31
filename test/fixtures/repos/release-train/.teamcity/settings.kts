@@ -18,7 +18,7 @@ project {
 object Smoke : BuildType({
     name = "Nightly smoke"
     steps {
-        script { scriptContent = "make smoke" }
+        script { scriptContent = "make smoke"; workingDir = "." }
     }
     triggers {
         schedule {

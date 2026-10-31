@@ -10,17 +10,17 @@
     {
       "name": "service-a",
       "url": "file://$TMP/remotes/service-a",
-      "commit": "3d36d78113a922b2979884a11aca03f9f6286335"
+      "commit": "8c1888fedb9dea88245c9a6a809ef4e31139699a"
     },
     {
       "name": "release-train",
       "url": "file://$TMP/remotes/release-train",
-      "commit": "a89e03e540d39aec59af4c865aeb079d82447e72"
+      "commit": "f7c68df73d5c12fe023f2f823b799d22d5d03c07"
     },
     {
       "name": "service-a-main",
       "url": "file://$TMP/remotes/service-a",
-      "commit": "3d36d78113a922b2979884a11aca03f9f6286335"
+      "commit": "8c1888fedb9dea88245c9a6a809ef4e31139699a"
     }
   ],
   "nodes": [
@@ -108,7 +108,8 @@
         {
           "type": "script",
           "summary": "make smoke",
-          "script": "make smoke"
+          "script": "make smoke",
+          "workDir": "."
         }
       ],
       "triggers": [
@@ -208,7 +209,7 @@
         {
           "type": "script",
           "summary": "docker build -t registry.acme.io/service-a:%build.number%...",
-          "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a"
+          "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a\nmake smoke"
         }
       ],
       "source": ".teamcity/settings.kts:42",
@@ -302,7 +303,7 @@
         {
           "type": "script",
           "summary": "docker build -t registry.acme.io/service-a:%build.number%...",
-          "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a"
+          "script": "docker build -t registry.acme.io/service-a:%build.number% --build-arg BASE=registry.acme.io/base:latest .\nmake publish IMAGE=registry.acme.io/service-a\nmake smoke"
         }
       ],
       "source": ".teamcity/settings.kts:42",
@@ -413,7 +414,7 @@
           "script": "$(MAKE) -C deploy/prod apply\nhelm upgrade --install service-a chart/ --set image=registry.acme.io/service-a"
         }
       ],
-      "source": "Makefile:21"
+      "source": "Makefile:26"
     },
     {
       "id": "mk:service-a-main/Makefile:generate",
@@ -444,6 +445,21 @@
         }
       ],
       "source": "Makefile:18"
+    },
+    {
+      "id": "mk:service-a-main/Makefile:smoke",
+      "kind": "make",
+      "repo": "service-a-main",
+      "label": "smoke",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "$(MAKE) -C web bundle",
+          "script": "$(MAKE) -C web bundle\ndocker run --rm registry.acme.io/base:1.2 true"
+        }
+      ],
+      "source": "Makefile:22"
     },
     {
       "id": "mk:service-a-main/Makefile:test",
@@ -518,7 +534,7 @@
           "script": "$(MAKE) -C deploy/prod apply\nhelm upgrade --install service-a chart/ --set image=registry.acme.io/service-a"
         }
       ],
-      "source": "Makefile:21"
+      "source": "Makefile:26"
     },
     {
       "id": "mk:service-a/Makefile:generate",
@@ -549,6 +565,21 @@
         }
       ],
       "source": "Makefile:18"
+    },
+    {
+      "id": "mk:service-a/Makefile:smoke",
+      "kind": "make",
+      "repo": "service-a",
+      "label": "smoke",
+      "sub": "Makefile",
+      "steps": [
+        {
+          "type": "recipe",
+          "summary": "$(MAKE) -C web bundle",
+          "script": "$(MAKE) -C web bundle\ndocker run --rm registry.acme.io/base:1.2 true"
+        }
+      ],
+      "source": "Makefile:22"
     },
     {
       "id": "mk:service-a/Makefile:test",
@@ -716,6 +747,11 @@
       "kind": "runs"
     },
     {
+      "from": "bt:service-a-main/Package",
+      "to": "mk:service-a-main/Makefile:smoke",
+      "kind": "runs"
+    },
+    {
       "from": "bt:service-a/Build",
       "to": "bt:service-a/Package",
       "kind": "artifact",
@@ -792,6 +828,11 @@
       "kind": "runs"
     },
     {
+      "from": "bt:service-a/Package",
+      "to": "mk:service-a/Makefile:smoke",
+      "kind": "runs"
+    },
+    {
       "from": "ext:Billing_Deploy_staging",
       "to": "bt:release-train/Release",
       "kind": "snapshot"
@@ -805,6 +846,31 @@
       "from": "img:registry.acme.io/base",
       "to": "bt:service-a/Package",
       "kind": "consumes"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "img:registry.acme.io/service-a",
+      "kind": "derives"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "mk:service-a-main/Makefile:smoke",
+      "kind": "consumes"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "mk:service-a-main/Makefile:smoke",
+      "kind": "runsIn"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "mk:service-a/Makefile:smoke",
+      "kind": "consumes"
+    },
+    {
+      "from": "img:registry.acme.io/base",
+      "to": "mk:service-a/Makefile:smoke",
+      "kind": "runsIn"
     },
     {
       "from": "mk:platform-base/Makefile:fetch-certs",
@@ -825,6 +891,16 @@
       "from": "mk:service-a-main/Makefile:publish",
       "to": "mk:service-a-main/Makefile:build",
       "kind": "depends"
+    },
+    {
+      "from": "mk:service-a-main/Makefile:smoke",
+      "to": "mk:service-a-main/Makefile:build",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a-main/Makefile:smoke",
+      "to": "mk:service-a-main/web/Makefile:bundle",
+      "kind": "calls"
     },
     {
       "from": "mk:service-a-main/Makefile:test",
@@ -850,6 +926,16 @@
       "from": "mk:service-a/Makefile:publish",
       "to": "mk:service-a/Makefile:build",
       "kind": "depends"
+    },
+    {
+      "from": "mk:service-a/Makefile:smoke",
+      "to": "mk:service-a/Makefile:build",
+      "kind": "depends"
+    },
+    {
+      "from": "mk:service-a/Makefile:smoke",
+      "to": "mk:service-a/web/Makefile:bundle",
+      "kind": "calls"
     },
     {
       "from": "mk:service-a/Makefile:test",
