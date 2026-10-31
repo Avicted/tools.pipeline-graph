@@ -92,15 +92,38 @@ func (n *Node) Lambda() *Node {
 	return nil
 }
 
-func Parse(src string) []*Node {
+// MaxDepth bounds how deeply the parser nests. Real settings nest a few dozen levels; a
+// file nested far deeper is broken or hostile, and recursing into it would overflow the
+// stack, which Go cannot recover from.
+const MaxDepth = 3000
+
+// Parse parses src. truncated reports that the nesting went deeper than MaxDepth: what is
+// deeper was not parsed, so the result is incomplete.
+func Parse(src string) (nodes []*Node, truncated bool) {
 	p := &parser{toks: Lex(src)}
-	return p.statements("")
+	nodes = p.statements("")
+	return nodes, p.truncated
 }
 
 type parser struct {
-	toks []Token
-	pos  int
+	toks      []Token
+	pos       int
+	depth     int
+	truncated bool
 }
+
+// descend enters one more level of nesting and reports whether the parser may go on. It
+// is paired with a deferred ascend, which runs also when descend says no.
+func (p *parser) descend() bool {
+	p.depth++
+	if p.depth > MaxDepth {
+		p.truncated = true
+		return false
+	}
+	return true
+}
+
+func (p *parser) ascend() { p.depth-- }
 
 func (p *parser) cur() Token { return p.toks[p.pos] }
 func (p *parser) next() Token {
@@ -118,6 +141,10 @@ func (p *parser) eof() bool { return p.cur().Kind == TEOF }
 
 // statements parses until the closing token (or EOF).
 func (p *parser) statements(close string) []*Node {
+	defer p.ascend()
+	if !p.descend() {
+		return nil
+	}
 	var out []*Node
 	for !p.eof() {
 		if close != "" && p.is(close) {
@@ -154,6 +181,10 @@ var modifiers = map[string]bool{
 }
 
 func (p *parser) statement() *Node {
+	defer p.ascend()
+	if !p.descend() {
+		return nil
+	}
 	t := p.cur()
 	if t.Kind == TPunct && t.Val == "@" { // annotation
 		p.next()
@@ -375,6 +406,10 @@ var binaryOps = map[string]bool{
 }
 
 func (p *parser) expr() *Node {
+	defer p.ascend()
+	if !p.descend() {
+		return nil
+	}
 	left := p.unary()
 	if left == nil {
 		return nil
@@ -527,6 +562,10 @@ func (p *parser) lambda() *Node {
 }
 
 func (p *parser) primary() *Node {
+	defer p.ascend()
+	if !p.descend() {
+		return nil
+	}
 	t := p.cur()
 	switch t.Kind {
 	case TString:
@@ -572,6 +611,10 @@ func (p *parser) primary() *Node {
 // control parses if/for/when/try/... into a block that keeps every nested
 // statement, so DSL calls inside conditionals are still discovered.
 func (p *parser) control() *Node {
+	defer p.ascend()
+	if !p.descend() {
+		return nil
+	}
 	t := p.next()
 	n := &Node{Kind: NBlock, Name: t.Val, Line: t.Line}
 	if p.is("(") {

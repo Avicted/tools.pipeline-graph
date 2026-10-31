@@ -55,6 +55,9 @@ flowchart LR
   repository (`..`, an absolute path, a symlink out), anything that is not a regular file
   (fifo, device) and any file over 4 MiB is refused with a warning, so a hostile
   `include ../../.env` or a symlink to a secret never reaches `graph.json`.
+- The Kotlin parser stops nesting at `kts.MaxDepth` (3000) and reports the file with a warning:
+  Go cannot recover from a stack overflow, so a file nested millions of levels deep would
+  otherwise kill the whole run.
 - The container sees only what `make run` mounts: the project directory, the clone
   cache, and, read-only, what git needs to authenticate.
 - Its only network traffic is git. `-serve` is a local file server for `out/`, mounted

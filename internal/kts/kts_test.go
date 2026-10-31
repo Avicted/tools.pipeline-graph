@@ -30,7 +30,7 @@ func TestLexStrings(t *testing.T) {
 }
 
 func TestParseCallsAndLambdas(t *testing.T) {
-	nodes := Parse(`
+	nodes, _ := Parse(`
 object A : BuildType({
     name = "a"
     steps { script { scriptContent = "make x" } }
@@ -328,5 +328,56 @@ object B : BuildType({
 		if got := b.Params[k]; got != "******" {
 			t.Errorf("%s = %q, want the value hidden", k, got)
 		}
+	}
+}
+
+// Go cannot recover from a stack overflow, so one hostile settings.kts would kill the whole
+// run. Each case repeats a unit that nests the parser one level deeper per repetition.
+func TestParseDepthIsBounded(t *testing.T) {
+	cases := []struct{ name, prefix, unit string }{
+		{"parens", "", "("},
+		{"lambdas", "", "{"},
+		{"calls", "", "x("},
+		{"annotations", "x = ", "@a "}, // in an expression an annotation wraps what follows; between statements it is flat
+		{"modifiers", "", "private "},
+		{"else chain", "", "if (a) else "},
+		{"catch chain", "", "try {} catch "},
+		{"object bodies", "", "object O { "},
+		{"function body", "", "fun f() = "},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if _, truncated := Parse(c.prefix + strings.Repeat(c.unit, 500_000)); !truncated {
+				t.Error("a file nested half a million levels deep must be reported as cut off")
+			}
+		})
+	}
+}
+
+func TestParseKeepsRealisticNesting(t *testing.T) {
+	deep := strings.Repeat("a { ", 40) + strings.Repeat("} ", 40)
+	chain := "if (x) { a() }" + strings.Repeat(" else if (x) { a() }", 150)
+	args := "f(" + strings.Repeat("g(", 100) + "1" + strings.Repeat(")", 100) + ")"
+	for name, src := range map[string]string{"40 nested blocks": deep, "150 else-ifs": chain, "100 nested calls": args} {
+		if _, truncated := Parse(src); truncated {
+			t.Errorf("%s is normal DSL and must not be cut off", name)
+		}
+	}
+}
+
+func TestTooDeepFileIsAWarningNotACrash(t *testing.T) {
+	s := ParseSources(map[string]string{
+		"deep.kts": "object Deep : BuildType({ name = \"x\" })\n" + strings.Repeat("(", 500_000),
+		"ok.kts":   "project { buildType(Fine) }\nobject Fine : BuildType({ name = \"Fine\" })\n",
+	})
+	if got := strings.Join(s.Warnings, "\n"); !strings.Contains(got, "deep.kts") || !strings.Contains(got, "deeper than") {
+		t.Errorf("warnings: %q", got)
+	}
+	var names []string
+	for _, b := range s.Builds {
+		names = append(names, b.Name)
+	}
+	if !strings.Contains(strings.Join(names, ","), "Fine") {
+		t.Errorf("the other files must still be analysed, got %q", names)
 	}
 }

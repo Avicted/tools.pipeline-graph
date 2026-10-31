@@ -153,7 +153,11 @@ func ParseSources(srcs map[string]string) *Settings {
 	sort.Strings(names)
 	trees := map[string][]*Node{}
 	for _, n := range names {
-		trees[n] = Parse(srcs[n])
+		var truncated bool
+		trees[n], truncated = Parse(srcs[n])
+		if truncated {
+			e.s.Warnings = append(e.s.Warnings, fmt.Sprintf("%s:1: nesting is deeper than %d levels; part of this file is not analysed", n, MaxDepth))
+		}
 		e.collect(trees[n], n, true)
 	}
 	for _, n := range names {
