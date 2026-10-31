@@ -4,67 +4,170 @@ pipeline-graph has two programs that share one file format:
 
 - **`pipeline-graph`** (Go, `cmd/pipeline-graph`) reads CI/CD definitions from git
   repositories and writes diagrams plus `graph.json`.
-- **`pipeline-graph-viewer`** (Rust/egui, `viewer/`) is a desktop app that reads
-  `graph.json` and lets you explore it.
+- **`pipeline-graph-viewer`** (Rust/egui, `viewer/`) is a desktop app for exploring
+  `graph.json`.
 
-Everything below is static analysis: no CI server is contacted and nothing from the
-analysed repositories is executed.
+Each diagram below answers one question, stated under its heading.
 
-## System context
+**Legend**, the same in every diagram:
+
+| Colour | Meaning |
+|---|---|
+| 🟥 red | untrusted input: the analysed repositories |
+| 🟦 blue | the Go CLI |
+| 🟨 amber | data files and the contract between the two programs |
+| 🟩 green | the Rust viewer |
+| ⬜ grey | generated output |
+| 🟪 purple | hosted on GitHub |
+| dashed box | a trust or runtime boundary |
+
+## 1. Context and trust boundaries
+
+*Answers: where does untrusted input enter, and what can it touch?*
 
 ```mermaid
 flowchart LR
-    repos[("git repositories<br/>TeamCity Kotlin DSL,<br/>GitHub Actions, Makefiles")]
-    cli["pipeline-graph<br/>(Go CLI, local or in Docker)"]
-    out[("out/<br/>drawio, vsdx, html,<br/>mmd, dot, graph.json,<br/>warnings.txt, history/")]
-    miro["draw.io / Visio / Miro"]
-    html["HTML viewer<br/>(also the GitHub Pages demo)"]
-    viewer["pipeline-graph-viewer<br/>(Rust/egui desktop app)"]
-    scripts["your scripts"]
-
-    repos -- "shallow clone<br/>or local dir" --> cli
-    cli --> out
-    out --> miro
-    out --> html
+    users(["pipeline designers · tech leads · QA · DevSecOps"])
+    subgraph untrusted["untrusted"]
+        repos[("analysed repositories<br/>.teamcity · .github/workflows<br/>Makefiles · Dockerfiles")]
+    end
+    subgraph host["your machine"]
+        subgraph box["Docker container · runs as your uid"]
+            cli["pipeline-graph<br/>parses only, runs nothing<br/>from the repositories"]
+        end
+        creds["ssh-agent socket<br/>known_hosts · /etc/passwd (ro)"]
+        cache[("~/.cache/pipeline-graph<br/>shallow clones (rw)")]
+        out[("project dir → /work (rw)<br/>config in · out/ written")]
+        viewer["pipeline-graph-viewer"]
+    end
+    subgraph gh["GitHub"]
+        pages["Pages · HTML demo"]
+        rel["Releases · viewer builds"]
+    end
+    repos -- "git clone --depth 1" --> cli
+    creds -. "auth for git only" .-> cli
+    cli <--> cache
+    cli -- "drawio · vsdx · html · mmd · dot · graph.json" --> out
     out -- "graph.json" --> viewer
-    out -- "graph.json" --> scripts
+    rel -. "download" .-> viewer
+    users --> viewer
+    users -- "browser · draw.io · Miro" --> out
+    users -.-> pages
+
+    classDef untrusted fill:#fde2e1,stroke:#c0392b,color:#3b0d0a,stroke-width:2px
+    classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
+    classDef rust fill:#dcfce7,stroke:#15803d,color:#0a2e16
+    classDef hosted fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef actor fill:#ffffff,stroke:#111827,color:#111827
+    class repos untrusted
+    class cli go
+    class creds,cache,out data
+    class viewer rust
+    class pages,rel hosted
+    class users actor
+    style untrusted fill:none,stroke:#c0392b,stroke-dasharray:6 4
+    style host fill:none,stroke:#6b7280,stroke-dasharray:6 4
+    style box fill:none,stroke:#1d4ed8,stroke-dasharray:6 4
+    style gh fill:none,stroke:#6d28d9,stroke-dasharray:6 4
 ```
 
-## The CLI pipeline
+- Repository content is **parsed, never executed**. The only programs the CLI starts are
+  `git`, in `internal/fetch`, and Graphviz `dot`, on its own `pipelines.dot`.
+- The container sees only what `make run` mounts: the project directory, the clone
+  cache, and, read-only, what git needs to authenticate.
+- Its only network traffic is git. `-serve` is a local file server for `out/`, mounted
+  read-only (`make serve`).
 
-One run is a straight pipeline. Each stage is a package under `internal/`, and only
-`cmd/pipeline-graph` knows the order.
+## 2. Domain model
+
+*Answers: what does the tool understand?*
+
+```mermaid
+erDiagram
+    BUILD }o--o{ BUILD : "snapshot · artifact · trigger"
+    EXTERNAL }o--o{ BUILD : "snapshot · artifact · trigger"
+    BUILD }o--o{ MAKE_TARGET : "runs"
+    MAKE_TARGET }o--o{ MAKE_TARGET : "depends · calls"
+    BUILD }o--o{ IMAGE : "produces · consumes · runsIn"
+    MAKE_TARGET }o--o{ IMAGE : "produces · consumes · runsIn"
+    IMAGE }o--o{ IMAGE : "derives"
+
+    BUILD {
+        string kind "build: a TeamCity build configuration or a GitHub Actions job"
+        string system "teamcity or github"
+    }
+    MAKE_TARGET {
+        string kind "make: a target in a Makefile that a step reaches"
+    }
+    IMAGE {
+        string kind "image: produced by an analysed pipeline"
+    }
+    EXTERNAL {
+        string kind "external: referenced, not in any analysed repo"
+    }
+```
+
+Every relationship is many-to-many. In `graph.json` each edge has a direction, the way
+work flows: from the dependency to what depends on it.
+
+| Edge | From → to | Meaning |
+|---|---|---|
+| `snapshot`, `artifact` | build → build | the second needs the first (and its artifacts) |
+| `trigger` | build → build | the first finishing starts the second |
+| `runs` | build → make | a step runs `make <target>` |
+| `depends`, `calls` | make → make | a prerequisite; a recipe running `make` again |
+| `produces` | build or make → image | builds and pushes the image |
+| `consumes` | image → build or make | pulls or uses the image |
+| `runsIn` | image → build or make | the work runs inside a container of the image |
+| `derives` | image → image | `FROM`: the second is built on the first |
+
+Third-party images (`alpine`, `golang`, …) don't become nodes. An image node exists
+only if an analysed pipeline produces it. A reference that resolves to no analysed
+repository becomes an `external` stub and a warning.
+
+## 3. One run of the CLI
+
+*Answers: what happens in one run, and what flows between stages?*
 
 ```mermaid
 flowchart LR
-    cfg["config<br/>pipeline-graph.yaml"] --> fetch["fetch<br/>shallow clones,<br/>cache, -offline"]
-    fetch --> detect{"each provider:<br/>Detect(repo)?"}
-    detect -- yes --> load["provider.Load<br/>→ neutral ci.Jobs"]
-    load --> analyze["analyze<br/>steps → shell + makefile scan,<br/>cross-repo ids, external_ids"]
-    analyze --> mgraph[("model.Graph")]
-    mgraph --> render["render<br/>drawio · vsdx · html ·<br/>mermaid · dot · json"]
-    analyze -- "anything unresolved" --> warn["warnings.txt"]
-    mgraph -- "only when it changed" --> hist["history/&lt;time&gt;-&lt;hash&gt;.json"]
+    cfg["config.Load<br/>pipeline-graph.yaml"] -- "Config" --> fetch["fetch.All<br/>N in parallel · cache<br/>or offline from cache"]
+    fetch -- "checkout + commit" --> sel{"ci: which<br/>providers?"}
+    sel -- "ci.Repo" --> load["Provider.Load"]
+    load -- "ci.Pipelines" --> an["analyze.Run<br/>steps → shell · makefile<br/>cross-repo ids"]
+    an -- "*model.Graph" --> views["render.BuildViews<br/>overview · full · per-repo<br/>(internal/layout)"]
+    an -- "overview" --> text[("mmd · dot")]
+    an -- "[]warning" --> warn[("warnings.txt")]
+    an -- "*model.Graph" --> json[("graph.json<br/>history/ if changed")]
+    views --> files[("drawio · vsdx · html")]
+
+    classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
+    classDef output fill:#e5e7eb,stroke:#4b5563,color:#111827
+    class cfg,fetch,sel,load,an,views go
+    class json data
+    class warn,files,text output
 ```
 
 | Package | Responsibility |
 |---|---|
-| `internal/config` | Loads the YAML, folds deprecated keys into provider blocks, reports notices |
-| `internal/fetch` | Shallow `git clone` with the system git and BatchMode ssh; local directories are cloned too, so every repo has a commit |
-| `internal/ci` | The provider seam (below) and the neutral job model |
+| `internal/config` | Loads the YAML; folds deprecated keys into provider blocks and reports them |
+| `internal/fetch` | Shallow `git clone` with the system git and BatchMode ssh. Local directories are cloned too, so every repo has a commit |
+| `internal/ci` | The provider seam (§4) and the neutral job model |
 | `internal/kts` | Tolerant Kotlin tokenizer and parser for the TeamCity DSL |
 | `internal/shell`, `internal/makefile` | Find `make`, `docker` and script calls in step text; parse Makefiles |
 | `internal/analyze` | Turns every provider's jobs into one graph; resolves references across repositories |
 | `internal/model` | The graph types and `graph.json` (`SchemaVersion`) |
 | `internal/layout`, `internal/render` | Layered left-to-right layout with repository lanes; every output format |
 
-## The provider seam
+## 4. The provider seam
 
-Everything that is the same for every CI system lives on the shared side. A provider
-only reads one system's files and names its concepts.
+*Answers: what does adding a CI system cost?*
 
 ```mermaid
 classDiagram
+    direction LR
     class Provider {
         <<interface>>
         System() System
@@ -75,167 +178,250 @@ classDiagram
         <<interface>>
         NewSettings() any
     }
+    class Pipelines {
+        Jobs []Job
+        CrossDeps []CrossDep
+        Warnings []string
+    }
+    class Job {
+        Key, QualID, Aliases
+        Steps, Deps, Triggers
+    }
+    class Ref {
+        Local or Global or Alias
+    }
     class teamcity {
-        .teamcity Kotlin DSL
+        .teamcity Kotlin DSL via kts
         settings: dir, project_id
     }
     class github {
         .github/workflows YAML
     }
-    class kts {
-        tokenizer + tolerant parser
-    }
-    class analyze {
-        shell and make scanning
-        cross-repo resolution
-        warnings
-    }
     Provider <|.. teamcity
     Provider <|.. github
     Configurable <|.. teamcity
-    teamcity --> kts : parses with
-    analyze --> Provider : Detect, Load
+    Provider ..> Pipelines : Load returns
+    Pipelines *-- Job
+    Job --> Ref : Deps and Triggers name
+
+    style Provider fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    style Configurable fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    style Pipelines fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    style Job fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    style Ref fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    style teamcity fill:#fde2e1,stroke:#c0392b,color:#3b0d0a
+    style github fill:#fde2e1,stroke:#c0392b,color:#3b0d0a
 ```
 
-`Load` returns neutral `ci.Job`s (key, qualified id and aliases, steps, dependencies,
-triggers, artifact rules). Adding a system means one new package and one line in
-`cmd/pipeline-graph/main.go`; see
+Blue is shared by every system. Red reads one system's files from an untrusted
+checkout. A new system is one package that returns neutral `ci.Job`s, plus one line
+in `cmd/pipeline-graph/main.go`. Analysis, cross-repo resolution, the viewer and
+every renderer stay as they are. See
 [Adding a CI/CD system](development.md#adding-a-cicd-system).
 
-## The `graph.json` contract
+## 5. The `graph.json` contract
 
-`graph.json` is the only interface between the Go and Rust halves. Both sides are tied
-to one golden file, so neither can change it alone.
+*Answers: how can the Go and Rust halves never drift apart?*
 
 ```mermaid
 flowchart LR
-    model["Go: internal/model<br/>SchemaVersion = 1"] -- "writes" --> golden[("test/integration/testdata/<br/>graph.json.golden")]
-    integ["Go: test/integration<br/>repos served over file://"] -- "compares with" --> golden
-    golden -- "reads" --> contract["Rust: viewer/tests/contract.rs"]
-    contract -- "same parser as" --> load["viewer: core::graph<br/>refuses a newer schemaVersion"]
+    model["internal/model<br/>SchemaVersion = 1"] -- "writes" --> golden[("test/integration/testdata/<br/>graph.json.golden")]
+    integ["Go integration test<br/>repos over file://"] -- "must equal<br/>(-update rewrites)" --> golden
+    golden -- "must parse" --> contract["viewer/tests/contract.rs"]
+    contract -- "same loader" --> loader["core::graph<br/>refuses a newer<br/>schemaVersion"]
+
+    classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
+    classDef rust fill:#dcfce7,stroke:#15803d,color:#0a2e16
+    class model,integ go
+    class golden data
+    class contract,loader rust
 ```
 
-- A change to the model fails the Go integration test until the golden file is
-  regenerated (`-update`), and that regenerated file then has to pass the viewer's
-  contract test.
-- The viewer refuses a file whose `schemaVersion` is newer than its own, rather than
-  showing it half-understood.
+The golden file is the only interface between the two languages. A model change fails
+the Go test until the golden file is regenerated, and the regenerated file then has to
+pass the Rust test. Both run in the quality gate. The viewer refuses a file newer than
+it understands instead of showing it half-understood.
 
-## The viewer
+## 6. The viewer at run time
 
-The viewer is split so that everything except drawing can run headless: in unit
-tests, in the benchmarks, and in CI.
+*Answers: what is shared, what is mutable, and what runs off the UI thread?*
+
+The app moves through three phases:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Welcome
+    Welcome --> Loading : open · drop a file · start with a path
+    Loading --> Ready : Model loaded
+    Loading --> Welcome : error, shown on the welcome page
+    Ready --> Loading : open another file
+    Ready --> Welcome : File → Close
+    Ready --> Ready : reload · compare (background job, state kept)
+```
+
+Inside `Ready`, ownership is simple: one immutable model, one mutable workspace,
+and threads that only ever produce new immutable values.
 
 ```mermaid
 flowchart TB
-    subgraph core["core (headless)"]
-        cgraph["graph<br/>streaming load,<br/>struct-of-arrays + CSR"]
-        derive["derive<br/>stages, reach,<br/>Worth a look facts"]
-        search["search<br/>flat lowercase buffers"]
-        layout["layout<br/>layered, deterministic"]
-        spatial["spatial<br/>grid: draw only<br/>what is on screen"]
-        diff["diff<br/>compare two snapshots"]
+    subgraph bg["background threads (ui::job)"]
+        jl["load / reload<br/>Model::load"]
+        jy["layout<br/>build_scene"]
+        jc["compare<br/>core::diff"]
     end
-    subgraph ui["ui (egui)"]
-        app["app<br/>menus, phases,<br/>raw input"]
-        screens["snapshot · table · canvas ·<br/>prod · images · compare ·<br/>inspector · palette · help"]
-        job["job<br/>background threads"]
-        shots["shots<br/>--shot: drives the app,<br/>saves PNGs"]
-        headless["headless<br/>smoke tests and<br/>frame budgets"]
-    end
-    cgraph --> derive --> screens
-    search --> screens
-    layout --> spatial --> screens
-    diff --> screens
-    app --> screens
-    job -. "load, layout,<br/>compare off the UI thread" .-> app
-    shots --> app
-    headless --> screens
+    model[("Arc&lt;Model&gt; · immutable<br/>Graph · Derived · SearchIndex")]
+    ws["Workspace · mutable, UI thread only<br/>screen · selection · lineage · table"]
+    frame["frame loop<br/>App::update"]
+    screens["screens<br/>snapshot · table · map · prod<br/>images · compare · inspector"]
+
+    jl -- "new Model" --> model
+    model -- "read (Arc clone)" --> jy
+    model -- "read (Arc clone)" --> jc
+    model -- "read" --> ws
+    jy -- "Arc&lt;SceneLayout&gt;" --> ws
+    jc -- "Diff" --> ws
+    frame -- "each frame" --> ws -- "draws" --> screens
+
+    classDef rust fill:#dcfce7,stroke:#15803d,color:#0a2e16
+    classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402
+    class jl,jy,jc,ws,frame,screens rust
+    class model data
+    style bg fill:none,stroke:#15803d,stroke-dasharray:6 4
 ```
 
-The budgets are checked on a synthetic graph with 48,000 nodes by `make viewer-bench`.
-That graph loads in about 0.3 s and stays at about 30 MB.
+- `viewer/src/core` (graph, derive, search, layout, spatial, diff) doesn't depend on
+  egui at all. That's what lets the unit tests, the contract test, the benchmarks and
+  `ui::headless` run without a window.
+- A reload builds a fresh `Workspace` around the new model, then carries over the
+  selection, the screen, the table filter and the comparison.
+- The budgets are checked on a synthetic graph with 48,000 nodes by `make viewer-bench`.
+  It loads in about 0.3 s and stays at about 30 MB.
 
-## Verification
+## 7. Defence in depth
 
-| What | How | Where it runs |
+*Answers: where is a mistake stopped before it ships?*
+
+```mermaid
+flowchart LR
+    subgraph local["your machine"]
+        commit["git commit<br/>pre-commit hook:<br/>staged files"]
+        push["git push<br/>pre-push hook: all files<br/>+ govulncheck + history secrets"]
+        manual["by hand<br/>viewer-shots-check<br/>viewer-bench"]
+    end
+    subgraph ci["GitHub Actions"]
+        pr["lint.yml · pull request + master<br/>commit-stage hooks on the PR's changes"]
+        pg["pages.yml · push to master<br/>rebuild the live demo"]
+        rl["release.yml · release published<br/>viewer for 3 platforms"]
+    end
+    commit --> push --> pr
+    pr -- "merge" --> pg
+    pr -- "merge, tag, publish" --> rl
+    manual -.-> push
+
+    classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef hosted fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef output fill:#e5e7eb,stroke:#4b5563,color:#111827
+    class commit,push go
+    class manual output
+    class pr,pg,rl hosted
+    style local fill:none,stroke:#6b7280,stroke-dasharray:6 4
+    style ci fill:none,stroke:#6d28d9,stroke-dasharray:6 4
+```
+
+The hooks and `lint.yml` share one pre-commit configuration and one pinned Docker image
+(`Dockerfile.pre-commit`), so a hook that passes locally passes in CI. CI runs only the
+commit-stage hooks, though; see Known limits.
+
+| Check | Catches | Runs at |
 |---|---|---|
-| Go, Rust, shell, Dockerfiles, Makefile, secrets | pre-commit in a pinned Docker image (`Dockerfile.pre-commit`) | git hooks; `lint.yml` on every PR |
-| Analyzer behaviour | unit tests, the integration test with golden files | `go test` (in the gate) |
-| `graph.json` contract | `viewer/tests/contract.rs` against the golden file | `cargo test` (in the gate) |
-| Viewer screens | `ui::headless` smoke tests drive every screen | `cargo test` (in the gate) |
-| Viewer performance | load, search, lineage, layout and frame budgets | `make viewer-bench` |
-| README sample output | `TestReadmeSampleOutput` runs the shipped demo | `go test` (in the gate) |
-| Viewer screenshots | rebuilt from their `SOURCE` commit, compared byte for byte | `make viewer-shots-check` (needs a display) |
-| HTML viewer screenshots | headless Chromium in `Dockerfile.screenshots` | `make screenshots` |
+| gofmt, go vet, golangci-lint | Go style and bugs | commit, push, PR |
+| govulncheck | known vulnerabilities in Go dependencies | push only |
+| `go test`: unit, integration (golden), `TestReadmeSampleOutput` | analyzer behaviour, a stale README sample | commit, push, PR |
+| cargo fmt, clippy, `cargo test`: unit, contract, headless smoke | Rust style, the `graph.json` contract, panics on any screen | commit, push, PR |
+| shellcheck, hadolint, Makefile parse | scripts, Dockerfiles, the Makefile | commit, push, PR |
+| gitleaks: staged / full history / working tree | committed secrets | commit / push / `make secrets` |
+| `make viewer-bench` | load, search, layout and frame budgets | by hand |
+| `make viewer-shots-check` | screenshots that no longer match their commit | by hand (needs a display) |
 
-The screenshot run is made deterministic: no live mouse or keyboard input, the window
-always counts as focused, a fixed 2000×1250 output, no animation, the time comes from
-the commit (`SOURCE_DATE_EPOCH`), and the load time is left out.
+## 8. Reproducible screenshots
+
+*Answers: how do we know the pictures in the docs are the real app at a known commit?*
+
+The run is deterministic: no live mouse or keyboard input, the window always counts as
+focused, a fixed 2000×1250 output, no animation, the time comes from the commit
+(`SOURCE_DATE_EPOCH`), and the load time is left out. `SOURCE` records the commit.
 
 ```mermaid
 sequenceDiagram
     actor dev as developer
     participant mk as make viewer-shots-check
-    participant wt as temporary git worktree
+    participant wt as temporary worktree at SOURCE
     participant v as pipeline-graph-viewer --shot
     dev->>mk: run
-    mk->>mk: read docs/screenshots/pipeline-graph-viewer/SOURCE
-    mk->>wt: git worktree add --detach SOURCE
+    mk->>wt: git worktree add --detach $(cat SOURCE)
     mk->>wt: make viewer-shots (own build cache)
     wt->>v: Acme graph.json + compare baseline
     v-->>wt: 11 PNGs
-    mk->>mk: cmp each PNG with the committed one
+    mk->>mk: cmp each with the committed PNG
     mk->>wt: git worktree remove
-    mk-->>dev: "reproduced" or the files that differ (exit 1)
+    mk-->>dev: "reproduced", or the files that differ (exit 1)
 ```
 
-## Release
+## 9. Release
+
+*Answers: how does a version get from a commit to a download?*
 
 ```mermaid
 sequenceDiagram
     actor dev as maintainer
     participant mk as make new-version
-    participant git as git / origin
-    participant gh as GitHub release
+    participant local as local repo (master)
+    participant origin as origin (GitHub)
     participant ci as release.yml
-    dev->>mk: BUMP=major, minor or patch (on a clean master)
-    mk->>mk: bump VERSION, viewer/Cargo.toml, Cargo.lock
-    mk->>git: commit "chore(release): vX.Y.Z" + annotated tag
-    dev->>git: git push origin HEAD vX.Y.Z
-    dev->>gh: publish the release for the tag
-    gh->>ci: release: published
-    ci->>gh: viewer for linux-amd64, windows-amd64, macos-arm64
+    dev->>mk: BUMP=major, minor or patch
+    mk->>mk: refuse unless on a clean master
+    mk->>local: VERSION, viewer/Cargo.toml, Cargo.lock
+    mk->>local: commit "chore(release): vX.Y.Z" + annotated tag
+    dev->>origin: git push origin HEAD vX.Y.Z
+    dev->>origin: publish the GitHub release for the tag
+    origin->>ci: release: published
+    ci->>origin: attach linux-amd64, windows-amd64, macos-arm64
 ```
 
 `VERSION` is the only place the version lives. `pipeline-graph -version`, the Docker
-image tag and the viewer's About dialog all derive from it. `make undo-version` takes
-back a release that hasn't been pushed.
+image tag and the viewer's About dialog derive from it. Until the push, `make
+undo-version` takes the release back.
 
-## Decisions and trade-offs
+## Decisions
 
-| Decision | Why | Cost |
+| Context | Decision | Consequence |
 |---|---|---|
-| Static analysis only | Safe on any repository, no credentials for a CI server, reproducible | Whatever is decided at run time (parameters, generated config) is invisible; it shows up in `warnings.txt` |
-| One neutral job model behind `ci.Provider` | A new CI system doesn't touch analysis or rendering | The model is the common denominator; system-specific detail has to fit `ci.Job` |
-| `graph.json` as the only Go ↔ Rust interface | Two languages, one contract, tested on both sides | Every shape change touches two codebases and the golden file |
-| A native egui viewer next to the HTML one | Tens of thousands of nodes at interactive speed | A second UI to maintain; builds per platform |
-| Screenshots taken by the apps themselves | The docs show the real UI and can be rebuilt | Needs a display (native) or a Chromium image (web) |
-| The quality gate runs in Docker | Same tool versions on every machine and in CI | Docker is required; the first run pulls the image |
+| The tool reads repositories it doesn't own | Static analysis only; nothing from them is executed | Safe on any repository and needs no CI server credentials. Anything decided at run time is invisible and shows up in `warnings.txt` |
+| Several CI systems, one picture | One neutral job model behind `ci.Provider` | A new system doesn't touch analysis or rendering; system-specific detail has to fit `ci.Job` |
+| Two languages, Go and Rust | `graph.json` with a golden file tested on both sides | Every shape change touches both sides and the golden file, on purpose |
+| Graphs with tens of thousands of nodes | A native egui viewer next to the HTML one | Interactive at that size, at the cost of a second UI and builds per platform |
+| The docs must show the real UI | The apps take their own screenshots | They can be rebuilt and checked; that needs a display (native) or a Chromium image (web) |
+| The same results on every machine | The quality gate runs in a pinned Docker image | Docker is required |
 
 ## Known limits
 
-Stated plainly, so nobody has to rediscover them:
-
-- **Viewer screenshots are byte-identical only at the same display scaling.** At a
-  different scaling the map and commit → prod pictures differ in the anti-aliasing of
-  curved links. The camera is identical, so the cause is in rasterization; it isn't
-  found yet.
-- **`make viewer-shots-check` is manual.** It needs a display, so it isn't part of the
-  gate or of CI.
+- **Viewer screenshots are byte-identical only at the same display scaling.** At another
+  scaling the map and commit → prod pictures differ in the anti-aliasing of curved
+  links. The camera is identical, so the cause is in rasterization, and it isn't found yet.
+- **CI doesn't run `govulncheck` or the full-history secret scan.** Both are pre-push
+  hooks, and `lint.yml` runs the commit stage. A PR from someone without the hooks
+  installed is merged without them.
+- **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is in the
+  gate or in CI.
 - **Chromium isn't version-pinned** in `Dockerfile.screenshots`, because Debian removes
   superseded builds. The web screenshots can shift after a security update.
-- **There's no written policy for bumping `schemaVersion`.** That covers when to bump it,
-  and whether the viewer keeps reading older versions.
-- **`make new-version` and `make undo-version` have no automated test.** Their guards
-  were checked by hand; the full bump, commit and tag path hasn't run end to end.
+- **`make new-version` and `make undo-version` have no automated test.** Only their
+  guards have been checked.
+
+## Open question
+
+**The `schemaVersion` policy.** Today the viewer refuses a newer file and accepts any
+older one. Still open: when a change counts as a bump, and whether the viewer promises
+to read older files (and for how long) or requires the current version.
