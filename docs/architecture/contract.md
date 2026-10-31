@@ -9,6 +9,7 @@ stated under its heading.
 *Answers: how can the Go and Rust halves never drift apart?*
 
 ```mermaid
+%% view: contract
 flowchart LR
     model["internal/model<br/>SchemaVersion = 1"] -- "writes" --> golden[("test/integration/testdata/<br/>graph.json.golden")]
     integ["Go integration test<br/>repos over file://"] -- "must equal<br/>(-update rewrites)" --> golden

@@ -21,7 +21,9 @@ Commands are in [docs/development.md](docs/development.md); the design is in
    updates [docs/architecture.md](docs/architecture.md), a one-page overview with a single
    diagram; the detail belongs in the matching page under `docs/architecture/`. Each
    diagram answers one stated question and uses the legend in docs/architecture.md. Render it in light and dark
-   before committing; a diagram that parses can still be wrong.
+   before committing; a diagram that parses can still be wrong. Every architecture diagram
+   is also a view in `docs/architecture/model.yaml`: change both, then `make archimate`
+   ([how](docs/architecture/archimate.md)).
 7. **Don't trust, verify.** Claims are proven by running them: tests, byte-for-byte
    comparisons, checks made to fail on purpose. State plainly what was not run.
 

@@ -28,6 +28,7 @@ The same in every diagram, on this page and the detail pages:
 *Answers: what is the whole system, on one page?*
 
 ```mermaid
+%% view: overview
 flowchart LR
     repos[("untrusted:<br/>analysed repositories<br/>TeamCity DSL · workflows<br/>Makefiles · Dockerfiles")]
     subgraph cli["pipeline-graph · Go"]
@@ -104,6 +105,7 @@ reproducible from a recorded commit, and a release is a version commit plus a ta
 | change the shape of `graph.json` | [contract.md](architecture/contract.md) |
 | work on the viewer: its modules, state, threads or screens | [viewer.md](architecture/viewer.md) |
 | know what checks a commit, refresh screenshots, or cut a release | [quality.md](architecture/quality.md) |
+| open the architecture in Archi or another ArchiMate tool | [archimate.md](architecture/archimate.md) |
 | run the commands | [development.md](development.md) |
 
 Known limits are listed in [quality.md](architecture/quality.md#known-limits); the
@@ -119,4 +121,5 @@ open question on `schemaVersion` is in [contract.md](architecture/contract.md#op
 | Graphs with tens of thousands of nodes | A native egui viewer next to the HTML one | Interactive at that size, at the cost of a second UI and builds per platform |
 | The docs must show the real UI | The apps take their own screenshots | They can be rebuilt and checked; that needs a display (native) or a Chromium image (web) |
 | The same results on every machine | The quality gate runs in a pinned Docker image | Docker is required |
+| The architecture should be usable in modelling tools | One ArchiMate model generated from `model.yaml`, one view per Mermaid diagram, kept in step by tests | A diagram change is two edits plus `make archimate`; the tests catch missing nodes, not changed labels or arrows |
 | An internal tool; nothing is published | No CI/CD: git hooks on every machine plus a review run before merging | Nothing hosted to maintain or pay for, and no secrets in a CI system. The gate holds only if everyone runs `make hooks` and reviews really run `pre-commit-pr-run` |

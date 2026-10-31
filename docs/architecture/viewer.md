@@ -58,6 +58,7 @@ reaches for `ui` or egui.
 The app moves through three phases:
 
 ```mermaid
+%% view: viewer-phases
 stateDiagram-v2
     direction LR
     [*] --> Welcome
@@ -73,6 +74,7 @@ Inside `Ready`, ownership is simple: one immutable model, one mutable workspace,
 and threads that only ever produce new immutable values.
 
 ```mermaid
+%% view: viewer-ownership
 flowchart TB
     subgraph bg["background threads (ui::job)"]
         jl["load / reload<br/>Model::load"]

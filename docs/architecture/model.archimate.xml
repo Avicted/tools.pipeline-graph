@@ -1,0 +1,855 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated from docs/architecture/model.yaml by make archimate. Do not edit. -->
+<model xmlns="http://www.opengroup.org/xsd/archimate/3.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd" identifier="id-model">
+  <name xml:lang="en">pipeline-graph architecture</name>
+  <documentation xml:lang="en">The two programs of pipeline-graph, the graph.json contract between them, and how changes are checked and released. Generated from docs/architecture/model.yaml.</documentation>
+  <elements>
+    <element identifier="id-cli" xsi:type="ApplicationComponent">
+      <name xml:lang="en">pipeline-graph (Go CLI)</name>
+      <documentation xml:lang="en">cmd/pipeline-graph: reads CI/CD definitions and writes diagrams plus graph.json. Parses, runs nothing from the repositories.</documentation>
+    </element>
+    <element identifier="id-pkg-cmd" xsi:type="ApplicationComponent">
+      <name xml:lang="en">cmd/pipeline-graph</name>
+      <documentation xml:lang="en">Wires the stages together.</documentation>
+    </element>
+    <element identifier="id-pkg-config" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/config</name>
+      <documentation xml:lang="en">Loads pipeline-graph.yaml.</documentation>
+    </element>
+    <element identifier="id-pkg-fetch" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/fetch</name>
+      <documentation xml:lang="en">Shallow git clones, N in parallel, cached.</documentation>
+    </element>
+    <element identifier="id-pkg-ci" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/ci</name>
+      <documentation xml:lang="en">The provider seam and the neutral job model.</documentation>
+    </element>
+    <element identifier="id-ci-teamcity" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/ci/teamcity</name>
+      <documentation xml:lang="en">Reads the .teamcity Kotlin DSL.</documentation>
+    </element>
+    <element identifier="id-ci-github" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/ci/github</name>
+      <documentation xml:lang="en">Reads .github/workflows.</documentation>
+    </element>
+    <element identifier="id-pkg-kts" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/kts</name>
+      <documentation xml:lang="en">Tolerant Kotlin tokenizer and parser for the TeamCity DSL.</documentation>
+    </element>
+    <element identifier="id-pkg-analyze" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/analyze</name>
+      <documentation xml:lang="en">Turns every provider&#39;s jobs into one graph and resolves references across repositories.</documentation>
+    </element>
+    <element identifier="id-pkg-shell" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/shell</name>
+      <documentation xml:lang="en">Finds make, docker and script calls in step text.</documentation>
+    </element>
+    <element identifier="id-pkg-makefile" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/makefile</name>
+      <documentation xml:lang="en">Parses Makefiles.</documentation>
+    </element>
+    <element identifier="id-pkg-render" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/render</name>
+      <documentation xml:lang="en">Every output format.</documentation>
+    </element>
+    <element identifier="id-pkg-layout" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/layout</name>
+      <documentation xml:lang="en">Layered left-to-right layout with repository lanes.</documentation>
+    </element>
+    <element identifier="id-pkg-model" xsi:type="ApplicationComponent">
+      <name xml:lang="en">internal/model</name>
+      <documentation xml:lang="en">The graph types and graph.json (SchemaVersion = 1).</documentation>
+    </element>
+    <element identifier="id-viewer" xsi:type="ApplicationComponent">
+      <name xml:lang="en">pipeline-graph-viewer (Rust)</name>
+      <documentation xml:lang="en">viewer/: the desktop app for exploring graph.json.</documentation>
+    </element>
+    <element identifier="id-v-main" xsi:type="ApplicationComponent">
+      <name xml:lang="en">viewer main.rs</name>
+      <documentation xml:lang="en">The window and the command-line flags.</documentation>
+    </element>
+    <element identifier="id-v-ui" xsi:type="ApplicationComponent">
+      <name xml:lang="en">viewer ui (egui)</name>
+      <documentation xml:lang="en">app, screens, canvas, job, shots, headless, theme.</documentation>
+    </element>
+    <element identifier="id-v-core" xsi:type="ApplicationComponent">
+      <name xml:lang="en">viewer core (headless)</name>
+      <documentation xml:lang="en">Doesn&#39;t depend on egui.</documentation>
+    </element>
+    <element identifier="id-v-core-graph" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::graph</name>
+      <documentation xml:lang="en">The graph.json loader; refuses a newer schemaVersion.</documentation>
+    </element>
+    <element identifier="id-v-core-derive" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::derive</name>
+    </element>
+    <element identifier="id-v-core-search" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::search</name>
+    </element>
+    <element identifier="id-v-core-diff" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::diff</name>
+    </element>
+    <element identifier="id-v-core-intern" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::intern</name>
+    </element>
+    <element identifier="id-v-core-layout" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::layout</name>
+    </element>
+    <element identifier="id-v-core-spatial" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::spatial</name>
+    </element>
+    <element identifier="id-it-test" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Go integration test</name>
+      <documentation xml:lang="en">test/integration: the real binary against fixture repositories over file://.</documentation>
+    </element>
+    <element identifier="id-contract-test" xsi:type="ApplicationComponent">
+      <name xml:lang="en">viewer/tests/contract.rs</name>
+      <documentation xml:lang="en">The Rust side of the graph.json contract.</documentation>
+    </element>
+    <element identifier="id-provider" xsi:type="ApplicationInterface">
+      <name xml:lang="en">ci.Provider</name>
+      <documentation xml:lang="en">System() System; Detect(Repo) bool; Load(Repo) Pipelines.</documentation>
+    </element>
+    <element identifier="id-configurable" xsi:type="ApplicationInterface">
+      <name xml:lang="en">ci.Configurable</name>
+      <documentation xml:lang="en">NewSettings() any.</documentation>
+    </element>
+    <element identifier="id-pipelines" xsi:type="DataObject">
+      <name xml:lang="en">ci.Pipelines</name>
+      <documentation xml:lang="en">Jobs, CrossDeps, Warnings.</documentation>
+    </element>
+    <element identifier="id-job" xsi:type="DataObject">
+      <name xml:lang="en">ci.Job</name>
+      <documentation xml:lang="en">Key, QualID, Aliases, Steps, Deps, Triggers.</documentation>
+    </element>
+    <element identifier="id-ref" xsi:type="DataObject">
+      <name xml:lang="en">ci.Ref</name>
+      <documentation xml:lang="en">Local or Global or Alias.</documentation>
+    </element>
+    <element identifier="id-analysed-repos" xsi:type="DataObject">
+      <name xml:lang="en">Analysed repositories</name>
+      <documentation xml:lang="en">Untrusted input: TeamCity DSL, workflows, Makefiles, Dockerfiles.</documentation>
+    </element>
+    <element identifier="id-graph-json" xsi:type="DataObject">
+      <name xml:lang="en">graph.json</name>
+      <documentation xml:lang="en">The contract between the two programs.</documentation>
+    </element>
+    <element identifier="id-golden" xsi:type="DataObject">
+      <name xml:lang="en">graph.json.golden</name>
+      <documentation xml:lang="en">test/integration/testdata/graph.json.golden.</documentation>
+    </element>
+    <element identifier="id-diagram-files" xsi:type="DataObject">
+      <name xml:lang="en">Diagrams</name>
+      <documentation xml:lang="en">drawio, vsdx, html, mmd, dot.</documentation>
+    </element>
+    <element identifier="id-drawings" xsi:type="DataObject">
+      <name xml:lang="en">drawio · vsdx · html</name>
+    </element>
+    <element identifier="id-text-diagrams" xsi:type="DataObject">
+      <name xml:lang="en">mmd · dot</name>
+    </element>
+    <element identifier="id-warnings" xsi:type="DataObject">
+      <name xml:lang="en">warnings.txt</name>
+      <documentation xml:lang="en">What the analysis could not resolve.</documentation>
+    </element>
+    <element identifier="id-project-dir" xsi:type="DataObject">
+      <name xml:lang="en">Project directory (/work, rw)</name>
+      <documentation xml:lang="en">Config in, out/ written.</documentation>
+    </element>
+    <element identifier="id-clone-cache" xsi:type="DataObject">
+      <name xml:lang="en">Clone cache (~/.cache/pipeline-graph, rw)</name>
+    </element>
+    <element identifier="id-git-creds" xsi:type="DataObject">
+      <name xml:lang="en">ssh-agent socket · known_hosts · /etc/passwd (ro)</name>
+      <documentation xml:lang="en">Auth for git only.</documentation>
+    </element>
+    <element identifier="id-viewer-model" xsi:type="DataObject">
+      <name xml:lang="en">Model (Arc, immutable)</name>
+      <documentation xml:lang="en">Graph, Derived, SearchIndex.</documentation>
+    </element>
+    <element identifier="id-workspace" xsi:type="DataObject">
+      <name xml:lang="en">Workspace (mutable)</name>
+      <documentation xml:lang="en">UI thread only: screen, selection, lineage, table.</documentation>
+    </element>
+    <element identifier="id-d-build" xsi:type="DataObject">
+      <name xml:lang="en">build</name>
+      <documentation xml:lang="en">A TeamCity build configuration or a GitHub Actions job.</documentation>
+    </element>
+    <element identifier="id-d-make" xsi:type="DataObject">
+      <name xml:lang="en">make target</name>
+      <documentation xml:lang="en">A target in a Makefile that a step reaches.</documentation>
+    </element>
+    <element identifier="id-d-image" xsi:type="DataObject">
+      <name xml:lang="en">image</name>
+      <documentation xml:lang="en">Produced by an analysed pipeline.</documentation>
+    </element>
+    <element identifier="id-d-external" xsi:type="DataObject">
+      <name xml:lang="en">external</name>
+      <documentation xml:lang="en">Referenced, not in any analysed repo.</documentation>
+    </element>
+    <element identifier="id-p-config" xsi:type="ApplicationProcess">
+      <name xml:lang="en">config.Load</name>
+    </element>
+    <element identifier="id-p-fetch" xsi:type="ApplicationProcess">
+      <name xml:lang="en">fetch.All</name>
+      <documentation xml:lang="en">N in parallel, cached, or offline from cache.</documentation>
+    </element>
+    <element identifier="id-p-select" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Select the providers</name>
+    </element>
+    <element identifier="id-p-load" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Provider.Load</name>
+    </element>
+    <element identifier="id-p-analyze" xsi:type="ApplicationProcess">
+      <name xml:lang="en">analyze.Run</name>
+      <documentation xml:lang="en">Steps to shell and makefile; cross-repo ids.</documentation>
+    </element>
+    <element identifier="id-p-views" xsi:type="ApplicationProcess">
+      <name xml:lang="en">render.BuildViews</name>
+      <documentation xml:lang="en">Overview, full, per repo.</documentation>
+    </element>
+    <element identifier="id-s-welcome" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Welcome</name>
+    </element>
+    <element identifier="id-s-loading" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Loading</name>
+    </element>
+    <element identifier="id-s-ready" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Ready</name>
+    </element>
+    <element identifier="id-t-threads" xsi:type="Grouping">
+      <name xml:lang="en">Background threads (ui::job)</name>
+    </element>
+    <element identifier="id-t-load" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Load / reload (Model::load)</name>
+    </element>
+    <element identifier="id-t-layout" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Layout (build_scene)</name>
+    </element>
+    <element identifier="id-t-compare" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Compare (core::diff)</name>
+    </element>
+    <element identifier="id-t-frame" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Frame loop (App::update)</name>
+    </element>
+    <element identifier="id-t-screens" xsi:type="ApplicationProcess">
+      <name xml:lang="en">Draw the screens</name>
+      <documentation xml:lang="en">snapshot, table, map, prod, images, compare, inspector.</documentation>
+    </element>
+    <element identifier="id-users" xsi:type="BusinessActor">
+      <name xml:lang="en">Pipeline designers · tech leads · QA · DevSecOps</name>
+    </element>
+    <element identifier="id-untrusted" xsi:type="Grouping">
+      <name xml:lang="en">Untrusted</name>
+    </element>
+    <element identifier="id-out-dir" xsi:type="Grouping">
+      <name xml:lang="en">out/</name>
+    </element>
+    <element identifier="id-machine" xsi:type="Node">
+      <name xml:lang="en">Your machine</name>
+    </element>
+    <element identifier="id-container" xsi:type="SystemSoftware">
+      <name xml:lang="en">Docker container (runs as your uid)</name>
+    </element>
+    <element identifier="id-contributor-machine" xsi:type="Node">
+      <name xml:lang="en">Contributor&#39;s machine (make hooks)</name>
+    </element>
+    <element identifier="id-maintainer-machine" xsi:type="Node">
+      <name xml:lang="en">Maintainer&#39;s machine</name>
+    </element>
+    <element identifier="id-g-commit" xsi:type="TechnologyProcess">
+      <name xml:lang="en">git commit (pre-commit hook)</name>
+      <documentation xml:lang="en">Staged files.</documentation>
+    </element>
+    <element identifier="id-g-push" xsi:type="TechnologyProcess">
+      <name xml:lang="en">git push (pre-push hook)</name>
+      <documentation xml:lang="en">All files, plus govulncheck and the history secret scan.</documentation>
+    </element>
+    <element identifier="id-g-review" xsi:type="TechnologyProcess">
+      <name xml:lang="en">Review the branch (make pre-commit-pr-run)</name>
+    </element>
+    <element identifier="id-g-manual" xsi:type="TechnologyProcess">
+      <name xml:lang="en">viewer-shots-check · viewer-bench</name>
+      <documentation xml:lang="en">By hand, when the UI or speed changed.</documentation>
+    </element>
+    <element identifier="id-g-merge" xsi:type="TechnologyProcess">
+      <name xml:lang="en">Merge to master</name>
+    </element>
+    <element identifier="id-developer" xsi:type="BusinessActor">
+      <name xml:lang="en">Developer</name>
+    </element>
+    <element identifier="id-maintainer" xsi:type="BusinessActor">
+      <name xml:lang="en">Maintainer</name>
+    </element>
+    <element identifier="id-shots-check" xsi:type="TechnologyProcess">
+      <name xml:lang="en">make viewer-shots-check</name>
+    </element>
+    <element identifier="id-worktree" xsi:type="Artifact">
+      <name xml:lang="en">Temporary worktree at SOURCE</name>
+    </element>
+    <element identifier="id-new-version" xsi:type="TechnologyProcess">
+      <name xml:lang="en">make new-version</name>
+    </element>
+    <element identifier="id-local-repo" xsi:type="Artifact">
+      <name xml:lang="en">Local repo (master)</name>
+    </element>
+    <element identifier="id-origin" xsi:type="Artifact">
+      <name xml:lang="en">origin (git remote)</name>
+      <documentation xml:lang="en">Branches and tags only.</documentation>
+    </element>
+    <element identifier="id-arch-docs" xsi:type="DataObject">
+      <name xml:lang="en">Architecture docs (Mermaid)</name>
+      <documentation xml:lang="en">docs/architecture.md and docs/architecture/*.md; each Mermaid block is tagged with its view.</documentation>
+    </element>
+    <element identifier="id-model-yaml" xsi:type="DataObject">
+      <name xml:lang="en">model.yaml</name>
+      <documentation xml:lang="en">The hand-written source of the ArchiMate model.</documentation>
+    </element>
+    <element identifier="id-archimate-tool" xsi:type="ApplicationComponent">
+      <name xml:lang="en">tools/archimate</name>
+      <documentation xml:lang="en">make archimate.</documentation>
+    </element>
+    <element identifier="id-exchange-file" xsi:type="DataObject">
+      <name xml:lang="en">model.archimate.xml</name>
+      <documentation xml:lang="en">Generated; the Open Group exchange format, ArchiMate 3.1.</documentation>
+    </element>
+    <element identifier="id-archimate-tests" xsi:type="ApplicationComponent">
+      <name xml:lang="en">tools/archimate tests</name>
+    </element>
+    <element identifier="id-modelling-tool" xsi:type="ApplicationComponent">
+      <name xml:lang="en">Archi · Sparx EA · …</name>
+      <documentation xml:lang="en">Any tool that imports the exchange format.</documentation>
+    </element>
+  </elements>
+  <relationships>
+    <relationship identifier="id-cli-composition-pkg-cmd" source="id-cli" target="id-pkg-cmd" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-config" source="id-cli" target="id-pkg-config" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-fetch" source="id-cli" target="id-pkg-fetch" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-ci" source="id-cli" target="id-pkg-ci" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-kts" source="id-cli" target="id-pkg-kts" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-analyze" source="id-cli" target="id-pkg-analyze" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-shell" source="id-cli" target="id-pkg-shell" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-makefile" source="id-cli" target="id-pkg-makefile" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-render" source="id-cli" target="id-pkg-render" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-layout" source="id-cli" target="id-pkg-layout" xsi:type="Composition"/>
+    <relationship identifier="id-cli-composition-pkg-model" source="id-cli" target="id-pkg-model" xsi:type="Composition"/>
+    <relationship identifier="id-pkg-ci-composition-ci-teamcity" source="id-pkg-ci" target="id-ci-teamcity" xsi:type="Composition"/>
+    <relationship identifier="id-pkg-ci-composition-ci-github" source="id-pkg-ci" target="id-ci-github" xsi:type="Composition"/>
+    <relationship identifier="id-viewer-composition-v-main" source="id-viewer" target="id-v-main" xsi:type="Composition"/>
+    <relationship identifier="id-viewer-composition-v-ui" source="id-viewer" target="id-v-ui" xsi:type="Composition"/>
+    <relationship identifier="id-viewer-composition-v-core" source="id-viewer" target="id-v-core" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-graph" source="id-v-core" target="id-v-core-graph" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-derive" source="id-v-core" target="id-v-core-derive" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-search" source="id-v-core" target="id-v-core-search" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-diff" source="id-v-core" target="id-v-core-diff" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-intern" source="id-v-core" target="id-v-core-intern" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-layout" source="id-v-core" target="id-v-core-layout" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-spatial" source="id-v-core" target="id-v-core-spatial" xsi:type="Composition"/>
+    <relationship identifier="id-diagram-files-composition-drawings" source="id-diagram-files" target="id-drawings" xsi:type="Composition"/>
+    <relationship identifier="id-diagram-files-composition-text-diagrams" source="id-diagram-files" target="id-text-diagrams" xsi:type="Composition"/>
+    <relationship identifier="id-project-dir-composition-graph-json" source="id-project-dir" target="id-graph-json" xsi:type="Composition"/>
+    <relationship identifier="id-project-dir-composition-diagram-files" source="id-project-dir" target="id-diagram-files" xsi:type="Composition"/>
+    <relationship identifier="id-project-dir-composition-warnings" source="id-project-dir" target="id-warnings" xsi:type="Composition"/>
+    <relationship identifier="id-machine-composition-container" source="id-machine" target="id-container" xsi:type="Composition"/>
+    <relationship identifier="id-cli-access-analysed-repos" source="id-cli" target="id-analysed-repos" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">git clone, parsed, never run</name>
+    </relationship>
+    <relationship identifier="id-cli-access-graph-json" source="id-cli" target="id-graph-json" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">writes</name>
+    </relationship>
+    <relationship identifier="id-cli-access-diagram-files" source="id-cli" target="id-diagram-files" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">writes</name>
+    </relationship>
+    <relationship identifier="id-viewer-access-graph-json" source="id-viewer" target="id-graph-json" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">reads</name>
+    </relationship>
+    <relationship identifier="id-pkg-fetch-flow-pkg-ci" source="id-pkg-fetch" target="id-pkg-ci" xsi:type="Flow">
+      <name xml:lang="en">shallow clones</name>
+    </relationship>
+    <relationship identifier="id-pkg-ci-flow-pkg-analyze" source="id-pkg-ci" target="id-pkg-analyze" xsi:type="Flow">
+      <name xml:lang="en">neutral jobs</name>
+    </relationship>
+    <relationship identifier="id-v-core-serving-v-ui" source="id-v-core" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-cli-access-git-creds" source="id-cli" target="id-git-creds" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">auth for git only</name>
+    </relationship>
+    <relationship identifier="id-cli-access-clone-cache" source="id-cli" target="id-clone-cache" xsi:type="Access" accessType="ReadWrite"/>
+    <relationship identifier="id-cli-access-project-dir" source="id-cli" target="id-project-dir" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">drawio · vsdx · html · mmd · dot · graph.json</name>
+    </relationship>
+    <relationship identifier="id-viewer-access-project-dir" source="id-viewer" target="id-project-dir" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">graph.json</name>
+    </relationship>
+    <relationship identifier="id-viewer-serving-users" source="id-viewer" target="id-users" xsi:type="Serving"/>
+    <relationship identifier="id-users-association-project-dir" source="id-users" target="id-project-dir" xsi:type="Association">
+      <name xml:lang="en">browser · draw.io · Miro</name>
+    </relationship>
+    <relationship identifier="id-container-serving-cli" source="id-container" target="id-cli" xsi:type="Serving">
+      <name xml:lang="en">runs</name>
+    </relationship>
+    <relationship identifier="id-d-build-association-d-build" source="id-d-build" target="id-d-build" xsi:type="Association">
+      <name xml:lang="en">snapshot · artifact · trigger</name>
+    </relationship>
+    <relationship identifier="id-d-external-association-d-build" source="id-d-external" target="id-d-build" xsi:type="Association">
+      <name xml:lang="en">snapshot · artifact · trigger</name>
+    </relationship>
+    <relationship identifier="id-d-build-association-d-make" source="id-d-build" target="id-d-make" xsi:type="Association">
+      <name xml:lang="en">runs</name>
+    </relationship>
+    <relationship identifier="id-d-make-association-d-make" source="id-d-make" target="id-d-make" xsi:type="Association">
+      <name xml:lang="en">depends · calls</name>
+    </relationship>
+    <relationship identifier="id-d-build-association-d-image" source="id-d-build" target="id-d-image" xsi:type="Association">
+      <name xml:lang="en">produces · consumes · runsIn</name>
+    </relationship>
+    <relationship identifier="id-d-make-association-d-image" source="id-d-make" target="id-d-image" xsi:type="Association">
+      <name xml:lang="en">produces · consumes · runsIn</name>
+    </relationship>
+    <relationship identifier="id-d-image-association-d-image" source="id-d-image" target="id-d-image" xsi:type="Association">
+      <name xml:lang="en">derives</name>
+    </relationship>
+    <relationship identifier="id-p-config-flow-p-fetch" source="id-p-config" target="id-p-fetch" xsi:type="Flow">
+      <name xml:lang="en">Config</name>
+    </relationship>
+    <relationship identifier="id-p-fetch-flow-p-select" source="id-p-fetch" target="id-p-select" xsi:type="Flow">
+      <name xml:lang="en">checkout + commit</name>
+    </relationship>
+    <relationship identifier="id-p-select-flow-p-load" source="id-p-select" target="id-p-load" xsi:type="Flow">
+      <name xml:lang="en">ci.Repo</name>
+    </relationship>
+    <relationship identifier="id-p-load-flow-p-analyze" source="id-p-load" target="id-p-analyze" xsi:type="Flow">
+      <name xml:lang="en">ci.Pipelines</name>
+    </relationship>
+    <relationship identifier="id-p-analyze-flow-p-views" source="id-p-analyze" target="id-p-views" xsi:type="Flow">
+      <name xml:lang="en">*model.Graph</name>
+    </relationship>
+    <relationship identifier="id-p-analyze-access-text-diagrams" source="id-p-analyze" target="id-text-diagrams" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">overview</name>
+    </relationship>
+    <relationship identifier="id-p-analyze-access-warnings" source="id-p-analyze" target="id-warnings" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">[]warning</name>
+    </relationship>
+    <relationship identifier="id-p-analyze-access-graph-json" source="id-p-analyze" target="id-graph-json" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">*model.Graph, and history/ if changed</name>
+    </relationship>
+    <relationship identifier="id-p-views-access-drawings" source="id-p-views" target="id-drawings" xsi:type="Access" accessType="Write"/>
+    <relationship identifier="id-pkg-config-assignment-p-config" source="id-pkg-config" target="id-p-config" xsi:type="Assignment"/>
+    <relationship identifier="id-pkg-fetch-assignment-p-fetch" source="id-pkg-fetch" target="id-p-fetch" xsi:type="Assignment"/>
+    <relationship identifier="id-pkg-ci-assignment-p-select" source="id-pkg-ci" target="id-p-select" xsi:type="Assignment"/>
+    <relationship identifier="id-pkg-ci-assignment-p-load" source="id-pkg-ci" target="id-p-load" xsi:type="Assignment"/>
+    <relationship identifier="id-pkg-analyze-assignment-p-analyze" source="id-pkg-analyze" target="id-p-analyze" xsi:type="Assignment"/>
+    <relationship identifier="id-pkg-render-assignment-p-views" source="id-pkg-render" target="id-p-views" xsi:type="Assignment"/>
+    <relationship identifier="id-pkg-config-serving-pkg-cmd" source="id-pkg-config" target="id-pkg-cmd" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-fetch-serving-pkg-cmd" source="id-pkg-fetch" target="id-pkg-cmd" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-ci-serving-pkg-cmd" source="id-pkg-ci" target="id-pkg-cmd" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-analyze-serving-pkg-cmd" source="id-pkg-analyze" target="id-pkg-cmd" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-render-serving-pkg-cmd" source="id-pkg-render" target="id-pkg-cmd" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-model-serving-pkg-cmd" source="id-pkg-model" target="id-pkg-cmd" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-kts-serving-pkg-ci" source="id-pkg-kts" target="id-pkg-ci" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-model-serving-pkg-ci" source="id-pkg-model" target="id-pkg-ci" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-model-serving-pkg-kts" source="id-pkg-model" target="id-pkg-kts" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-ci-serving-pkg-analyze" source="id-pkg-ci" target="id-pkg-analyze" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-shell-serving-pkg-analyze" source="id-pkg-shell" target="id-pkg-analyze" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-makefile-serving-pkg-analyze" source="id-pkg-makefile" target="id-pkg-analyze" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-model-serving-pkg-analyze" source="id-pkg-model" target="id-pkg-analyze" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-layout-serving-pkg-render" source="id-pkg-layout" target="id-pkg-render" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-model-serving-pkg-render" source="id-pkg-model" target="id-pkg-render" xsi:type="Serving"/>
+    <relationship identifier="id-pkg-model-serving-pkg-layout" source="id-pkg-model" target="id-pkg-layout" xsi:type="Serving"/>
+    <relationship identifier="id-ci-teamcity-association-provider" source="id-ci-teamcity" target="id-provider" xsi:type="Association">
+      <name xml:lang="en">implements</name>
+    </relationship>
+    <relationship identifier="id-ci-github-association-provider" source="id-ci-github" target="id-provider" xsi:type="Association">
+      <name xml:lang="en">implements</name>
+    </relationship>
+    <relationship identifier="id-ci-teamcity-association-configurable" source="id-ci-teamcity" target="id-configurable" xsi:type="Association">
+      <name xml:lang="en">implements</name>
+    </relationship>
+    <relationship identifier="id-provider-association-pipelines" source="id-provider" target="id-pipelines" xsi:type="Association">
+      <name xml:lang="en">Load returns</name>
+    </relationship>
+    <relationship identifier="id-pipelines-composition-job" source="id-pipelines" target="id-job" xsi:type="Composition"/>
+    <relationship identifier="id-job-association-ref" source="id-job" target="id-ref" xsi:type="Association">
+      <name xml:lang="en">Deps and Triggers name</name>
+    </relationship>
+    <relationship identifier="id-golden-specialization-graph-json" source="id-golden" target="id-graph-json" xsi:type="Specialization"/>
+    <relationship identifier="id-pkg-model-access-golden" source="id-pkg-model" target="id-golden" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">writes</name>
+    </relationship>
+    <relationship identifier="id-it-test-access-golden" source="id-it-test" target="id-golden" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">must equal (-update rewrites)</name>
+    </relationship>
+    <relationship identifier="id-contract-test-access-golden" source="id-contract-test" target="id-golden" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">must parse</name>
+    </relationship>
+    <relationship identifier="id-v-core-graph-serving-contract-test" source="id-v-core-graph" target="id-contract-test" xsi:type="Serving">
+      <name xml:lang="en">the same loader</name>
+    </relationship>
+    <relationship identifier="id-v-ui-serving-v-main" source="id-v-ui" target="id-v-main" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-search-serving-v-ui" source="id-v-core-search" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-derive-serving-v-ui" source="id-v-core-derive" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-diff-serving-v-ui" source="id-v-core-diff" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-graph-serving-v-ui" source="id-v-core-graph" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-layout-serving-v-ui" source="id-v-core-layout" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-spatial-serving-v-ui" source="id-v-core-spatial" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-derive-serving-v-core-search" source="id-v-core-derive" target="id-v-core-search" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-graph-serving-v-core-search" source="id-v-core-graph" target="id-v-core-search" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-graph-serving-v-core-derive" source="id-v-core-graph" target="id-v-core-derive" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-intern-serving-v-core-derive" source="id-v-core-intern" target="id-v-core-derive" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-graph-serving-v-core-diff" source="id-v-core-graph" target="id-v-core-diff" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-intern-serving-v-core-graph" source="id-v-core-intern" target="id-v-core-graph" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-spatial-serving-v-core-layout" source="id-v-core-spatial" target="id-v-core-layout" xsi:type="Serving"/>
+    <relationship identifier="id-s-welcome-triggering-s-loading" source="id-s-welcome" target="id-s-loading" xsi:type="Triggering">
+      <name xml:lang="en">open · drop a file · start with a path</name>
+    </relationship>
+    <relationship identifier="id-s-loading-triggering-s-ready" source="id-s-loading" target="id-s-ready" xsi:type="Triggering">
+      <name xml:lang="en">Model loaded</name>
+    </relationship>
+    <relationship identifier="id-s-loading-triggering-s-welcome" source="id-s-loading" target="id-s-welcome" xsi:type="Triggering">
+      <name xml:lang="en">error, shown on the welcome page</name>
+    </relationship>
+    <relationship identifier="id-s-ready-triggering-s-loading" source="id-s-ready" target="id-s-loading" xsi:type="Triggering">
+      <name xml:lang="en">open another file</name>
+    </relationship>
+    <relationship identifier="id-s-ready-triggering-s-welcome" source="id-s-ready" target="id-s-welcome" xsi:type="Triggering">
+      <name xml:lang="en">File → Close</name>
+    </relationship>
+    <relationship identifier="id-s-ready-triggering-s-ready" source="id-s-ready" target="id-s-ready" xsi:type="Triggering">
+      <name xml:lang="en">reload · compare (background job, state kept)</name>
+    </relationship>
+    <relationship identifier="id-t-load-access-viewer-model" source="id-t-load" target="id-viewer-model" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">new Model</name>
+    </relationship>
+    <relationship identifier="id-t-layout-access-viewer-model" source="id-t-layout" target="id-viewer-model" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">read (Arc clone)</name>
+    </relationship>
+    <relationship identifier="id-t-compare-access-viewer-model" source="id-t-compare" target="id-viewer-model" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">read (Arc clone)</name>
+    </relationship>
+    <relationship identifier="id-viewer-model-association-workspace" source="id-viewer-model" target="id-workspace" xsi:type="Association">
+      <name xml:lang="en">read</name>
+    </relationship>
+    <relationship identifier="id-t-layout-access-workspace" source="id-t-layout" target="id-workspace" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">Arc&lt;SceneLayout&gt;</name>
+    </relationship>
+    <relationship identifier="id-t-compare-access-workspace" source="id-t-compare" target="id-workspace" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">Diff</name>
+    </relationship>
+    <relationship identifier="id-t-frame-access-workspace" source="id-t-frame" target="id-workspace" xsi:type="Access" accessType="ReadWrite">
+      <name xml:lang="en">each frame</name>
+    </relationship>
+    <relationship identifier="id-t-screens-access-workspace" source="id-t-screens" target="id-workspace" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">draws</name>
+    </relationship>
+    <relationship identifier="id-g-commit-triggering-g-push" source="id-g-commit" target="id-g-push" xsi:type="Triggering"/>
+    <relationship identifier="id-g-push-triggering-g-review" source="id-g-push" target="id-g-review" xsi:type="Triggering">
+      <name xml:lang="en">branch on origin</name>
+    </relationship>
+    <relationship identifier="id-g-review-triggering-g-merge" source="id-g-review" target="id-g-merge" xsi:type="Triggering"/>
+    <relationship identifier="id-g-manual-triggering-g-merge" source="id-g-manual" target="id-g-merge" xsi:type="Triggering"/>
+    <relationship identifier="id-developer-association-shots-check" source="id-developer" target="id-shots-check" xsi:type="Association">
+      <name xml:lang="en">run</name>
+    </relationship>
+    <relationship identifier="id-shots-check-access-worktree" source="id-shots-check" target="id-worktree" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">git worktree add, make viewer-shots, cmp, remove</name>
+    </relationship>
+    <relationship identifier="id-worktree-association-viewer" source="id-worktree" target="id-viewer" xsi:type="Association">
+      <name xml:lang="en">pipeline-graph-viewer --shot: 11 PNGs</name>
+    </relationship>
+    <relationship identifier="id-maintainer-association-new-version" source="id-maintainer" target="id-new-version" xsi:type="Association">
+      <name xml:lang="en">BUMP=major, minor or patch</name>
+    </relationship>
+    <relationship identifier="id-new-version-access-local-repo" source="id-new-version" target="id-local-repo" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">VERSION, Cargo files, commit and annotated tag</name>
+    </relationship>
+    <relationship identifier="id-maintainer-association-origin" source="id-maintainer" target="id-origin" xsi:type="Association">
+      <name xml:lang="en">git push origin HEAD vX.Y.Z</name>
+    </relationship>
+    <relationship identifier="id-archimate-tool-access-model-yaml" source="id-archimate-tool" target="id-model-yaml" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">read</name>
+    </relationship>
+    <relationship identifier="id-archimate-tool-access-exchange-file" source="id-archimate-tool" target="id-exchange-file" xsi:type="Access" accessType="Write">
+      <name xml:lang="en">write</name>
+    </relationship>
+    <relationship identifier="id-archimate-tests-access-arch-docs" source="id-archimate-tests" target="id-arch-docs" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">same node ids</name>
+    </relationship>
+    <relationship identifier="id-archimate-tests-access-model-yaml" source="id-archimate-tests" target="id-model-yaml" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">same node ids</name>
+    </relationship>
+    <relationship identifier="id-archimate-tests-access-exchange-file" source="id-archimate-tests" target="id-exchange-file" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">byte for byte</name>
+    </relationship>
+    <relationship identifier="id-modelling-tool-access-exchange-file" source="id-modelling-tool" target="id-exchange-file" xsi:type="Access" accessType="Read">
+      <name xml:lang="en">import</name>
+    </relationship>
+  </relationships>
+  <views>
+    <diagrams>
+      <view identifier="id-overview" xsi:type="Diagram">
+        <name xml:lang="en">Overview: what is the whole system, on one page?</name>
+        <documentation xml:lang="en">The diagram tagged view: overview in docs/architecture.md.</documentation>
+        <node identifier="n-overview-repos" elementRef="id-analysed-repos" xsi:type="Element" x="610" y="36" w="177" h="55"/>
+        <node identifier="n-overview-cli" elementRef="id-cli" xsi:type="Element" x="0" y="0" w="550" h="170">
+          <node identifier="n-overview-fetch" elementRef="id-pkg-fetch" xsi:type="Element" x="20" y="63" w="128" h="55"/>
+          <node identifier="n-overview-prov" elementRef="id-pkg-ci" xsi:type="Element" x="208" y="63" w="120" h="55"/>
+          <node identifier="n-overview-an" elementRef="id-pkg-analyze" xsi:type="Element" x="388" y="63" w="142" h="55"/>
+        </node>
+        <node identifier="n-overview-out" elementRef="id-out-dir" xsi:type="Element" x="619" y="111" w="160" h="180">
+          <node identifier="n-overview-json" elementRef="id-graph-json" xsi:type="Element" x="639" y="141" w="120" h="55"/>
+          <node identifier="n-overview-diagrams" elementRef="id-diagram-files" xsi:type="Element" x="639" y="216" w="120" h="55"/>
+        </node>
+        <node identifier="n-overview-viewer" elementRef="id-viewer" xsi:type="Element" x="62" y="190" w="426" h="170">
+          <node identifier="n-overview-core" elementRef="id-v-core" xsi:type="Element" x="82" y="253" w="184" h="55"/>
+          <node identifier="n-overview-ui" elementRef="id-v-ui" xsi:type="Element" x="326" y="253" w="142" h="55"/>
+        </node>
+        <connection identifier="c-overview-cli-access-analysed-repos" relationshipRef="id-cli-access-analysed-repos" xsi:type="Relationship" source="n-overview-cli" target="n-overview-repos"/>
+        <connection identifier="c-overview-cli-access-graph-json" relationshipRef="id-cli-access-graph-json" xsi:type="Relationship" source="n-overview-cli" target="n-overview-json"/>
+        <connection identifier="c-overview-cli-access-diagram-files" relationshipRef="id-cli-access-diagram-files" xsi:type="Relationship" source="n-overview-cli" target="n-overview-diagrams"/>
+        <connection identifier="c-overview-viewer-access-graph-json" relationshipRef="id-viewer-access-graph-json" xsi:type="Relationship" source="n-overview-viewer" target="n-overview-json"/>
+        <connection identifier="c-overview-pkg-fetch-flow-pkg-ci" relationshipRef="id-pkg-fetch-flow-pkg-ci" xsi:type="Relationship" source="n-overview-fetch" target="n-overview-prov"/>
+        <connection identifier="c-overview-pkg-ci-flow-pkg-analyze" relationshipRef="id-pkg-ci-flow-pkg-analyze" xsi:type="Relationship" source="n-overview-prov" target="n-overview-an"/>
+        <connection identifier="c-overview-v-core-serving-v-ui" relationshipRef="id-v-core-serving-v-ui" xsi:type="Relationship" source="n-overview-core" target="n-overview-ui"/>
+      </view>
+      <view identifier="id-security" xsi:type="Diagram">
+        <name xml:lang="en">Context and trust boundaries: where does untrusted input enter, and what can it touch?</name>
+        <documentation xml:lang="en">The diagram tagged view: security in docs/architecture/security.md.</documentation>
+        <node identifier="n-security-users" elementRef="id-users" xsi:type="Element" x="0" y="120" w="240" h="70"/>
+        <node identifier="n-security-untrusted" elementRef="id-untrusted" xsi:type="Element" x="931" y="70" w="217" h="170">
+          <node identifier="n-security-repos" elementRef="id-analysed-repos" xsi:type="Element" x="951" y="133" w="177" h="55"/>
+        </node>
+        <node identifier="n-security-host" elementRef="id-machine" xsi:type="Element" x="300" y="0" w="571" h="310">
+          <node identifier="n-security-box" elementRef="id-container" xsi:type="Element" x="320" y="45" w="231" h="170">
+            <node identifier="n-security-cli" elementRef="id-cli" xsi:type="Element" x="340" y="108" w="191" h="55"/>
+          </node>
+          <node identifier="n-security-creds" elementRef="id-git-creds" xsi:type="Element" x="611" y="30" w="240" h="70"/>
+          <node identifier="n-security-cache" elementRef="id-clone-cache" xsi:type="Element" x="611" y="120" w="240" h="70"/>
+          <node identifier="n-security-out" elementRef="id-project-dir" xsi:type="Element" x="615" y="210" w="233" h="55"/>
+          <node identifier="n-security-viewer" elementRef="id-viewer" xsi:type="Element" x="323" y="235" w="226" h="55"/>
+        </node>
+        <connection identifier="c-security-cli-access-analysed-repos" relationshipRef="id-cli-access-analysed-repos" xsi:type="Relationship" source="n-security-cli" target="n-security-repos"/>
+        <connection identifier="c-security-cli-access-git-creds" relationshipRef="id-cli-access-git-creds" xsi:type="Relationship" source="n-security-cli" target="n-security-creds"/>
+        <connection identifier="c-security-cli-access-clone-cache" relationshipRef="id-cli-access-clone-cache" xsi:type="Relationship" source="n-security-cli" target="n-security-cache"/>
+        <connection identifier="c-security-cli-access-project-dir" relationshipRef="id-cli-access-project-dir" xsi:type="Relationship" source="n-security-cli" target="n-security-out"/>
+        <connection identifier="c-security-viewer-access-project-dir" relationshipRef="id-viewer-access-project-dir" xsi:type="Relationship" source="n-security-viewer" target="n-security-out"/>
+        <connection identifier="c-security-viewer-serving-users" relationshipRef="id-viewer-serving-users" xsi:type="Relationship" source="n-security-viewer" target="n-security-users"/>
+        <connection identifier="c-security-users-association-project-dir" relationshipRef="id-users-association-project-dir" xsi:type="Relationship" source="n-security-users" target="n-security-out"/>
+      </view>
+      <view identifier="id-domain" xsi:type="Diagram">
+        <name xml:lang="en">Domain model: what does the tool understand?</name>
+        <documentation xml:lang="en">The diagram tagged view: domain in docs/architecture/cli.md.</documentation>
+        <node identifier="n-domain-BUILD" elementRef="id-d-build" xsi:type="Element" x="180" y="20" w="120" h="55"/>
+        <node identifier="n-domain-EXTERNAL" elementRef="id-d-external" xsi:type="Element" x="0" y="20" w="120" h="55"/>
+        <node identifier="n-domain-MAKE_TARGET" elementRef="id-d-make" xsi:type="Element" x="360" y="20" w="120" h="55"/>
+        <node identifier="n-domain-IMAGE" elementRef="id-d-image" xsi:type="Element" x="540" y="45" w="120" h="55"/>
+        <connection identifier="c-domain-d-external-association-d-build" relationshipRef="id-d-external-association-d-build" xsi:type="Relationship" source="n-domain-EXTERNAL" target="n-domain-BUILD"/>
+        <connection identifier="c-domain-d-build-association-d-make" relationshipRef="id-d-build-association-d-make" xsi:type="Relationship" source="n-domain-BUILD" target="n-domain-MAKE_TARGET"/>
+        <connection identifier="c-domain-d-build-association-d-image" relationshipRef="id-d-build-association-d-image" xsi:type="Relationship" source="n-domain-BUILD" target="n-domain-IMAGE"/>
+        <connection identifier="c-domain-d-make-association-d-image" relationshipRef="id-d-make-association-d-image" xsi:type="Relationship" source="n-domain-MAKE_TARGET" target="n-domain-IMAGE"/>
+      </view>
+      <view identifier="id-one-run" xsi:type="Diagram">
+        <name xml:lang="en">One run: what happens in one run, and what flows between stages?</name>
+        <documentation xml:lang="en">The diagram tagged view: one-run in docs/architecture/cli.md.</documentation>
+        <node identifier="n-one-run-cfg" elementRef="id-p-config" xsi:type="Element" x="0" y="73" w="120" h="55"/>
+        <node identifier="n-one-run-fetch" elementRef="id-p-fetch" xsi:type="Element" x="180" y="73" w="120" h="55"/>
+        <node identifier="n-one-run-sel" elementRef="id-p-select" xsi:type="Element" x="360" y="74" w="170" h="55"/>
+        <node identifier="n-one-run-load" elementRef="id-p-load" xsi:type="Element" x="590" y="74" w="121" h="55"/>
+        <node identifier="n-one-run-an" elementRef="id-p-analyze" xsi:type="Element" x="771" y="75" w="120" h="55"/>
+        <node identifier="n-one-run-views" elementRef="id-p-views" xsi:type="Element" x="951" y="0" w="149" h="55"/>
+        <node identifier="n-one-run-text" elementRef="id-text-diagrams" xsi:type="Element" x="966" y="75" w="120" h="55"/>
+        <node identifier="n-one-run-warn" elementRef="id-warnings" xsi:type="Element" x="966" y="150" w="120" h="55"/>
+        <node identifier="n-one-run-json" elementRef="id-graph-json" xsi:type="Element" x="966" y="225" w="120" h="55"/>
+        <node identifier="n-one-run-files" elementRef="id-drawings" xsi:type="Element" x="1160" y="0" w="170" h="55"/>
+        <connection identifier="c-one-run-p-config-flow-p-fetch" relationshipRef="id-p-config-flow-p-fetch" xsi:type="Relationship" source="n-one-run-cfg" target="n-one-run-fetch"/>
+        <connection identifier="c-one-run-p-fetch-flow-p-select" relationshipRef="id-p-fetch-flow-p-select" xsi:type="Relationship" source="n-one-run-fetch" target="n-one-run-sel"/>
+        <connection identifier="c-one-run-p-select-flow-p-load" relationshipRef="id-p-select-flow-p-load" xsi:type="Relationship" source="n-one-run-sel" target="n-one-run-load"/>
+        <connection identifier="c-one-run-p-load-flow-p-analyze" relationshipRef="id-p-load-flow-p-analyze" xsi:type="Relationship" source="n-one-run-load" target="n-one-run-an"/>
+        <connection identifier="c-one-run-p-analyze-flow-p-views" relationshipRef="id-p-analyze-flow-p-views" xsi:type="Relationship" source="n-one-run-an" target="n-one-run-views"/>
+        <connection identifier="c-one-run-p-analyze-access-text-diagrams" relationshipRef="id-p-analyze-access-text-diagrams" xsi:type="Relationship" source="n-one-run-an" target="n-one-run-text"/>
+        <connection identifier="c-one-run-p-analyze-access-warnings" relationshipRef="id-p-analyze-access-warnings" xsi:type="Relationship" source="n-one-run-an" target="n-one-run-warn"/>
+        <connection identifier="c-one-run-p-analyze-access-graph-json" relationshipRef="id-p-analyze-access-graph-json" xsi:type="Relationship" source="n-one-run-an" target="n-one-run-json"/>
+        <connection identifier="c-one-run-p-views-access-drawings" relationshipRef="id-p-views-access-drawings" xsi:type="Relationship" source="n-one-run-views" target="n-one-run-files"/>
+      </view>
+      <view identifier="id-cli-packages" xsi:type="Diagram">
+        <name xml:lang="en">Packages: which Go package imports which?</name>
+        <documentation xml:lang="en">The diagram tagged view: cli-packages in docs/architecture/cli.md.</documentation>
+        <node identifier="n-cli-packages-cmd" elementRef="id-pkg-cmd" xsi:type="Element" x="794" y="127" w="156" h="55"/>
+        <node identifier="n-cli-packages-config" elementRef="id-pkg-config" xsi:type="Element" x="596" y="25" w="135" h="55"/>
+        <node identifier="n-cli-packages-fetch" elementRef="id-pkg-fetch" xsi:type="Element" x="192" y="1" w="128" h="55"/>
+        <node identifier="n-cli-packages-ci" elementRef="id-pkg-ci" xsi:type="Element" x="398" y="26" w="120" h="55"/>
+        <node identifier="n-cli-packages-kts" elementRef="id-pkg-kts" xsi:type="Element" x="196" y="79" w="120" h="55"/>
+        <node identifier="n-cli-packages-analyze" elementRef="id-pkg-analyze" xsi:type="Element" x="592" y="152" w="142" h="55"/>
+        <node identifier="n-cli-packages-shell" elementRef="id-pkg-shell" xsi:type="Element" x="394" y="101" w="128" h="55"/>
+        <node identifier="n-cli-packages-makefile" elementRef="id-pkg-makefile" xsi:type="Element" x="383" y="176" w="149" h="55"/>
+        <node identifier="n-cli-packages-render" elementRef="id-pkg-render" xsi:type="Element" x="390" y="303" w="135" h="55"/>
+        <node identifier="n-cli-packages-layout" elementRef="id-pkg-layout" xsi:type="Element" x="188" y="246" w="135" h="55"/>
+        <node identifier="n-cli-packages-model" elementRef="id-pkg-model" xsi:type="Element" x="0" y="182" w="128" h="55"/>
+        <connection identifier="c-cli-packages-pkg-fetch-flow-pkg-ci" relationshipRef="id-pkg-fetch-flow-pkg-ci" xsi:type="Relationship" source="n-cli-packages-fetch" target="n-cli-packages-ci"/>
+        <connection identifier="c-cli-packages-pkg-ci-flow-pkg-analyze" relationshipRef="id-pkg-ci-flow-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-ci" target="n-cli-packages-analyze"/>
+        <connection identifier="c-cli-packages-pkg-config-serving-pkg-cmd" relationshipRef="id-pkg-config-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-config" target="n-cli-packages-cmd"/>
+        <connection identifier="c-cli-packages-pkg-fetch-serving-pkg-cmd" relationshipRef="id-pkg-fetch-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-fetch" target="n-cli-packages-cmd"/>
+        <connection identifier="c-cli-packages-pkg-ci-serving-pkg-cmd" relationshipRef="id-pkg-ci-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-ci" target="n-cli-packages-cmd"/>
+        <connection identifier="c-cli-packages-pkg-analyze-serving-pkg-cmd" relationshipRef="id-pkg-analyze-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-analyze" target="n-cli-packages-cmd"/>
+        <connection identifier="c-cli-packages-pkg-render-serving-pkg-cmd" relationshipRef="id-pkg-render-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-render" target="n-cli-packages-cmd"/>
+        <connection identifier="c-cli-packages-pkg-model-serving-pkg-cmd" relationshipRef="id-pkg-model-serving-pkg-cmd" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-cmd"/>
+        <connection identifier="c-cli-packages-pkg-kts-serving-pkg-ci" relationshipRef="id-pkg-kts-serving-pkg-ci" xsi:type="Relationship" source="n-cli-packages-kts" target="n-cli-packages-ci"/>
+        <connection identifier="c-cli-packages-pkg-model-serving-pkg-ci" relationshipRef="id-pkg-model-serving-pkg-ci" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-ci"/>
+        <connection identifier="c-cli-packages-pkg-model-serving-pkg-kts" relationshipRef="id-pkg-model-serving-pkg-kts" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-kts"/>
+        <connection identifier="c-cli-packages-pkg-ci-serving-pkg-analyze" relationshipRef="id-pkg-ci-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-ci" target="n-cli-packages-analyze"/>
+        <connection identifier="c-cli-packages-pkg-shell-serving-pkg-analyze" relationshipRef="id-pkg-shell-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-shell" target="n-cli-packages-analyze"/>
+        <connection identifier="c-cli-packages-pkg-makefile-serving-pkg-analyze" relationshipRef="id-pkg-makefile-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-makefile" target="n-cli-packages-analyze"/>
+        <connection identifier="c-cli-packages-pkg-model-serving-pkg-analyze" relationshipRef="id-pkg-model-serving-pkg-analyze" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-analyze"/>
+        <connection identifier="c-cli-packages-pkg-layout-serving-pkg-render" relationshipRef="id-pkg-layout-serving-pkg-render" xsi:type="Relationship" source="n-cli-packages-layout" target="n-cli-packages-render"/>
+        <connection identifier="c-cli-packages-pkg-model-serving-pkg-render" relationshipRef="id-pkg-model-serving-pkg-render" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-render"/>
+        <connection identifier="c-cli-packages-pkg-model-serving-pkg-layout" relationshipRef="id-pkg-model-serving-pkg-layout" xsi:type="Relationship" source="n-cli-packages-model" target="n-cli-packages-layout"/>
+      </view>
+      <view identifier="id-provider-seam" xsi:type="Diagram">
+        <name xml:lang="en">The provider seam: what does adding a CI system cost?</name>
+        <documentation xml:lang="en">The diagram tagged view: provider-seam in docs/architecture/cli.md.</documentation>
+        <node identifier="n-provider-seam-Provider" elementRef="id-provider" xsi:type="Element" x="238" y="75" w="120" h="55"/>
+        <node identifier="n-provider-seam-Configurable" elementRef="id-configurable" xsi:type="Element" x="230" y="0" w="135" h="55"/>
+        <node identifier="n-provider-seam-Pipelines" elementRef="id-pipelines" xsi:type="Element" x="425" y="63" w="120" h="55"/>
+        <node identifier="n-provider-seam-Job" elementRef="id-job" xsi:type="Element" x="605" y="56" w="120" h="55"/>
+        <node identifier="n-provider-seam-Ref" elementRef="id-ref" xsi:type="Element" x="785" y="56" w="120" h="55"/>
+        <node identifier="n-provider-seam-teamcity" elementRef="id-ci-teamcity" xsi:type="Element" x="0" y="16" w="170" h="55"/>
+        <node identifier="n-provider-seam-github" elementRef="id-ci-github" xsi:type="Element" x="7" y="91" w="156" h="55"/>
+        <connection identifier="c-provider-seam-ci-teamcity-association-provider" relationshipRef="id-ci-teamcity-association-provider" xsi:type="Relationship" source="n-provider-seam-teamcity" target="n-provider-seam-Provider"/>
+        <connection identifier="c-provider-seam-ci-github-association-provider" relationshipRef="id-ci-github-association-provider" xsi:type="Relationship" source="n-provider-seam-github" target="n-provider-seam-Provider"/>
+        <connection identifier="c-provider-seam-ci-teamcity-association-configurable" relationshipRef="id-ci-teamcity-association-configurable" xsi:type="Relationship" source="n-provider-seam-teamcity" target="n-provider-seam-Configurable"/>
+        <connection identifier="c-provider-seam-provider-association-pipelines" relationshipRef="id-provider-association-pipelines" xsi:type="Relationship" source="n-provider-seam-Provider" target="n-provider-seam-Pipelines"/>
+        <connection identifier="c-provider-seam-pipelines-composition-job" relationshipRef="id-pipelines-composition-job" xsi:type="Relationship" source="n-provider-seam-Pipelines" target="n-provider-seam-Job"/>
+        <connection identifier="c-provider-seam-job-association-ref" relationshipRef="id-job-association-ref" xsi:type="Relationship" source="n-provider-seam-Job" target="n-provider-seam-Ref"/>
+      </view>
+      <view identifier="id-contract" xsi:type="Diagram">
+        <name xml:lang="en">The graph.json contract: how can the Go and Rust halves never drift apart?</name>
+        <documentation xml:lang="en">The diagram tagged view: contract in docs/architecture/contract.md.</documentation>
+        <node identifier="n-contract-model" elementRef="id-pkg-model" xsi:type="Element" x="215" y="0" w="128" h="55"/>
+        <node identifier="n-contract-golden" elementRef="id-golden" xsi:type="Element" x="438" y="75" w="149" h="55"/>
+        <node identifier="n-contract-integ" elementRef="id-it-test" xsi:type="Element" x="198" y="150" w="163" h="55"/>
+        <node identifier="n-contract-contract" elementRef="id-contract-test" xsi:type="Element" x="180" y="75" w="198" h="55"/>
+        <node identifier="n-contract-loader" elementRef="id-v-core-graph" xsi:type="Element" x="0" y="75" w="120" h="55"/>
+        <connection identifier="c-contract-pkg-model-access-golden" relationshipRef="id-pkg-model-access-golden" xsi:type="Relationship" source="n-contract-model" target="n-contract-golden"/>
+        <connection identifier="c-contract-it-test-access-golden" relationshipRef="id-it-test-access-golden" xsi:type="Relationship" source="n-contract-integ" target="n-contract-golden"/>
+        <connection identifier="c-contract-contract-test-access-golden" relationshipRef="id-contract-test-access-golden" xsi:type="Relationship" source="n-contract-contract" target="n-contract-golden"/>
+        <connection identifier="c-contract-v-core-graph-serving-contract-test" relationshipRef="id-v-core-graph-serving-contract-test" xsi:type="Relationship" source="n-contract-loader" target="n-contract-contract"/>
+      </view>
+      <view identifier="id-viewer-modules" xsi:type="Diagram">
+        <name xml:lang="en">Modules: which module uses which, and what keeps core free of the UI?</name>
+        <documentation xml:lang="en">The diagram tagged view: viewer-modules in docs/architecture/viewer.md.</documentation>
+        <node identifier="n-viewer-modules-main" elementRef="id-v-main" xsi:type="Element" x="963" y="93" w="128" h="55"/>
+        <node identifier="n-viewer-modules-ui" elementRef="id-v-ui" xsi:type="Element" x="761" y="93" w="142" h="55"/>
+        <node identifier="n-viewer-modules-core" elementRef="id-v-core" xsi:type="Element" x="0" y="0" w="701" h="241">
+          <node identifier="n-viewer-modules-core_search" elementRef="id-v-core-search" xsi:type="Element" x="561" y="106" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_derive" elementRef="id-v-core-derive" xsi:type="Element" x="381" y="131" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_diff" elementRef="id-v-core-diff" xsi:type="Element" x="381" y="30" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_graph" elementRef="id-v-core-graph" xsi:type="Element" x="201" y="65" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_intern" elementRef="id-v-core-intern" xsi:type="Element" x="21" y="85" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_layout" elementRef="id-v-core-layout" xsi:type="Element" x="201" y="166" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_spatial" elementRef="id-v-core-spatial" xsi:type="Element" x="20" y="161" w="121" h="55"/>
+        </node>
+        <connection identifier="c-viewer-modules-v-core-serving-v-ui" relationshipRef="id-v-core-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-ui-serving-v-main" relationshipRef="id-v-ui-serving-v-main" xsi:type="Relationship" source="n-viewer-modules-ui" target="n-viewer-modules-main"/>
+        <connection identifier="c-viewer-modules-v-core-search-serving-v-ui" relationshipRef="id-v-core-search-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_search" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-derive-serving-v-ui" relationshipRef="id-v-core-derive-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_derive" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-diff-serving-v-ui" relationshipRef="id-v-core-diff-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_diff" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-graph-serving-v-ui" relationshipRef="id-v-core-graph-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-layout-serving-v-ui" relationshipRef="id-v-core-layout-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_layout" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-spatial-serving-v-ui" relationshipRef="id-v-core-spatial-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_spatial" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-derive-serving-v-core-search" relationshipRef="id-v-core-derive-serving-v-core-search" xsi:type="Relationship" source="n-viewer-modules-core_derive" target="n-viewer-modules-core_search"/>
+        <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-search" relationshipRef="id-v-core-graph-serving-v-core-search" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_search"/>
+        <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-derive" relationshipRef="id-v-core-graph-serving-v-core-derive" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_derive"/>
+        <connection identifier="c-viewer-modules-v-core-intern-serving-v-core-derive" relationshipRef="id-v-core-intern-serving-v-core-derive" xsi:type="Relationship" source="n-viewer-modules-core_intern" target="n-viewer-modules-core_derive"/>
+        <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-diff" relationshipRef="id-v-core-graph-serving-v-core-diff" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_diff"/>
+        <connection identifier="c-viewer-modules-v-core-intern-serving-v-core-graph" relationshipRef="id-v-core-intern-serving-v-core-graph" xsi:type="Relationship" source="n-viewer-modules-core_intern" target="n-viewer-modules-core_graph"/>
+        <connection identifier="c-viewer-modules-v-core-spatial-serving-v-core-layout" relationshipRef="id-v-core-spatial-serving-v-core-layout" xsi:type="Relationship" source="n-viewer-modules-core_spatial" target="n-viewer-modules-core_layout"/>
+      </view>
+      <view identifier="id-viewer-phases" xsi:type="Diagram">
+        <name xml:lang="en">Run time, phases: what states does the app move through?</name>
+        <documentation xml:lang="en">The diagram tagged view: viewer-phases in docs/architecture/viewer.md.</documentation>
+        <node identifier="n-viewer-phases-Welcome" elementRef="id-s-welcome" xsi:type="Element" x="0" y="20" w="120" h="55"/>
+        <node identifier="n-viewer-phases-Loading" elementRef="id-s-loading" xsi:type="Element" x="180" y="20" w="120" h="55"/>
+        <node identifier="n-viewer-phases-Ready" elementRef="id-s-ready" xsi:type="Element" x="360" y="20" w="120" h="55"/>
+        <connection identifier="c-viewer-phases-s-welcome-triggering-s-loading" relationshipRef="id-s-welcome-triggering-s-loading" xsi:type="Relationship" source="n-viewer-phases-Welcome" target="n-viewer-phases-Loading"/>
+        <connection identifier="c-viewer-phases-s-loading-triggering-s-ready" relationshipRef="id-s-loading-triggering-s-ready" xsi:type="Relationship" source="n-viewer-phases-Loading" target="n-viewer-phases-Ready"/>
+        <connection identifier="c-viewer-phases-s-loading-triggering-s-welcome" relationshipRef="id-s-loading-triggering-s-welcome" xsi:type="Relationship" source="n-viewer-phases-Loading" target="n-viewer-phases-Welcome"/>
+        <connection identifier="c-viewer-phases-s-ready-triggering-s-loading" relationshipRef="id-s-ready-triggering-s-loading" xsi:type="Relationship" source="n-viewer-phases-Ready" target="n-viewer-phases-Loading"/>
+        <connection identifier="c-viewer-phases-s-ready-triggering-s-welcome" relationshipRef="id-s-ready-triggering-s-welcome" xsi:type="Relationship" source="n-viewer-phases-Ready" target="n-viewer-phases-Welcome"/>
+      </view>
+      <view identifier="id-viewer-ownership" xsi:type="Diagram">
+        <name xml:lang="en">Run time, ownership: what is shared, what is mutable, and what runs off the UI thread?</name>
+        <documentation xml:lang="en">The diagram tagged view: viewer-ownership in docs/architecture/viewer.md.</documentation>
+        <node identifier="n-viewer-ownership-bg" elementRef="id-t-threads" xsi:type="Element" x="0" y="0" w="259" h="255">
+          <node identifier="n-viewer-ownership-jl" elementRef="id-t-load" xsi:type="Element" x="20" y="30" w="219" h="55"/>
+          <node identifier="n-viewer-ownership-jy" elementRef="id-t-layout" xsi:type="Element" x="45" y="105" w="170" h="55"/>
+          <node identifier="n-viewer-ownership-jc" elementRef="id-t-compare" xsi:type="Element" x="45" y="180" w="170" h="55"/>
+        </node>
+        <node identifier="n-viewer-ownership-model" elementRef="id-viewer-model" xsi:type="Element" x="326" y="0" w="184" h="55"/>
+        <node identifier="n-viewer-ownership-ws" elementRef="id-workspace" xsi:type="Element" x="577" y="76" w="163" h="55"/>
+        <node identifier="n-viewer-ownership-frame" elementRef="id-t-frame" xsi:type="Element" x="319" y="101" w="198" h="55"/>
+        <node identifier="n-viewer-ownership-screens" elementRef="id-t-screens" xsi:type="Element" x="347" y="176" w="142" h="55"/>
+        <connection identifier="c-viewer-ownership-t-load-access-viewer-model" relationshipRef="id-t-load-access-viewer-model" xsi:type="Relationship" source="n-viewer-ownership-jl" target="n-viewer-ownership-model"/>
+        <connection identifier="c-viewer-ownership-t-layout-access-viewer-model" relationshipRef="id-t-layout-access-viewer-model" xsi:type="Relationship" source="n-viewer-ownership-jy" target="n-viewer-ownership-model"/>
+        <connection identifier="c-viewer-ownership-t-compare-access-viewer-model" relationshipRef="id-t-compare-access-viewer-model" xsi:type="Relationship" source="n-viewer-ownership-jc" target="n-viewer-ownership-model"/>
+        <connection identifier="c-viewer-ownership-viewer-model-association-workspace" relationshipRef="id-viewer-model-association-workspace" xsi:type="Relationship" source="n-viewer-ownership-model" target="n-viewer-ownership-ws"/>
+        <connection identifier="c-viewer-ownership-t-layout-access-workspace" relationshipRef="id-t-layout-access-workspace" xsi:type="Relationship" source="n-viewer-ownership-jy" target="n-viewer-ownership-ws"/>
+        <connection identifier="c-viewer-ownership-t-compare-access-workspace" relationshipRef="id-t-compare-access-workspace" xsi:type="Relationship" source="n-viewer-ownership-jc" target="n-viewer-ownership-ws"/>
+        <connection identifier="c-viewer-ownership-t-frame-access-workspace" relationshipRef="id-t-frame-access-workspace" xsi:type="Relationship" source="n-viewer-ownership-frame" target="n-viewer-ownership-ws"/>
+        <connection identifier="c-viewer-ownership-t-screens-access-workspace" relationshipRef="id-t-screens-access-workspace" xsi:type="Relationship" source="n-viewer-ownership-screens" target="n-viewer-ownership-ws"/>
+      </view>
+      <view identifier="id-gate" xsi:type="Diagram">
+        <name xml:lang="en">Defence in depth: where is a mistake stopped before it reaches master?</name>
+        <documentation xml:lang="en">The diagram tagged view: gate in docs/architecture/quality.md.</documentation>
+        <node identifier="n-gate-contributor" elementRef="id-contributor-machine" xsi:type="Element" x="0" y="20" w="524" h="170">
+          <node identifier="n-gate-commit" elementRef="id-g-commit" xsi:type="Element" x="20" y="83" w="226" h="55"/>
+          <node identifier="n-gate-push" elementRef="id-g-push" xsi:type="Element" x="306" y="83" w="198" h="55"/>
+        </node>
+        <node identifier="n-gate-maintainer" elementRef="id-maintainer-machine" xsi:type="Element" x="584" y="0" w="475" h="210">
+          <node identifier="n-gate-review" elementRef="id-g-review" xsi:type="Element" x="604" y="30" w="240" h="70"/>
+          <node identifier="n-gate-manual" elementRef="id-g-manual" xsi:type="Element" x="604" y="120" w="240" h="70"/>
+          <node identifier="n-gate-merge" elementRef="id-g-merge" xsi:type="Element" x="904" y="83" w="135" h="55"/>
+        </node>
+        <connection identifier="c-gate-g-commit-triggering-g-push" relationshipRef="id-g-commit-triggering-g-push" xsi:type="Relationship" source="n-gate-commit" target="n-gate-push"/>
+        <connection identifier="c-gate-g-push-triggering-g-review" relationshipRef="id-g-push-triggering-g-review" xsi:type="Relationship" source="n-gate-push" target="n-gate-review"/>
+        <connection identifier="c-gate-g-review-triggering-g-merge" relationshipRef="id-g-review-triggering-g-merge" xsi:type="Relationship" source="n-gate-review" target="n-gate-merge"/>
+        <connection identifier="c-gate-g-manual-triggering-g-merge" relationshipRef="id-g-manual-triggering-g-merge" xsi:type="Relationship" source="n-gate-manual" target="n-gate-merge"/>
+      </view>
+      <view identifier="id-screenshots" xsi:type="Diagram">
+        <name xml:lang="en">Reproducible screenshots: how do we know the pictures in the docs are the real app at a known commit?</name>
+        <documentation xml:lang="en">The diagram tagged view: screenshots in docs/architecture/quality.md.</documentation>
+        <node identifier="n-screenshots-dev" elementRef="id-developer" xsi:type="Element" x="0" y="33" w="120" h="55"/>
+        <node identifier="n-screenshots-mk" elementRef="id-shots-check" xsi:type="Element" x="180" y="33" w="191" h="55"/>
+        <node identifier="n-screenshots-wt" elementRef="id-worktree" xsi:type="Element" x="431" y="33" w="226" h="55"/>
+        <node identifier="n-screenshots-v" elementRef="id-viewer" xsi:type="Element" x="717" y="33" w="226" h="55"/>
+        <connection identifier="c-screenshots-developer-association-shots-check" relationshipRef="id-developer-association-shots-check" xsi:type="Relationship" source="n-screenshots-dev" target="n-screenshots-mk"/>
+        <connection identifier="c-screenshots-shots-check-access-worktree" relationshipRef="id-shots-check-access-worktree" xsi:type="Relationship" source="n-screenshots-mk" target="n-screenshots-wt"/>
+        <connection identifier="c-screenshots-worktree-association-viewer" relationshipRef="id-worktree-association-viewer" xsi:type="Relationship" source="n-screenshots-wt" target="n-screenshots-v"/>
+      </view>
+      <view identifier="id-release" xsi:type="Diagram">
+        <name xml:lang="en">Release: how is a version cut?</name>
+        <documentation xml:lang="en">The diagram tagged view: release in docs/architecture/quality.md.</documentation>
+        <node identifier="n-release-dev" elementRef="id-maintainer" xsi:type="Element" x="0" y="38" w="120" h="55"/>
+        <node identifier="n-release-mk" elementRef="id-new-version" xsi:type="Element" x="191" y="0" w="142" h="55"/>
+        <node identifier="n-release-local" elementRef="id-local-repo" xsi:type="Element" x="403" y="0" w="163" h="55"/>
+        <node identifier="n-release-origin" elementRef="id-origin" xsi:type="Element" x="180" y="75" w="163" h="55"/>
+        <connection identifier="c-release-maintainer-association-new-version" relationshipRef="id-maintainer-association-new-version" xsi:type="Relationship" source="n-release-dev" target="n-release-mk"/>
+        <connection identifier="c-release-new-version-access-local-repo" relationshipRef="id-new-version-access-local-repo" xsi:type="Relationship" source="n-release-mk" target="n-release-local"/>
+        <connection identifier="c-release-maintainer-association-origin" relationshipRef="id-maintainer-association-origin" xsi:type="Relationship" source="n-release-dev" target="n-release-origin"/>
+      </view>
+      <view identifier="id-archimate" xsi:type="Diagram">
+        <name xml:lang="en">The ArchiMate model: what is the source, what is generated, and what fails when they drift?</name>
+        <documentation xml:lang="en">The diagram tagged view: archimate in docs/architecture/archimate.md.</documentation>
+        <node identifier="n-archimate-docs" elementRef="id-arch-docs" xsi:type="Element" x="237" y="75" w="219" h="55"/>
+        <node identifier="n-archimate-yaml" elementRef="id-model-yaml" xsi:type="Element" x="287" y="0" w="120" h="55"/>
+        <node identifier="n-archimate-tool" elementRef="id-archimate-tool" xsi:type="Element" x="21" y="13" w="135" h="55"/>
+        <node identifier="n-archimate-xml" elementRef="id-exchange-file" xsi:type="Element" x="265" y="150" w="163" h="55"/>
+        <node identifier="n-archimate-tests" elementRef="id-archimate-tests" xsi:type="Element" x="0" y="88" w="177" h="55"/>
+        <node identifier="n-archimate-archi" elementRef="id-modelling-tool" xsi:type="Element" x="4" y="163" w="170" h="55"/>
+        <connection identifier="c-archimate-archimate-tool-access-model-yaml" relationshipRef="id-archimate-tool-access-model-yaml" xsi:type="Relationship" source="n-archimate-tool" target="n-archimate-yaml"/>
+        <connection identifier="c-archimate-archimate-tool-access-exchange-file" relationshipRef="id-archimate-tool-access-exchange-file" xsi:type="Relationship" source="n-archimate-tool" target="n-archimate-xml"/>
+        <connection identifier="c-archimate-archimate-tests-access-arch-docs" relationshipRef="id-archimate-tests-access-arch-docs" xsi:type="Relationship" source="n-archimate-tests" target="n-archimate-docs"/>
+        <connection identifier="c-archimate-archimate-tests-access-model-yaml" relationshipRef="id-archimate-tests-access-model-yaml" xsi:type="Relationship" source="n-archimate-tests" target="n-archimate-yaml"/>
+        <connection identifier="c-archimate-archimate-tests-access-exchange-file" relationshipRef="id-archimate-tests-access-exchange-file" xsi:type="Relationship" source="n-archimate-tests" target="n-archimate-xml"/>
+        <connection identifier="c-archimate-modelling-tool-access-exchange-file" relationshipRef="id-modelling-tool-access-exchange-file" xsi:type="Relationship" source="n-archimate-archi" target="n-archimate-xml"/>
+      </view>
+    </diagrams>
+  </views>
+</model>

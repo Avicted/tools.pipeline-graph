@@ -8,6 +8,7 @@ stated under its heading.
 *Answers: where does untrusted input enter, and what can it touch?*
 
 ```mermaid
+%% view: security
 flowchart LR
     users(["pipeline designers · tech leads · QA · DevSecOps"])
     subgraph untrusted["untrusted"]
