@@ -200,7 +200,7 @@ func (a *analyzer) depEdge(l loaded, d ci.Dep, to, file string) {
 	if d.Artifacts {
 		kind = model.EdgeArtifact
 	}
-	a.g.AddEdge(model.Edge{From: from, To: to, Kind: kind, Label: oneLine(d.Rules)})
+	a.g.AddEdge(model.Edge{From: from, To: to, Kind: kind, Label: inlineScript(d.Rules)})
 }
 
 // resolve maps a job reference to a node id, creating an external stub if needed.
@@ -399,10 +399,7 @@ func firstLine(lines []string) string {
 	for _, l := range lines {
 		l = strings.TrimLeft(strings.TrimSpace(l), "@-+")
 		if l != "" {
-			if len(l) > 60 {
-				l = l[:57] + "..."
-			}
-			return l
+			return shell.Truncate(l, 60)
 		}
 	}
 	return ""
@@ -562,6 +559,7 @@ func keys(m map[string]bool) []string {
 	return out
 }
 
-func oneLine(s string) string {
+// inlineScript flattens a script to one line, a newline becoming "; ".
+func inlineScript(s string) string {
 	return strings.Join(strings.Fields(strings.ReplaceAll(s, "\n", "; ")), " ")
 }

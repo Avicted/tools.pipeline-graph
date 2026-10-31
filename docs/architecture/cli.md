@@ -108,6 +108,7 @@ flowchart LR
     ci --> kts
     ci --> model
     ci --> repofs
+    ci --> shell
     analyze --> ci
     analyze --> shell
     analyze --> makefile
@@ -134,7 +135,7 @@ An arrow is an import. Only `cmd/pipeline-graph` wires the stages together; `con
 | `internal/fetch` | Shallow `git clone` with the system git and BatchMode ssh, limited to http, https, ssh, git and file URLs. Each request has its own cache directory (readable name plus a hash of URL and branch), and only a directory this run created is ever deleted. Local directories are used in place |
 | `internal/ci` | The provider seam ([below](#the-provider-seam)) and the neutral job model |
 | `internal/kts` | Tolerant Kotlin tokenizer and parser: a loose syntax tree, nothing about TeamCity. The TeamCity meaning of that tree (builds, templates, triggers) is in `internal/ci/teamcity` |
-| `internal/shell`, `internal/makefile` | Find `make`, `docker` and script calls in step text; parse Makefiles |
+| `internal/shell`, `internal/makefile` | Find `make`, `docker` and script calls in step text, and spell docker steps back as shell; parse Makefiles |
 | `internal/repofs` | The only way repository files are read: confined to the repo root (no `..`, no symlink out), regular files only, size-capped |
 | `internal/analyze` | Turns every provider's jobs into one graph; resolves references across repositories |
 | `internal/model` | The graph types and `graph.json` (`SchemaVersion`) |

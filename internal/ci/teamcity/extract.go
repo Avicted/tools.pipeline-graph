@@ -11,6 +11,7 @@ import (
 	"github.com/Avicted/tools.pipeline-graph/internal/kts"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
 	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
+	"github.com/Avicted/tools.pipeline-graph/internal/shell"
 )
 
 type RefKind int
@@ -1082,7 +1083,6 @@ func first(f map[string]string, keys ...string) string {
 // dockerScript turns a dockerCommand runner into equivalent shell so images are discovered uniformly.
 func dockerScript(f map[string]string, calls []string) string {
 	tags := strings.Fields(f["namesAndTags"])
-	var lines []string
 	kind := "build"
 	for _, c := range calls {
 		if c == "push" || c == "build" || c == "other" {
@@ -1091,39 +1091,17 @@ func dockerScript(f map[string]string, calls []string) string {
 	}
 	switch kind {
 	case "build":
-		cmd := "docker build"
-		if p := f["path"]; p != "" {
-			cmd += " -f " + p
-		}
-		for _, t := range tags {
-			cmd += " -t " + t
-		}
-		if c := f["contextDir"]; c != "" {
-			cmd += " " + c
-		} else {
-			cmd += " ."
-		}
-		lines = append(lines, cmd)
+		return shell.BuildCommand(f["path"], tags, nil, f["contextDir"])
 	case "push":
-		for _, t := range tags {
-			lines = append(lines, "docker push "+t)
-		}
-	default:
-		lines = append(lines, strings.TrimSpace("docker "+f["subCommand"]+" "+f["commandArgs"]))
+		return strings.Join(shell.PushCommands(tags), "\n")
 	}
-	return strings.Join(lines, "\n")
+	return strings.TrimSpace("docker " + f["subCommand"] + " " + f["commandArgs"])
 }
 
+// summarize is a step's first meaningful line, or its type when there is none.
 func summarize(st model.Step) string {
-	for _, l := range strings.Split(st.Script, "\n") {
-		l = strings.TrimSpace(l)
-		if l == "" || strings.HasPrefix(l, "#") || l == "set -e" || strings.HasPrefix(l, "set -") {
-			continue
-		}
-		if len(l) > 60 {
-			l = l[:57] + "..."
-		}
-		return l
+	if s := shell.Summary(st.Script); s != "" {
+		return s
 	}
 	return st.Type
 }
@@ -1193,7 +1171,7 @@ func (e *extractor) triggers(b *Build, body []*kts.Node) {
 		e.stepFields(lam.Body, f, &calls)
 		switch typ {
 		case "vcs":
-			t.Detail = oneLine(first(f, "branchFilter", "triggerRules"))
+			t.Detail = joinLines(first(f, "branchFilter", "triggerRules"))
 		case "schedule":
 			var parts []string
 			for _, c := range calls {
@@ -1221,7 +1199,8 @@ func (e *extractor) triggers(b *Build, body []*kts.Node) {
 	}
 }
 
-func oneLine(s string) string {
+// joinLines trims every line and joins the non-empty ones with a space.
+func joinLines(s string) string {
 	var out []string
 	for _, l := range strings.Split(s, "\n") {
 		if l = strings.TrimSpace(l); l != "" {

@@ -211,6 +211,7 @@ relationships:
   - {type: Serving, source: pkg-model, target: pkg-render}
   - {type: Serving, source: pkg-model, target: pkg-layout}
   - {type: Serving, source: pkg-repofs, target: pkg-ci}
+  - {type: Serving, source: pkg-shell, target: pkg-ci}
   - {type: Serving, source: pkg-repofs, target: pkg-analyze}
   - {type: Serving, source: pkg-repofs, target: pkg-makefile}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/Avicted/tools.pipeline-graph/internal/ci"
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
 	"github.com/Avicted/tools.pipeline-graph/internal/repofs"
+	"github.com/Avicted/tools.pipeline-graph/internal/shell"
 )
 
 const workflowsDir = ".github/workflows"
@@ -351,7 +352,7 @@ func step(n *yaml.Node, defaultDir string) (steps []model.Step, up, down []strin
 		dir = defaultDir
 	}
 	if run := scalar(get(n, "run")); run != "" {
-		return []model.Step{{Name: name, Type: "run", Script: run, WorkDir: dir, Summary: summary(run)}}, nil, nil
+		return []model.Step{{Name: name, Type: "run", Script: run, WorkDir: dir, Summary: shell.Summary(run)}}, nil, nil
 	}
 	uses := scalar(get(n, "uses"))
 	if uses == "" {
@@ -406,45 +407,19 @@ func tags(with map[string]string) []string {
 // buildScript spells docker/build-push-action as the shell it runs, so the
 // analyzer finds images, Dockerfiles and base images the same way as elsewhere.
 func buildScript(with map[string]string) string {
-	cmd := "docker build"
-	if f := with["file"]; f != "" {
-		cmd += " -f " + f
-	}
 	ts := tags(with)
-	for _, t := range ts {
-		cmd += " -t " + t
-	}
+	var args []string
 	for _, a := range strings.Split(with["build-args"], "\n") {
 		if a = strings.TrimSpace(a); a != "" {
-			cmd += " --build-arg " + a
+			args = append(args, a)
 		}
 	}
-	ctx := with["context"]
-	if ctx == "" {
-		ctx = "."
-	}
-	lines := []string{cmd + " " + ctx}
+	lines := []string{shell.BuildCommand(with["file"], ts, args, with["context"])}
 	// push is off unless asked for; an expression is assumed to be on
 	if p := with["push"]; p != "" && p != "false" {
-		for _, t := range ts {
-			lines = append(lines, "docker push "+t)
-		}
+		lines = append(lines, shell.PushCommands(ts)...)
 	}
 	return strings.Join(lines, "\n")
-}
-
-func summary(script string) string {
-	for _, l := range strings.Split(script, "\n") {
-		l = strings.TrimSpace(l)
-		if l == "" || strings.HasPrefix(l, "#") || strings.HasPrefix(l, "set -") {
-			continue
-		}
-		if len(l) > 60 {
-			l = l[:57] + "..."
-		}
-		return l
-	}
-	return ""
 }
 
 // --- yaml.Node helpers; all are nil-safe so lookups chain
