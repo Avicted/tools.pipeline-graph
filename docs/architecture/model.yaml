@@ -30,6 +30,8 @@ elements:
   - {id: v-main, type: ApplicationComponent, name: viewer main.rs, doc: The window and the command-line flags.}
   - {id: v-ui, type: ApplicationComponent, name: viewer ui (egui), doc: "app, screens, canvas, job, shots, headless, theme."}
   - {id: v-core, type: ApplicationComponent, name: viewer core (headless), doc: Doesn't depend on egui.}
+  - {id: v-core-model, type: ApplicationComponent, name: core::model, doc: "A loaded graph with everything derived from it: Graph, Derived and the search index."}
+  - {id: v-core-scene, type: ApplicationComponent, name: core::scene, doc: "What the map shows (all jobs, a repository, one lineage), with a position for every node and a route for every edge."}
   - {id: v-core-graph, type: ApplicationComponent, name: core::graph, doc: The graph.json loader; refuses a newer schemaVersion.}
   - {id: v-core-derive, type: ApplicationComponent, name: core::derive}
   - {id: v-core-search, type: ApplicationComponent, name: core::search}
@@ -138,6 +140,8 @@ relationships:
   - {type: Composition, source: viewer, target: v-core}
   - {type: Composition, source: v-core, target: v-core-graph}
   - {type: Composition, source: v-core, target: v-core-derive}
+  - {type: Composition, source: v-core, target: v-core-model}
+  - {type: Composition, source: v-core, target: v-core-scene}
   - {type: Composition, source: v-core, target: v-core-search}
   - {type: Composition, source: v-core, target: v-core-diff}
   - {type: Composition, source: v-core, target: v-core-intern}
@@ -236,8 +240,17 @@ relationships:
   - {type: Serving, source: v-core-derive, target: v-ui}
   - {type: Serving, source: v-core-diff, target: v-ui}
   - {type: Serving, source: v-core-graph, target: v-ui}
-  - {type: Serving, source: v-core-layout, target: v-ui}
+  - {type: Serving, source: v-core-model, target: v-ui}
+  - {type: Serving, source: v-core-scene, target: v-ui}
   - {type: Serving, source: v-core-spatial, target: v-ui}
+  - {type: Serving, source: v-core-derive, target: v-core-model}
+  - {type: Serving, source: v-core-graph, target: v-core-model}
+  - {type: Serving, source: v-core-search, target: v-core-model}
+  - {type: Serving, source: v-core-derive, target: v-core-scene}
+  - {type: Serving, source: v-core-graph, target: v-core-scene}
+  - {type: Serving, source: v-core-layout, target: v-core-scene}
+  - {type: Serving, source: v-core-model, target: v-core-scene}
+  - {type: Serving, source: v-core-spatial, target: v-core-scene}
   - {type: Serving, source: v-core-derive, target: v-core-search}
   - {type: Serving, source: v-core-graph, target: v-core-search}
   - {type: Serving, source: v-core-graph, target: v-core-derive}
@@ -391,6 +404,8 @@ views:
       - {m: main, el: v-main}
       - {m: ui, el: v-ui}
       - {m: core, el: v-core}
+      - {m: core_model, el: v-core-model, in: core}
+      - {m: core_scene, el: v-core-scene, in: core}
       - {m: core_search, el: v-core-search, in: core}
       - {m: core_derive, el: v-core-derive, in: core}
       - {m: core_diff, el: v-core-diff, in: core}

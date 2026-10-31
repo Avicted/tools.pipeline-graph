@@ -431,7 +431,7 @@ impl Workspace {
     }
 }
 
-pub fn trigger_text(m: &super::app::Model, v: u32) -> String {
+pub fn trigger_text(m: &crate::core::model::Model, v: u32) -> String {
     let g = &m.g;
     let mut parts: Vec<String> = vec![];
     for t in g.triggers(v) {
@@ -457,7 +457,7 @@ pub fn trigger_text(m: &super::app::Model, v: u32) -> String {
     parts.join(" · ")
 }
 
-pub fn image_text(m: &super::app::Model, v: u32) -> String {
+pub fn image_text(m: &crate::core::model::Model, v: u32) -> String {
     let g = &m.g;
     let mut parts: Vec<String> = vec![];
     let label = |n: u32| g.node_label(n).to_string();

@@ -5,11 +5,9 @@
 use pipeline_graph_viewer::core::{
     derive::Derived,
     graph::{Graph, Scratch},
+    model::Model,
+    scene::{build_scene, Scene},
     search::{Query, SearchIndex},
-};
-use pipeline_graph_viewer::ui::{
-    app::Model,
-    canvas::{build_scene, Scene},
 };
 use std::time::Instant;
 
@@ -74,7 +72,7 @@ fn main() {
         ("scene: all jobs", Scene::All, 700.0),
     ] {
         let t = Instant::now();
-        let l = build_scene(&m, &scene, pipeline_graph_viewer::ui::canvas::DEFAULT_LIMIT);
+        let l = build_scene(&m, &scene, pipeline_graph_viewer::core::scene::DEFAULT_LIMIT);
         budget(&format!("{name} ({} nodes)", l.nodes.len()), t.elapsed().as_secs_f64() * 1e3, limit);
     }
 

@@ -4,8 +4,9 @@
 //!
 //!   cargo run --release --example frames -- graph.json [--check]
 
-use pipeline_graph_viewer::ui::app::{Model, Screen, Workspace};
-use pipeline_graph_viewer::ui::canvas::Scene;
+use pipeline_graph_viewer::core::model::Model;
+use pipeline_graph_viewer::core::scene::Scene;
+use pipeline_graph_viewer::ui::app::{Screen, Workspace};
 use pipeline_graph_viewer::ui::headless::Rig;
 
 const BUDGET_P95_MS: f64 = 8.0;

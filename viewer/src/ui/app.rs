@@ -1,6 +1,6 @@
 //! The application shell: loading, navigation, shortcuts, panels and deep links.
 
-use super::canvas::{CanvasState, LayoutCache, Scene};
+use super::canvas::{CanvasState, LayoutCache};
 use super::compare::CompareState;
 use super::images::ImagesState;
 use super::job::Job;
@@ -9,32 +9,13 @@ use super::shots::ShotRun;
 use super::table::TableState;
 use super::theme::{self, Mode, Palette};
 use super::util;
-use crate::core::derive::Derived;
-use crate::core::graph::{Bits, Graph, Scratch};
-use crate::core::search::SearchIndex;
+use crate::core::graph::{Bits, Scratch};
+use crate::core::model::Model;
+use crate::core::scene::Scene;
 use egui::{Align, Color32, Key, Layout, RichText, Sense};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
-/// A loaded graph with everything derived from it.
-pub struct Model {
-    pub g: Graph,
-    pub d: Derived,
-    pub ix: SearchIndex,
-    pub path: PathBuf,
-    pub load_ms: u128,
-}
-
-impl Model {
-    pub fn load(path: &Path) -> Result<Model, String> {
-        let t = Instant::now();
-        let g = Graph::load(path).map_err(|e| e.to_string())?;
-        let d = Derived::compute(&g);
-        let ix = SearchIndex::build(&g);
-        Ok(Model { g, d, ix, path: path.to_path_buf(), load_ms: t.elapsed().as_millis() })
-    }
-}
 
 /// The product name, shown in the window title, the top bar and the help.
 pub const APP_NAME: &str = "badger-works/pipeline-graph";
@@ -442,7 +423,7 @@ impl Workspace {
             table: TableState::default(),
             canvas: CanvasState::default(),
             layouts: LayoutCache::default(),
-            scene_limit: super::canvas::DEFAULT_LIMIT,
+            scene_limit: crate::core::scene::DEFAULT_LIMIT,
             images: ImagesState::default(),
             compare: CompareState::default(),
             palette: PaletteState::default(),

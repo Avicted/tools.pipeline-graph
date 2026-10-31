@@ -2,8 +2,9 @@
 //! every screen, every scene, the palette, filters and a comparison.
 
 use pipeline_graph_viewer::core::graph::Kind;
-use pipeline_graph_viewer::ui::app::{LineageMode, Model, Screen};
-use pipeline_graph_viewer::ui::canvas::Scene;
+use pipeline_graph_viewer::core::model::Model;
+use pipeline_graph_viewer::core::scene::Scene;
+use pipeline_graph_viewer::ui::app::{LineageMode, Screen};
 use pipeline_graph_viewer::ui::headless::Rig;
 use std::path::Path;
 

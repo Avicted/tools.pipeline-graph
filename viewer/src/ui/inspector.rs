@@ -1,12 +1,13 @@
 //! The right-hand panel: everything known about the selected node, in the
 //! order a reviewer asks: what it is, what triggers it, what it runs, where.
 
-use super::app::{LineageMode, Model, Workspace};
+use super::app::{LineageMode, Workspace};
 use super::theme::{self, Palette};
 use super::util;
 use crate::core::derive::{classify, Class};
 use crate::core::diff::Change;
 use crate::core::graph::{Ek, Kind};
+use crate::core::model::Model;
 use egui::{Color32, RichText};
 
 #[derive(Default)]
@@ -406,7 +407,7 @@ impl Workspace {
             self.set_mode(mode);
             if self.screen != super::app::Screen::Map && self.screen != super::app::Screen::Prod {
                 self.go(super::app::Screen::Map);
-                self.scene = super::canvas::Scene::Focus(v);
+                self.scene = crate::core::scene::Scene::Focus(v);
             }
         }
         if let Some(f) = acts.focus {

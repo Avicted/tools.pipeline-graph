@@ -3,5 +3,7 @@ pub mod diff;
 pub mod graph;
 pub mod intern;
 pub mod layout;
+pub mod model;
+pub mod scene;
 pub mod search;
 pub mod spatial;

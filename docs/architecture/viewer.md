@@ -17,6 +17,8 @@ flowchart LR
     ui["ui · egui<br/>app · screens · canvas<br/>job · shots · headless · theme"]
     subgraph core["core · no egui"]
         direction LR
+        core_model["model<br/>graph + derived + index"]
+        core_scene["scene<br/>what the map shows, laid out"]
         core_search["search"]
         core_derive["derive"]
         core_diff["diff"]
@@ -27,12 +29,21 @@ flowchart LR
     end
 
     main --> ui
+    ui --> core_model
+    ui --> core_scene
     ui --> core_search
     ui --> core_derive
     ui --> core_diff
     ui --> core_graph
-    ui --> core_layout
     ui --> core_spatial
+    core_model --> core_derive
+    core_model --> core_graph
+    core_model --> core_search
+    core_scene --> core_derive
+    core_scene --> core_graph
+    core_scene --> core_layout
+    core_scene --> core_model
+    core_scene --> core_spatial
     core_search --> core_derive
     core_search --> core_graph
     core_derive --> core_graph
@@ -42,7 +53,7 @@ flowchart LR
     core_layout --> core_spatial
 
     classDef rust fill:#dcfce7,stroke:#15803d,color:#0a2e16
-    class main,ui,core_search,core_derive,core_diff,core_graph,core_intern,core_layout,core_spatial rust
+    class main,ui,core_model,core_scene,core_search,core_derive,core_diff,core_graph,core_intern,core_layout,core_spatial rust
     style core fill:none,stroke:#15803d,stroke-dasharray:6 4
 ```
 
@@ -101,7 +112,7 @@ flowchart TB
     style bg fill:none,stroke:#15803d,stroke-dasharray:6 4
 ```
 
-- `viewer/src/core` (graph, derive, search, layout, spatial, diff, intern) doesn't depend on
+- `viewer/src/core` (graph, model, scene, derive, search, layout, spatial, diff, intern) doesn't depend on
   egui at all. That's what lets the unit tests, the contract test, the benchmarks and
   `ui::headless` run without a window.
 - A reload builds a fresh `Workspace` around the new model, then carries over the

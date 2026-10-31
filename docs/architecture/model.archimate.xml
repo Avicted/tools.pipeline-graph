@@ -80,6 +80,14 @@
       <name xml:lang="en">viewer core (headless)</name>
       <documentation xml:lang="en">Doesn&#39;t depend on egui.</documentation>
     </element>
+    <element identifier="id-v-core-model" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::model</name>
+      <documentation xml:lang="en">A loaded graph with everything derived from it: Graph, Derived and the search index.</documentation>
+    </element>
+    <element identifier="id-v-core-scene" xsi:type="ApplicationComponent">
+      <name xml:lang="en">core::scene</name>
+      <documentation xml:lang="en">What the map shows (all jobs, a repository, one lineage), with a position for every node and a route for every edge.</documentation>
+    </element>
     <element identifier="id-v-core-graph" xsi:type="ApplicationComponent">
       <name xml:lang="en">core::graph</name>
       <documentation xml:lang="en">The graph.json loader; refuses a newer schemaVersion.</documentation>
@@ -345,6 +353,8 @@
     <relationship identifier="id-viewer-composition-v-core" source="id-viewer" target="id-v-core" xsi:type="Composition"/>
     <relationship identifier="id-v-core-composition-v-core-graph" source="id-v-core" target="id-v-core-graph" xsi:type="Composition"/>
     <relationship identifier="id-v-core-composition-v-core-derive" source="id-v-core" target="id-v-core-derive" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-model" source="id-v-core" target="id-v-core-model" xsi:type="Composition"/>
+    <relationship identifier="id-v-core-composition-v-core-scene" source="id-v-core" target="id-v-core-scene" xsi:type="Composition"/>
     <relationship identifier="id-v-core-composition-v-core-search" source="id-v-core" target="id-v-core-search" xsi:type="Composition"/>
     <relationship identifier="id-v-core-composition-v-core-diff" source="id-v-core" target="id-v-core-diff" xsi:type="Composition"/>
     <relationship identifier="id-v-core-composition-v-core-intern" source="id-v-core" target="id-v-core-intern" xsi:type="Composition"/>
@@ -497,8 +507,17 @@
     <relationship identifier="id-v-core-derive-serving-v-ui" source="id-v-core-derive" target="id-v-ui" xsi:type="Serving"/>
     <relationship identifier="id-v-core-diff-serving-v-ui" source="id-v-core-diff" target="id-v-ui" xsi:type="Serving"/>
     <relationship identifier="id-v-core-graph-serving-v-ui" source="id-v-core-graph" target="id-v-ui" xsi:type="Serving"/>
-    <relationship identifier="id-v-core-layout-serving-v-ui" source="id-v-core-layout" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-model-serving-v-ui" source="id-v-core-model" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-scene-serving-v-ui" source="id-v-core-scene" target="id-v-ui" xsi:type="Serving"/>
     <relationship identifier="id-v-core-spatial-serving-v-ui" source="id-v-core-spatial" target="id-v-ui" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-derive-serving-v-core-model" source="id-v-core-derive" target="id-v-core-model" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-graph-serving-v-core-model" source="id-v-core-graph" target="id-v-core-model" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-search-serving-v-core-model" source="id-v-core-search" target="id-v-core-model" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-derive-serving-v-core-scene" source="id-v-core-derive" target="id-v-core-scene" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-graph-serving-v-core-scene" source="id-v-core-graph" target="id-v-core-scene" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-layout-serving-v-core-scene" source="id-v-core-layout" target="id-v-core-scene" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-model-serving-v-core-scene" source="id-v-core-model" target="id-v-core-scene" xsi:type="Serving"/>
+    <relationship identifier="id-v-core-spatial-serving-v-core-scene" source="id-v-core-spatial" target="id-v-core-scene" xsi:type="Serving"/>
     <relationship identifier="id-v-core-derive-serving-v-core-search" source="id-v-core-derive" target="id-v-core-search" xsi:type="Serving"/>
     <relationship identifier="id-v-core-graph-serving-v-core-search" source="id-v-core-graph" target="id-v-core-search" xsi:type="Serving"/>
     <relationship identifier="id-v-core-graph-serving-v-core-derive" source="id-v-core-graph" target="id-v-core-derive" xsi:type="Serving"/>
@@ -747,16 +766,18 @@
       <view identifier="id-viewer-modules" xsi:type="Diagram">
         <name xml:lang="en">Modules: which module uses which, and what keeps core free of the UI?</name>
         <documentation xml:lang="en">The diagram tagged view: viewer-modules in docs/architecture/viewer.md.</documentation>
-        <node identifier="n-viewer-modules-main" elementRef="id-v-main" xsi:type="Element" x="963" y="93" w="128" h="55"/>
-        <node identifier="n-viewer-modules-ui" elementRef="id-v-ui" xsi:type="Element" x="761" y="93" w="142" h="55"/>
-        <node identifier="n-viewer-modules-core" elementRef="id-v-core" xsi:type="Element" x="0" y="0" w="701" h="241">
-          <node identifier="n-viewer-modules-core_search" elementRef="id-v-core-search" xsi:type="Element" x="561" y="106" w="120" h="55"/>
-          <node identifier="n-viewer-modules-core_derive" elementRef="id-v-core-derive" xsi:type="Element" x="381" y="131" w="120" h="55"/>
+        <node identifier="n-viewer-modules-main" elementRef="id-v-main" xsi:type="Element" x="1323" y="129" w="128" h="55"/>
+        <node identifier="n-viewer-modules-ui" elementRef="id-v-ui" xsi:type="Element" x="1121" y="129" w="142" h="55"/>
+        <node identifier="n-viewer-modules-core" elementRef="id-v-core" xsi:type="Element" x="0" y="0" w="1061" h="313">
+          <node identifier="n-viewer-modules-core_model" elementRef="id-v-core-model" xsi:type="Element" x="741" y="146" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_scene" elementRef="id-v-core-scene" xsi:type="Element" x="921" y="197" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_search" elementRef="id-v-core-search" xsi:type="Element" x="561" y="134" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_derive" elementRef="id-v-core-derive" xsi:type="Element" x="381" y="183" w="120" h="55"/>
           <node identifier="n-viewer-modules-core_diff" elementRef="id-v-core-diff" xsi:type="Element" x="381" y="30" w="120" h="55"/>
-          <node identifier="n-viewer-modules-core_graph" elementRef="id-v-core-graph" xsi:type="Element" x="201" y="65" w="120" h="55"/>
-          <node identifier="n-viewer-modules-core_intern" elementRef="id-v-core-intern" xsi:type="Element" x="21" y="85" w="120" h="55"/>
-          <node identifier="n-viewer-modules-core_layout" elementRef="id-v-core-layout" xsi:type="Element" x="201" y="166" w="120" h="55"/>
-          <node identifier="n-viewer-modules-core_spatial" elementRef="id-v-core-spatial" xsi:type="Element" x="20" y="161" w="121" h="55"/>
+          <node identifier="n-viewer-modules-core_graph" elementRef="id-v-core-graph" xsi:type="Element" x="201" y="106" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_intern" elementRef="id-v-core-intern" xsi:type="Element" x="21" y="127" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_layout" elementRef="id-v-core-layout" xsi:type="Element" x="201" y="208" w="120" h="55"/>
+          <node identifier="n-viewer-modules-core_spatial" elementRef="id-v-core-spatial" xsi:type="Element" x="20" y="229" w="121" h="55"/>
         </node>
         <connection identifier="c-viewer-modules-v-core-serving-v-ui" relationshipRef="id-v-core-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core" target="n-viewer-modules-ui"/>
         <connection identifier="c-viewer-modules-v-ui-serving-v-main" relationshipRef="id-v-ui-serving-v-main" xsi:type="Relationship" source="n-viewer-modules-ui" target="n-viewer-modules-main"/>
@@ -764,8 +785,17 @@
         <connection identifier="c-viewer-modules-v-core-derive-serving-v-ui" relationshipRef="id-v-core-derive-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_derive" target="n-viewer-modules-ui"/>
         <connection identifier="c-viewer-modules-v-core-diff-serving-v-ui" relationshipRef="id-v-core-diff-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_diff" target="n-viewer-modules-ui"/>
         <connection identifier="c-viewer-modules-v-core-graph-serving-v-ui" relationshipRef="id-v-core-graph-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-ui"/>
-        <connection identifier="c-viewer-modules-v-core-layout-serving-v-ui" relationshipRef="id-v-core-layout-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_layout" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-model-serving-v-ui" relationshipRef="id-v-core-model-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_model" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-scene-serving-v-ui" relationshipRef="id-v-core-scene-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_scene" target="n-viewer-modules-ui"/>
         <connection identifier="c-viewer-modules-v-core-spatial-serving-v-ui" relationshipRef="id-v-core-spatial-serving-v-ui" xsi:type="Relationship" source="n-viewer-modules-core_spatial" target="n-viewer-modules-ui"/>
+        <connection identifier="c-viewer-modules-v-core-derive-serving-v-core-model" relationshipRef="id-v-core-derive-serving-v-core-model" xsi:type="Relationship" source="n-viewer-modules-core_derive" target="n-viewer-modules-core_model"/>
+        <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-model" relationshipRef="id-v-core-graph-serving-v-core-model" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_model"/>
+        <connection identifier="c-viewer-modules-v-core-search-serving-v-core-model" relationshipRef="id-v-core-search-serving-v-core-model" xsi:type="Relationship" source="n-viewer-modules-core_search" target="n-viewer-modules-core_model"/>
+        <connection identifier="c-viewer-modules-v-core-derive-serving-v-core-scene" relationshipRef="id-v-core-derive-serving-v-core-scene" xsi:type="Relationship" source="n-viewer-modules-core_derive" target="n-viewer-modules-core_scene"/>
+        <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-scene" relationshipRef="id-v-core-graph-serving-v-core-scene" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_scene"/>
+        <connection identifier="c-viewer-modules-v-core-layout-serving-v-core-scene" relationshipRef="id-v-core-layout-serving-v-core-scene" xsi:type="Relationship" source="n-viewer-modules-core_layout" target="n-viewer-modules-core_scene"/>
+        <connection identifier="c-viewer-modules-v-core-model-serving-v-core-scene" relationshipRef="id-v-core-model-serving-v-core-scene" xsi:type="Relationship" source="n-viewer-modules-core_model" target="n-viewer-modules-core_scene"/>
+        <connection identifier="c-viewer-modules-v-core-spatial-serving-v-core-scene" relationshipRef="id-v-core-spatial-serving-v-core-scene" xsi:type="Relationship" source="n-viewer-modules-core_spatial" target="n-viewer-modules-core_scene"/>
         <connection identifier="c-viewer-modules-v-core-derive-serving-v-core-search" relationshipRef="id-v-core-derive-serving-v-core-search" xsi:type="Relationship" source="n-viewer-modules-core_derive" target="n-viewer-modules-core_search"/>
         <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-search" relationshipRef="id-v-core-graph-serving-v-core-search" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_search"/>
         <connection identifier="c-viewer-modules-v-core-graph-serving-v-core-derive" relationshipRef="id-v-core-graph-serving-v-core-derive" xsi:type="Relationship" source="n-viewer-modules-core_graph" target="n-viewer-modules-core_derive"/>

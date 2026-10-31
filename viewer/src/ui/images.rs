@@ -129,7 +129,7 @@ impl Workspace {
 #[allow(clippy::too_many_arguments)]
 fn image_row(
     ui: &mut egui::Ui,
-    m: &super::app::Model,
+    m: &crate::core::model::Model,
     pal: &Palette,
     v: u32,
     depth: usize,

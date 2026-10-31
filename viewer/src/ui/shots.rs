@@ -2,7 +2,7 @@
 //! each, so the documentation pictures are generated, not hand-made.
 
 use super::app::{Screen, Workspace};
-use super::canvas::Scene;
+use crate::core::scene::Scene;
 use std::path::PathBuf;
 
 pub struct ShotRun {

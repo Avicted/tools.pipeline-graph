@@ -2,9 +2,9 @@
 //! in dependency order, with each job's stage, trigger and container.
 
 use super::app::Workspace;
-use super::canvas::Scene;
 use super::theme::{self, Palette};
 use crate::core::derive::Class;
+use crate::core::scene::Scene;
 use egui::RichText;
 
 impl Workspace {
@@ -74,7 +74,7 @@ impl Workspace {
         self.canvas_view(ui, pal, &scene);
     }
 
-    fn layouts_for_prod(&mut self) -> Option<std::sync::Arc<super::canvas::SceneLayout>> {
+    fn layouts_for_prod(&mut self) -> Option<std::sync::Arc<crate::core::scene::SceneLayout>> {
         let s = Scene::Flow(self.prod_repo as u32);
         self.layouts.get(&s, self.scene_limit)
     }
