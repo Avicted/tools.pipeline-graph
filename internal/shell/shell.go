@@ -14,7 +14,6 @@ type Make struct {
 	File    string // -f
 	Targets []string
 	Vars    map[string]string
-	Line    string
 }
 
 type Docker struct {
@@ -23,12 +22,10 @@ type Docker struct {
 	Consumed   []string // images used by a build (build-arg values, tag source)
 	Dockerfile string   // build -f
 	Context    string   // build context dir
-	Line       string
 }
 
 type Script struct {
 	Path string // relative to the working directory
-	Line string
 }
 
 type Result struct {
@@ -43,7 +40,7 @@ func Extract(text string) Result {
 	cwd := "."
 	for _, line := range logicalLines(text) {
 		for _, cmd := range splitCommands(line) {
-			words := Words(cmd)
+			words := splitWords(cmd)
 			words = stripPrefix(words)
 			if len(words) == 0 {
 				continue
@@ -58,11 +55,9 @@ func Extract(text string) Result {
 			case isMake(name):
 				mk := parseMake(words[1:])
 				mk.Dir = path.Clean(path.Join(cwd, mk.Dir))
-				mk.Line = cmd
 				res.Makes = append(res.Makes, mk)
 			case name == "docker" || name == "podman" || name == "buildah":
 				if d, ok := parseDocker(words[1:]); ok {
-					d.Line = cmd
 					if d.Context != "" && !strings.HasPrefix(d.Context, "/") {
 						d.Context = path.Clean(path.Join(cwd, d.Context))
 					}
@@ -73,7 +68,7 @@ func Extract(text string) Result {
 				}
 			default:
 				if p := scriptPath(words); p != "" {
-					res.Scripts = append(res.Scripts, Script{Path: path.Clean(path.Join(cwd, p)), Line: cmd})
+					res.Scripts = append(res.Scripts, Script{Path: path.Clean(path.Join(cwd, p))})
 				}
 			}
 		}
@@ -246,11 +241,11 @@ func parseDocker(args []string) (Docker, bool) {
 		case "-f", "--file":
 			d.Dockerfile = val
 		case "--build-arg":
-			if j := strings.Index(val, "="); j >= 0 && LooksLikeImage(val[j+1:]) {
+			if j := strings.Index(val, "="); j >= 0 && looksLikeImage(val[j+1:]) {
 				d.Consumed = append(d.Consumed, val[j+1:])
 			}
 		case "--cache-from":
-			if LooksLikeImage(val) {
+			if looksLikeImage(val) {
 				d.Consumed = append(d.Consumed, val)
 			}
 		}
@@ -285,8 +280,8 @@ func parseDocker(args []string) (Docker, bool) {
 	return d, true
 }
 
-// LooksLikeImage is a heuristic for registry/name[:tag] references.
-func LooksLikeImage(s string) bool {
+// looksLikeImage is a heuristic for registry/name[:tag] references.
+func looksLikeImage(s string) bool {
 	s = strings.Trim(s, `"'`)
 	if s == "" || strings.ContainsAny(s, " =") || strings.HasPrefix(s, "/") || strings.HasPrefix(s, ".") {
 		return false
@@ -396,8 +391,8 @@ func splitCommands(line string) []string {
 	return out
 }
 
-// Words splits a simple command into words, removing quotes.
-func Words(cmd string) []string {
+// splitWords splits a simple command into words, removing quotes.
+func splitWords(cmd string) []string {
 	var out []string
 	var cur strings.Builder
 	var quote byte

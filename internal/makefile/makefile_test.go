@@ -1,9 +1,11 @@
 package makefile
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -83,8 +85,8 @@ endif
 	if len(m.Rules["deploy"].Recipe) != 2 {
 		t.Errorf("both conditional branches expected: %q", m.Rules["deploy"].Recipe)
 	}
-	if !m.Phony["test"] || len(m.Rules["test"].Prereqs) != 0 {
-		t.Errorf("phony/target-specific var: %+v", m.Rules["test"])
+	if m.Rules[".PHONY"] != nil || len(m.Rules["test"].Prereqs) != 0 {
+		t.Errorf(".PHONY is no target, and a target-specific var is no prerequisite: %+v", m.Rules["test"])
 	}
 	if len(m.Warnings) != 0 {
 		t.Errorf("-include must not warn: %v", m.Warnings)
@@ -116,7 +118,7 @@ func TestLoadErrorsAndWarnings(t *testing.T) {
 	if len(m.Warnings) == 0 {
 		t.Error("a missing mandatory include is reported")
 	}
-	if got := m.Targets(); !reflect.DeepEqual(got, []string{"all"}) {
+	if got := slices.Sorted(maps.Keys(m.Rules)); !reflect.DeepEqual(got, []string{"all"}) {
 		t.Errorf("targets: %v", got)
 	}
 }
@@ -186,7 +188,7 @@ func TestStaticPatternAndMultiTargetRules(t *testing.T) {
 	m, _ := Load(root, ".", "", nil)
 	for _, want := range []string{"a", "b", "shared", "x.o", "y.o"} {
 		if m.Rules[want] == nil {
-			t.Errorf("rule %s missing; have %v", want, m.Targets())
+			t.Errorf("rule %s missing; have %v", want, slices.Sorted(maps.Keys(m.Rules)))
 		}
 	}
 }

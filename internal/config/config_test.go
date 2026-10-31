@@ -193,8 +193,8 @@ func TestNameFromURL(t *testing.T) {
 		"file:///srv/git/svc.git":                  "svc",
 		"../repos/release-train":                   "release-train",
 	} {
-		if got := NameFromURL(in); got != want {
-			t.Errorf("NameFromURL(%q) = %q, want %q", in, got, want)
+		if got := nameFromURL(in); got != want {
+			t.Errorf("nameFromURL(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

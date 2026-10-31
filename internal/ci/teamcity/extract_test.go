@@ -9,7 +9,7 @@ import (
 
 func parse(t *testing.T, srcs map[string]string) *Declared {
 	t.Helper()
-	s := ParseSources(srcs)
+	s := parseSources(srcs)
 	return s
 }
 
@@ -291,7 +291,7 @@ object B : BuildType({
 // Go cannot recover from a stack overflow, so one hostile settings.kts would kill the whole
 // run. Each case repeats a unit that nests the parser one level deeper per repetition.
 func TestTooDeepFileIsAWarningNotACrash(t *testing.T) {
-	s := ParseSources(map[string]string{
+	s := parseSources(map[string]string{
 		"deep.kts": "object Deep : BuildType({ name = \"x\" })\n" + strings.Repeat("(", 500_000),
 		"ok.kts":   "project { buildType(Fine) }\nobject Fine : BuildType({ name = \"Fine\" })\n",
 	})
@@ -322,7 +322,7 @@ func TestParseDirReadsKotlinFilesOnly(t *testing.T) {
 	put(".teamcity/target/Out.kt", `object Out : BuildType({ name = "Out" })`)
 	put(".teamcity/.idea/X.kt", `object Idea : BuildType({ name = "Idea" })`)
 	put(".teamcity/notes.txt", `object Txt : BuildType({ name = "Txt" })`)
-	s, err := ParseDir(filepath.Join(root, ".teamcity"), root)
+	s, err := parseDir(filepath.Join(root, ".teamcity"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestParseDirReadsKotlinFilesOnly(t *testing.T) {
 	if s.Builds[0].File != ".teamcity/A.kt" {
 		t.Errorf("paths are relative to the repo root: %q", s.Builds[0].File)
 	}
-	if _, err := ParseDir(filepath.Join(root, "missing"), root); err == nil {
+	if _, err := parseDir(filepath.Join(root, "missing"), root); err == nil {
 		t.Error("a missing directory is an error")
 	}
 }
@@ -417,7 +417,7 @@ func TestSyntaxEdgeCases(t *testing.T) {
 		"deep nesting":  strings.Repeat("a(", 200) + strings.Repeat(")", 200),
 	} {
 		t.Run(name, func(t *testing.T) {
-			s := ParseSources(map[string]string{"s.kts": src})
+			s := parseSources(map[string]string{"s.kts": src})
 			if strings.Contains(src, `object A : BuildType({ name = "A" })`) && (len(s.Builds) != 1 || s.Builds[0].Name != "A") {
 				t.Errorf("the build after the odd syntax must still be found: %+v", s.Builds)
 			}

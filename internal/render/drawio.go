@@ -48,7 +48,7 @@ func drawioPage(b *strings.Builder, g *model.Graph, v View) {
 	// title block
 	c.vertex(c.next(), "1", "Pipeline map · "+v.Title,
 		"text;html=1;align=left;verticalAlign=top;fontSize=22;fontStyle=1;fontColor=#0F172A;strokeColor=none;fillColor=none;", m, m-6, 640, 32)
-	c.vertex(c.next(), "1", Subtitle(g),
+	c.vertex(c.next(), "1", subtitle(g),
 		"text;html=1;align=left;verticalAlign=top;fontSize=11;fontColor=#64748B;strokeColor=none;fillColor=none;whiteSpace=wrap;", m, m+26, 720, 34)
 	drawioLegend(c, v, L.W-m)
 
@@ -64,7 +64,7 @@ func drawioPage(b *strings.Builder, g *model.Graph, v View) {
 			fill = "#FFFFFF"
 		}
 		head := "#1E3A8A"
-		if lane.Name == ExternalLane {
+		if lane.Name == externalLane {
 			head = "#9A3412"
 		}
 		c.vertex(id, "1", lane.Name,
@@ -140,7 +140,7 @@ func drawioNodeStyle(n *model.Node) string {
 }
 
 func drawioLabel(n *model.Node) string {
-	c := CardOf(n)
+	c := cardOf(n)
 	var b strings.Builder
 	fmt.Fprintf(&b, "<b style=\"font-size:12px\">%s</b>", html.EscapeString(c.Title))
 	if c.Sub != "" {

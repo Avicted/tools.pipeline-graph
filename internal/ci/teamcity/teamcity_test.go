@@ -194,8 +194,8 @@ func TestDeriveProjectID(t *testing.T) {
 		"--x--y":        "XY",
 		"":              "",
 	} {
-		if got := DeriveProjectID(in); got != want {
-			t.Errorf("DeriveProjectID(%q) = %q, want %q", in, got, want)
+		if got := deriveProjectID(in); got != want {
+			t.Errorf("deriveProjectID(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

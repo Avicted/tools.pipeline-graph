@@ -35,7 +35,6 @@ func (r Ref) String() string {
 
 type Dep struct {
 	Ref       Ref
-	Snapshot  bool
 	Artifacts bool
 	Rules     string
 }
@@ -49,9 +48,7 @@ type TriggerDef struct {
 type Build struct {
 	Key           string // unique within the settings: relative id
 	ObjName       string // Kotlin object / val name, if any
-	ExplicitID    bool
 	Name          string
-	Description   string
 	Project       string
 	Composite     bool
 	Template      bool
@@ -99,8 +96,8 @@ func (s *Declared) Lookup(r Ref) *Build {
 	return nil
 }
 
-// ParseDir reads every .kts/.kt file below dir. root is used to make file paths relative.
-func ParseDir(dir, root string) (*Declared, error) {
+// parseDir reads every .kts/.kt file below dir. root is used to make file paths relative.
+func parseDir(dir, root string) (*Declared, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -133,13 +130,13 @@ func ParseDir(dir, root string) (*Declared, error) {
 		}
 		srcs[rel] = string(b)
 	}
-	s := ParseSources(srcs)
+	s := parseSources(srcs)
 	s.Warnings = append(warnings, s.Warnings...)
 	return s, nil
 }
 
-// ParseSources analyses a set of DSL files (name -> content) as one settings package.
-func ParseSources(srcs map[string]string) *Declared {
+// parseSources analyses a set of DSL files (name -> content) as one settings package.
+func parseSources(srcs map[string]string) *Declared {
 	e := &extractor{
 		s:      &Declared{byKey: map[string]*Build{}, byObj: map[string]*Build{}, templates: map[string]*Build{}},
 		objs:   map[string]objDef{},
@@ -471,7 +468,7 @@ func (e *extractor) call(n *kts.Node, project string) {
 		if target := e.refOf(n.Recv.Recv); target != nil {
 			for _, a := range n.Args {
 				if r := e.refOf(a); r != nil {
-					e.pending = append(e.pending, pendingDep{target: *target, dep: Dep{Ref: *r, Snapshot: true}, file: e.file, line: n.Line})
+					e.pending = append(e.pending, pendingDep{target: *target, dep: Dep{Ref: *r}, file: e.file, line: n.Line})
 				}
 			}
 			return
@@ -692,7 +689,7 @@ func (e *extractor) sequence(body []*kts.Node, prev []Ref, project string, regis
 // addSeqDeps defers the dependency until all builds are known.
 func (e *extractor) addSeqDeps(r Ref, prev []Ref, line int) {
 	for _, p := range prev {
-		e.pending = append(e.pending, pendingDep{target: r, dep: Dep{Ref: p, Snapshot: true}, file: e.file, line: line})
+		e.pending = append(e.pending, pendingDep{target: r, dep: Dep{Ref: p}, file: e.file, line: line})
 	}
 }
 
@@ -879,12 +876,10 @@ func (e *extractor) buildStmt(b *Build, s *kts.Node) {
 		switch s.Name {
 		case "id":
 			if r := e.refOf(s.Value); r != nil {
-				b.Key, b.ExplicitID = r.Value, true
+				b.Key = r.Value
 			}
 		case "name":
 			b.Name = v
-		case "description":
-			b.Description = v
 		case "artifactRules":
 			b.ArtifactRules = v
 		case "type":
@@ -898,7 +893,7 @@ func (e *extractor) buildStmt(b *Build, s *kts.Node) {
 		case "id":
 			if a := s.Args0(); a != nil {
 				if r := e.refOf(a); r != nil {
-					b.Key, b.ExplicitID = r.Value, true
+					b.Key = r.Value
 				}
 			}
 		case "templates":
@@ -922,7 +917,7 @@ func (e *extractor) buildStmt(b *Build, s *kts.Node) {
 		case "dependsOn":
 			for _, a := range s.Args {
 				if r := e.refOf(a); r != nil {
-					b.Deps = append(b.Deps, Dep{Ref: *r, Snapshot: true})
+					b.Deps = append(b.Deps, Dep{Ref: *r})
 				}
 			}
 		case "triggers":
@@ -1127,14 +1122,12 @@ func (e *extractor) deps(b *Build, body []*kts.Node) {
 			e.warn(s.Line, "%s dependency with unrecognised target", name)
 			continue
 		}
-		d := Dep{Ref: *r, Snapshot: name == "snapshot", Artifacts: name == "artifacts"}
+		d := Dep{Ref: *r, Artifacts: name == "artifacts"}
 		if lam := s.Lambda(); lam != nil {
 			for _, x := range lam.Body {
 				switch {
 				case x.Kind == kts.NAssign && x.Name == "artifactRules":
 					d.Rules = e.str(x.Value)
-				case x.Kind == kts.NCall && x.CallName() == "snapshot":
-					d.Snapshot = true
 				case x.Kind == kts.NCall && x.CallName() == "artifacts":
 					d.Artifacts = true
 					if l := x.Lambda(); l != nil {

@@ -13,8 +13,8 @@ func TestWords(t *testing.T) {
 		`FOO="x y" make`:        {"FOO=x y", "make"},
 		``:                      nil,
 	} {
-		if got := Words(in); !reflect.DeepEqual(got, want) {
-			t.Errorf("Words(%q) = %q, want %q", in, got, want)
+		if got := splitWords(in); !reflect.DeepEqual(got, want) {
+			t.Errorf("splitWords(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -79,8 +79,8 @@ func TestLooksLikeImage(t *testing.T) {
 		"alpine": false, "alpine:3": false,
 		"": false, "-t": false, "./ctx": false, "/abs/path": false, "a b": false, "A=b/c.d": false,
 	} {
-		if got := LooksLikeImage(in); got != want {
-			t.Errorf("LooksLikeImage(%q) = %v, want %v", in, got, want)
+		if got := looksLikeImage(in); got != want {
+			t.Errorf("looksLikeImage(%q) = %v, want %v", in, got, want)
 		}
 	}
 }

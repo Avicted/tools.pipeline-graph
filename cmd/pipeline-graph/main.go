@@ -245,8 +245,8 @@ func writeOutputs(ctx context.Context, cfg *config.Config, g *model.Graph, views
 	}{
 		{"drawio", "pipelines.drawio", func(w io.Writer) error { return render.DrawIO(w, g, views) }},
 		{"vsdx", "pipelines.vsdx", func(w io.Writer) error { return render.VSDX(w, g, vsdxViews) }},
-		{"mermaid", "pipelines.mmd", func(w io.Writer) error { return render.Mermaid(w, overview(g)) }},
-		{"dot", "pipelines.dot", func(w io.Writer) error { return render.DOT(w, overview(g)) }},
+		{"mermaid", "pipelines.mmd", func(w io.Writer) error { return render.Mermaid(w, render.WithoutMake(g)) }},
+		{"dot", "pipelines.dot", func(w io.Writer) error { return render.DOT(w, render.WithoutMake(g)) }},
 		{"json", "graph.json", func(w io.Writer) error { return g.WriteJSON(w) }},
 	}
 	for _, s := range steps {
@@ -319,4 +319,3 @@ func writeHistory(outDir string, g *model.Graph) (string, error) {
 }
 
 // overview drops make targets: the text formats are meant for READMEs and stay readable.
-func overview(g *model.Graph) *model.Graph { return render.WithoutMake(g) }

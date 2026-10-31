@@ -444,7 +444,7 @@ func (a *analyzer) docker(r Repo, d shell.Docker, dir, owner string) {
 	for _, img := range shell.DockerfileFrom(string(b), nil) {
 		a.useImage(img, owner, false)
 		for _, built := range d.Images {
-			if bn, base := ImageName(built), ImageName(img); bn != "" && base != "" && bn != base {
+			if bn, base := imageName(built), imageName(img); bn != "" && base != "" && bn != base {
 				a.image(bn).bases[base] = true
 			}
 		}
@@ -453,7 +453,7 @@ func (a *analyzer) docker(r Repo, d shell.Docker, dir, owner string) {
 
 // runIn records that owner executes inside a container of image ref.
 func (a *analyzer) runIn(ref, owner string) {
-	if name := ImageName(ref); name != "" {
+	if name := imageName(ref); name != "" {
 		a.useImage(ref, owner, false)
 		a.image(name).runners[owner] = true
 	}
@@ -470,9 +470,9 @@ func (a *analyzer) image(name string) *imageUse {
 
 var reVarRef = regexp.MustCompile(`%[^%]*%|\$\([^)]*\)|\$\{[^}]*\}|\$[A-Za-z_]\w*`)
 
-// ImageName normalises an image reference to registry/name without tag or digest.
+// imageName normalises an image reference to registry/name without tag or digest.
 // Returns "" when the name itself is not static.
-func ImageName(ref string) string {
+func imageName(ref string) string {
 	ref = strings.Trim(ref, `"'`)
 	if i := strings.Index(ref, "@"); i >= 0 {
 		ref = ref[:i]
@@ -487,7 +487,7 @@ func ImageName(ref string) string {
 }
 
 func (a *analyzer) useImage(ref, owner string, produce bool) {
-	name := ImageName(ref)
+	name := imageName(ref)
 	if name == "" {
 		if produce {
 			a.warn(a.g.Node(owner).Repo, "", 0, "image %q (from %s) has a dynamic name; not linked", ref, a.g.Node(owner).Label)

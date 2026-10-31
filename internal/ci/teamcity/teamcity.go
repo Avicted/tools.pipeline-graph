@@ -53,13 +53,13 @@ func (Provider) Load(r ci.Repo) (*ci.Pipelines, error) {
 	if _, err := os.Stat(filepath.Join(r.Root, d)); err != nil {
 		return nil, fmt.Errorf("no TeamCity settings directory %s", d)
 	}
-	s, err := ParseDir(filepath.Join(r.Root, d), r.Root)
+	s, err := parseDir(filepath.Join(r.Root, d), r.Root)
 	if err != nil {
 		return nil, fmt.Errorf("reading TeamCity settings: %w", err)
 	}
 	projectID := settingsOf(r).ProjectID
 	if projectID == "" {
-		projectID = DeriveProjectID(r.Name)
+		projectID = deriveProjectID(r.Name)
 	}
 	p := &ci.Pipelines{Warnings: s.Warnings, IDSep: "_"}
 	warn := func(file string, line int, format string, args ...any) {
@@ -133,8 +133,8 @@ func (Provider) Load(r ci.Repo) (*ci.Pipelines, error) {
 
 var reWordSplit = regexp.MustCompile(`[^A-Za-z0-9]+`)
 
-// DeriveProjectID mimics how TeamCity derives a project id from a name: "service-a" -> "ServiceA".
-func DeriveProjectID(name string) string {
+// deriveProjectID mimics how TeamCity derives a project id from a name: "service-a" -> "ServiceA".
+func deriveProjectID(name string) string {
 	var b strings.Builder
 	for _, w := range reWordSplit.Split(name, -1) {
 		if w != "" {

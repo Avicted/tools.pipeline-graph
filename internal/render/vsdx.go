@@ -64,7 +64,7 @@ func VSDX(w io.Writer, g *model.Graph, views []View) error {
 			`<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>` +
 			`</Relationships>`},
 		{"docProps/core.xml", xmlHeader + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-			`<dc:title>Pipeline map</dc:title><dc:creator>pipeline-graph</dc:creator><dc:description>` + xmlEscape(Subtitle(g)) + `</dc:description>` +
+			`<dc:title>Pipeline map</dc:title><dc:creator>pipeline-graph</dc:creator><dc:description>` + xmlEscape(subtitle(g)) + `</dc:description>` +
 			`<dcterms:modified xsi:type="dcterms:W3CDTF">` + modified.Format(time.RFC3339) + `</dcterms:modified></cp:coreProperties>`},
 		{"docProps/app.xml", xmlHeader + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Visio</Application><AppVersion>16.0000</AppVersion></Properties>`},
 		{"visio/_rels/document.xml.rels", xmlHeader + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
@@ -283,7 +283,7 @@ func vsdxPage(g *model.Graph, v View) string {
 	shape(m, m-6, 640, 32).box(vstyle{noFill: true, noLine: true, valign: 0},
 		[]run{{text: "Pipeline map · " + v.Title, size: 16, bold: true}})
 	shape(m, m+26, 720, 34).box(vstyle{noFill: true, noLine: true, valign: 0},
-		[]run{{text: Subtitle(g), size: 8, color: "#64748B"}})
+		[]run{{text: subtitle(g), size: 8, color: "#64748B"}})
 	vsdxLegend(&b, &id, pageH, v, L.W-m)
 
 	// lanes: background band plus a coloured title strip
@@ -293,7 +293,7 @@ func vsdxPage(g *model.Graph, v View) string {
 			fill = "#FFFFFF"
 		}
 		head := "#1E3A8A"
-		if lane.Name == ExternalLane {
+		if lane.Name == externalLane {
 			head = "#9A3412"
 		}
 		lb := lane.Box
@@ -322,7 +322,7 @@ func vsdxPage(g *model.Graph, v View) string {
 		case model.KindExternal:
 			st.pattern = 2
 		}
-		c := CardOf(n)
+		c := cardOf(n)
 		runs := []run{{text: c.Title, size: 9, bold: true, color: ns.Text}}
 		if c.Sub != "" {
 			runs = append(runs, run{text: c.Sub, size: 7, color: "#64748B"})

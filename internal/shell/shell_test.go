@@ -25,7 +25,6 @@ FOO=1 $(MAKE) --directory=lib all || echo failed
 	}
 	for i, w := range want {
 		g := r.Makes[i]
-		g.Line = ""
 		if !reflect.DeepEqual(g, w) {
 			t.Errorf("make %d: got %+v want %+v", i, g, w)
 		}

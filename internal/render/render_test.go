@@ -50,7 +50,7 @@ func sample() *model.Graph {
 
 func TestCardOf(t *testing.T) {
 	g := sample()
-	c := CardOf(g.Node("bt:lib/Pub"))
+	c := cardOf(g.Node("bt:lib/Pub"))
 	if c.Sub != "Lib · Lib_Pub" {
 		t.Errorf("sub: %q", c.Sub)
 	}
@@ -61,16 +61,16 @@ func TestCardOf(t *testing.T) {
 	if got := strings.Join(c.Badges, "|"); got != want {
 		t.Errorf("badges (duplicates folded, finishBuild left to the edge):\n%s\nwant\n%s", got, want)
 	}
-	if b := CardOf(g.Node("bt:app/All")).Badges; len(b) != 1 || b[0] != "◆ composite" {
+	if b := cardOf(g.Node("bt:app/All")).Badges; len(b) != 1 || b[0] != "◆ composite" {
 		t.Errorf("composite: %v", b)
 	}
-	if one := CardOf(&model.Node{Kind: model.KindBuild, Artifacts: []string{"a"}}); one.Badges[0] != "▣ 1 artifact rule" {
+	if one := cardOf(&model.Node{Kind: model.KindBuild, Artifacts: []string{"a"}}); one.Badges[0] != "▣ 1 artifact rule" {
 		t.Errorf("singular: %v", one.Badges)
 	}
-	if m := CardOf(g.Node("mk:app/Makefile:image")); m.Title != "make image" || m.Lines[0] != "docker build" {
+	if m := cardOf(g.Node("mk:app/Makefile:image")); m.Title != "make image" || m.Lines[0] != "docker build" {
 		t.Errorf("make: %+v", m)
 	}
-	if i := CardOf(g.Node("img:reg/app")); !strings.HasSuffix(i.Title, "app") || i.Sub != "reg/app" {
+	if i := cardOf(g.Node("img:reg/app")); !strings.HasSuffix(i.Title, "app") || i.Sub != "reg/app" {
 		t.Errorf("image: %+v", i)
 	}
 }
@@ -92,7 +92,7 @@ func TestSizes(t *testing.T) {
 }
 
 func TestSubtitle(t *testing.T) {
-	got := Subtitle(sample())
+	got := subtitle(sample())
 	if got != "Generated 2026-01-01 00:00 UTC from 3 repositories: app, idle, lib@01234567" {
 		t.Errorf("got %q", got)
 	}

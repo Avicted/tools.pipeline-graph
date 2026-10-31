@@ -227,8 +227,8 @@ func TestIsLocal(t *testing.T) {
 		"file://" + dir:               false, // goes through git
 		"user@" + dir:                 false,
 	} {
-		if got := IsLocal(url); got != want {
-			t.Errorf("IsLocal(%q) = %v, want %v", url, got, want)
+		if got := isLocal(url); got != want {
+			t.Errorf("isLocal(%q) = %v, want %v", url, got, want)
 		}
 	}
 }

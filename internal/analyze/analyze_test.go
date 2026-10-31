@@ -106,8 +106,8 @@ func TestImageName(t *testing.T) {
 		"reg.io/x:%build.number%": "reg.io/x",
 		"$(IMAGE):latest":         "",
 	} {
-		if got := ImageName(in); got != want {
-			t.Errorf("ImageName(%q) = %q, want %q", in, got, want)
+		if got := imageName(in); got != want {
+			t.Errorf("imageName(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

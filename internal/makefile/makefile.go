@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"errors"
 	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,7 +29,6 @@ type Makefile struct {
 	Dir         string // directory make runs in, relative to the repo root
 	Rules       map[string]*Rule
 	Vars        map[string]string
-	Phony       map[string]bool
 	DefaultGoal string
 	Warnings    []string
 }
@@ -42,7 +40,7 @@ var (
 // Load parses the makefile at root/dir/file (file defaults to GNUmakefile|makefile|Makefile).
 // cmdVars are variables given on the make command line; they override assignments.
 func Load(root, dir, file string, cmdVars map[string]string) (*Makefile, error) {
-	m := &Makefile{Dir: filepath.ToSlash(filepath.Clean(dir)), Rules: map[string]*Rule{}, Vars: map[string]string{}, Phony: map[string]bool{}}
+	m := &Makefile{Dir: filepath.ToSlash(filepath.Clean(dir)), Rules: map[string]*Rule{}, Vars: map[string]string{}}
 	for k, v := range cmdVars {
 		m.Vars[k] = v
 	}
@@ -223,10 +221,7 @@ func (m *Makefile) parseRule(t, file string, line int) []*Rule {
 	prereqs := strings.Fields(m.Expand(rest))
 	var out []*Rule
 	for _, tg := range targets {
-		if tg == ".PHONY" {
-			for _, p := range prereqs {
-				m.Phony[p] = true
-			}
+		if tg == ".PHONY" { // declares targets; it is not a target of its own
 			continue
 		}
 		if strings.HasPrefix(tg, ".") && !strings.Contains(tg, "/") {
@@ -364,9 +359,6 @@ func matchParen(s string, open int) int {
 	}
 	return -1
 }
-
-// Targets returns all explicit targets in sorted order.
-func (m *Makefile) Targets() []string { return slices.Sorted(maps.Keys(m.Rules)) }
 
 // ExpandRecipe expands a recipe line in the context of a rule (automatic variables included).
 func (m *Makefile) ExpandRecipe(r *Rule, line string) string {

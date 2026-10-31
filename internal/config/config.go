@@ -141,7 +141,7 @@ func (c *Config) Finalize() error {
 			return fmt.Errorf("repos[%d]: url is required", i)
 		}
 		if r.Name == "" {
-			r.Name = NameFromURL(r.URL)
+			r.Name = nameFromURL(r.URL)
 		}
 		if err := r.foldLegacy(fmt.Sprintf("repos[%d]", i), &c.Notices); err != nil {
 			return err
@@ -241,8 +241,8 @@ func (c *Config) Settings(i int, name string, v any) error {
 
 func sortedKeys(m map[string]yaml.Node) []string { return slices.Sorted(maps.Keys(m)) }
 
-// NameFromURL turns git@host:org/service-a.git or https://host/org/service-a into "service-a".
-func NameFromURL(u string) string {
+// nameFromURL turns git@host:org/service-a.git or https://host/org/service-a into "service-a".
+func nameFromURL(u string) string {
 	u = strings.TrimRight(u, "/")
 	if i := strings.LastIndexAny(u, ":/"); i >= 0 {
 		u = u[i+1:]

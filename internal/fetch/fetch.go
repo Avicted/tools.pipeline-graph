@@ -51,8 +51,8 @@ func cacheKey(url, branch string) string {
 	return name + "-" + hex.EncodeToString(sum[:6])
 }
 
-// IsLocal reports whether url refers to an existing local directory (used as-is, no clone).
-func IsLocal(url string) bool {
+// isLocal reports whether url refers to an existing local directory (used as-is, no clone).
+func isLocal(url string) bool {
 	if strings.Contains(url, "://") || strings.Contains(url, "@") {
 		return false
 	}
@@ -96,7 +96,7 @@ func All(ctx context.Context, reqs []Request, cacheDir string, concurrency int, 
 }
 
 func one(ctx context.Context, r Request, cacheDir string, offline bool) Result {
-	if IsLocal(r.URL) {
+	if isLocal(r.URL) {
 		dir, err := filepath.Abs(r.URL)
 		if err != nil {
 			return Result{Err: err}

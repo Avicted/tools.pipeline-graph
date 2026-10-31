@@ -11,7 +11,7 @@ import (
 	"github.com/Avicted/tools.pipeline-graph/internal/model"
 )
 
-const ExternalLane = "External"
+const externalLane = "External"
 
 // View is one page of the diagram: a subset of the graph with its layout.
 type View struct {
@@ -78,7 +78,7 @@ type Card struct {
 
 const maxStepLines = 4
 
-func CardOf(n *model.Node) Card {
+func cardOf(n *model.Node) Card {
 	c := Card{Title: n.Label, Sub: n.Sub}
 	switch n.Kind {
 	case model.KindBuild:
@@ -143,7 +143,7 @@ func dedupe(in []string) []string {
 
 // Size estimates the box size of a node from its card text.
 func Size(n *model.Node) (float64, float64) {
-	c := CardOf(n)
+	c := cardOf(n)
 	const charW = 6.6
 	longest := float64(len([]rune(c.Title))) * 7.6
 	for _, l := range append(append([]string{c.Sub}, c.Lines...), strings.Join(c.Badges, "  ")) {
@@ -171,7 +171,7 @@ func Size(n *model.Node) (float64, float64) {
 // imported board). Boxes sized like Size let the text spill over the edges.
 func SizeVSDX(n *model.Node) (float64, float64) {
 	w, _ := Size(n)
-	c := CardOf(n)
+	c := cardOf(n)
 	lines := 1 + len(c.Lines)
 	if c.Sub != "" {
 		lines++
@@ -190,7 +190,7 @@ func laneNames(g *model.Graph) []string {
 	for _, r := range g.Repos {
 		lanes = append(lanes, r.Name)
 	}
-	return append(lanes, ExternalLane)
+	return append(lanes, externalLane)
 }
 
 // edgeLabel is the text on an edge in every output: a trigger says so, and the plain
@@ -207,7 +207,7 @@ func edgeLabel(e model.Edge) string {
 
 func laneOf(n *model.Node) string {
 	if n.Repo == "" {
-		return ExternalLane
+		return externalLane
 	}
 	return n.Repo
 }
@@ -312,8 +312,8 @@ func repoView(g *model.Graph, repo string) *model.Graph {
 	return g.Filter(func(n *model.Node) bool { return keep[n.ID] })
 }
 
-// Subtitle summarises where the diagram came from.
-func Subtitle(g *model.Graph) string {
+// subtitle summarises where the diagram came from.
+func subtitle(g *model.Graph) string {
 	var parts []string
 	for _, r := range g.Repos {
 		s := r.Name
