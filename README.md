@@ -27,9 +27,6 @@ pipeline-graph: 7 repos, 30 jobs, 38 make targets, 5 images, 1 external, 133 lin
 
 ![Every pipeline across seven repos on one page](docs/screenshots/overview.png)
 
-**[Try the live demo](https://avicted.github.io/tools.pipeline-graph/)**: the
-HTML viewer for the [Acme example](examples/acme), rebuilt on every push.
-
 ### What it answers
 
 | | |
