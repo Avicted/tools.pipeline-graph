@@ -208,7 +208,7 @@ fn cycles(net: &Net, n: usize) -> Vec<bool> {
                 let w = nb[*i];
                 *i += 1;
                 if w == v {
-                    out[v as usize] = true;
+                    out[v as usize] = true; // a self-loop is a cycle (the loader drops them, this does not rely on it)
                 }
                 if index[w as usize] == UNSEEN {
                     index[w as usize] = counter;

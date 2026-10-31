@@ -293,13 +293,10 @@ impl Workspace {
             }
 
             // container
-            let nets: [&crate::core::graph::Net; 1] = [&g.full];
             let mut cont: Vec<u32> = vec![];
-            for n in nets {
-                for &e in n.inn.es(v) {
-                    if n.kind[e as usize] == Ek::RunsIn {
-                        cont.push(n.from[e as usize]);
-                    }
+            for &e in g.full.inn.es(v) {
+                if g.full.kind[e as usize] == Ek::RunsIn {
+                    cont.push(g.full.from[e as usize]);
                 }
             }
             if g.kind[vi] != Kind::Image && !cont.is_empty() {

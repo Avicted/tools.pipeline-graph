@@ -22,3 +22,12 @@ lto = "thin"
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# The gate runs clippy with -D warnings; these are the few things worth refusing outright.
+[lints.rust]
+unsafe_code = "forbid" # there is none; graph.json is untrusted input and the viewer aborts on a panic
+
+[lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"

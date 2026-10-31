@@ -21,12 +21,6 @@ impl Rect {
     pub fn center(&self) -> (f32, f32) {
         ((self.x0 + self.x1) / 2.0, (self.y0 + self.y1) / 2.0)
     }
-    pub fn w(&self) -> f32 {
-        self.x1 - self.x0
-    }
-    pub fn h(&self) -> f32 {
-        self.y1 - self.y0
-    }
 }
 
 const CELL: f32 = 512.0;

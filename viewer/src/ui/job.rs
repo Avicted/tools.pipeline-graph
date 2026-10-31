@@ -1,11 +1,9 @@
 //! Background work: run a closure on a thread and poll for the result from the UI.
 
 use std::sync::mpsc::{self, TryRecvError};
-use std::time::Instant;
 
 pub struct Job<T> {
     rx: mpsc::Receiver<T>,
-    pub started: Instant,
 }
 
 /// Where a job stands.
@@ -27,7 +25,7 @@ impl<T: Send + 'static> Job<T> {
             let _ = tx.send(v);
             ctx.request_repaint();
         });
-        Job { rx, started: Instant::now() }
+        Job { rx }
     }
 
     pub fn poll(&self) -> Poll<T> {

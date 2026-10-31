@@ -5,7 +5,7 @@ use super::app::Workspace;
 use super::theme::{self, Palette};
 use super::util;
 use crate::core::graph::{Ek, Kind};
-use egui::{RichText, Stroke};
+use egui::RichText;
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -201,7 +201,6 @@ fn image_row(
             if !kids.is_empty() {
                 ui.add_space(4.0);
                 ui.label(RichText::new(format!("DERIVED IMAGES ({})", kids.len())).small().strong().color(pal.muted));
-                ui.painter().rect_stroke(ui.min_rect(), 0, Stroke::NONE, egui::StrokeKind::Inside);
                 for c in kids {
                     if path.contains(&c) {
                         continue;
@@ -209,7 +208,6 @@ fn image_row(
                     image_row(ui, m, pal, c, depth + 1, q, keep, children, jump, focus, path);
                 }
             }
-            let _ = util::num(0);
         });
     path.pop();
 }

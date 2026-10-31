@@ -19,7 +19,7 @@ impl Rig {
         let ctx = egui::Context::default();
         theme::install_fonts(&ctx);
         theme::apply(&ctx, Mode::Light);
-        let ws = Workspace::new(&ctx, m);
+        let ws = Workspace::new(m);
         Rig { ctx, ws, t: 0.0, prims: 0 }
     }
 

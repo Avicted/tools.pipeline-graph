@@ -84,11 +84,6 @@ impl Ek {
         }
     }
 
-    /// Edges that are part of the pipeline flow (everything but the make internals).
-    pub fn is_flow(self) -> bool {
-        !matches!(self, Ek::Runs | Ek::Depends | Ek::Calls)
-    }
-
     /// Edges that go from a caller to the make target it invokes.
     pub fn is_make(self) -> bool {
         matches!(self, Ek::Runs | Ek::Depends | Ek::Calls)
@@ -871,10 +866,6 @@ impl Graph {
     }
     pub fn artifacts(&self, v: u32) -> &[Sym] {
         &self.arts[self.art_off[v as usize] as usize..self.art_off[v as usize + 1] as usize]
-    }
-
-    pub fn has_trigger(&self, v: u32, ty: &str) -> bool {
-        self.triggers(v).iter().any(|t| self.s(t.ty) == ty)
     }
 
     pub fn repo_index(&self, name: &str) -> Option<usize> {

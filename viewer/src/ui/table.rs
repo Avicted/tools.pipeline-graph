@@ -1,13 +1,13 @@
 //! The explorer table: every job, image and make target, sortable and filterable.
 
-use super::app::{Screen, Workspace};
+use super::app::Workspace;
 use super::theme::{self, Palette};
 use super::util;
 use crate::core::derive::{Class, ENTRY_CHAINED, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS};
 use crate::core::diff::Change;
 use crate::core::graph::{Ek, Kind};
 use crate::core::search::Query;
-use egui::{Color32, Key, RichText, Sense, Stroke};
+use egui::{Color32, Key, RichText, Sense};
 use egui_extras::{Column, TableBuilder};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -427,7 +427,6 @@ impl Workspace {
         if let Some(v) = focus {
             self.open_focus(v);
         }
-        let _ = (Stroke::NONE, Ek::Runs, Screen::Table);
     }
 }
 

@@ -208,7 +208,7 @@ impl eframe::App for App {
                 if let Some(r) = job.poll_result() {
                     next = Some(match r {
                         Ok(m) => {
-                            let mut ws = Workspace::new(ctx, m);
+                            let mut ws = Workspace::new(m);
                             if let Some(c) = self.cli.compare.take() {
                                 ws.start_compare(ctx, c);
                                 ws.screen = Screen::Compare;
@@ -406,9 +406,8 @@ fn welcome(ctx: &egui::Context, pal: &Palette, err: Option<&str>, open: &mut Opt
 }
 
 impl Workspace {
-    pub fn new(ctx: &egui::Context, m: Model) -> Workspace {
+    pub fn new(m: Model) -> Workspace {
         let n = m.g.len();
-        let _ = ctx;
         let scene = if m.g.len() > 1500 { Scene::Repos } else { Scene::All };
         let ws = Workspace {
             m: Arc::new(m),
@@ -792,7 +791,7 @@ impl Workspace {
                         let again = compare.old_path.clone();
                         compare.diff = None;
                         compare.job = None;
-                        let mut fresh = Workspace::new(ctx, m);
+                        let mut fresh = Workspace::new(m);
                         fresh.compare = compare;
                         fresh.compare.discover(&fresh.m.path);
                         if let Some(p) = again {
@@ -1042,12 +1041,11 @@ impl Workspace {
             }
             ui.add_space(10.0);
             section(ui, pal, "REPOSITORIES");
-            for (i, r) in d.repos.iter().enumerate() {
+            for r in d.repos.iter() {
                 let n = r.builds + r.images;
                 if nav_item(ui, pal, g.s(r.name), Some(util::num(n)), false) {
                     let q = format!("repo:{}", g.s(r.name));
                     self.filter_table(&q);
-                    let _ = i;
                 }
             }
             ui.add_space(12.0);

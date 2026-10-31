@@ -4,7 +4,7 @@
 use super::app::{LineageMode, Screen, Workspace};
 use super::job::{Job, Poll};
 use super::theme::{self, Palette};
-use crate::core::derive::{Class, ENTRY_CHAINED, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS};
+use crate::core::derive::{Class, ENTRY_MANUAL, ENTRY_SCHEDULE, ENTRY_VCS};
 use crate::core::diff::Change;
 use crate::core::graph::Kind;
 use crate::core::model::Model;
@@ -198,7 +198,7 @@ impl Workspace {
             return;
         };
         let m = self.m.clone();
-        let (g, d) = (&m.g, &m.d);
+        let g = &m.g;
         let size = ui.available_size();
         let (resp, painter) = ui.allocate_painter(size, Sense::click_and_drag());
         let rect = resp.rect;
@@ -417,13 +417,6 @@ impl Workspace {
             }
             draw_edge(&painter, e, &to_screen, color, width, st.dash.filter(|_| k > 0.2), k);
             if lay.aggregated && k > 0.25 {
-                let mid = to_screen(e.pts[e.pts.len() / 2]);
-                let mid = if e.pts.len() % 2 == 0 {
-                    (mid.to_vec2() + to_screen(e.pts[e.pts.len() / 2 - 1]).to_vec2()).to_pos2() / 1.0
-                } else {
-                    mid
-                };
-                let _ = mid;
                 let a = to_screen(e.pts[0]);
                 let b = to_screen(*e.pts.last().unwrap());
                 let c = Pos2::new((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
@@ -468,14 +461,13 @@ impl Workspace {
         if hover_node.is_some() {
             ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
         }
-        if let (Some(ei), Some(p)) = (hover_edge, hover_pos) {
+        if let (Some(ei), Some(_)) = (hover_edge, hover_pos) {
             let e = &lay.edges[ei as usize];
             let (a, b) = (lay.nodes[e.a as usize].gid, lay.nodes[e.b as usize].gid);
             let text = format!("{}  →  {}\n{}", g.node_label(a), g.node_label(b), e.kind.name());
             egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), egui::Id::new("edge-tip"), |ui: &mut egui::Ui| {
                 ui.label(text);
             });
-            let _ = p;
         }
         let shift = ui.input(|i| i.modifiers.shift);
         if resp.double_clicked() {
@@ -594,9 +586,6 @@ impl Workspace {
                 y -= 17.0;
             }
         }
-        let _ = Class::None;
-        let _ = (ENTRY_CHAINED, ENTRY_MANUAL, ENTRY_SCHEDULE);
-        let _ = d;
     }
 
     fn start_anim(&mut self, to_pan: Vec2, to_k: f32, now: f64) {
@@ -722,8 +711,6 @@ fn draw_card(painter: &Painter, r: egui::Rect, v: u32, m: &Model, pal: &Palette,
     y += sh + 4.0 * k.clamp(0.8, 1.2);
     if k >= 0.8 && r.max.y - y > 12.0 {
         let mut x = r.min.x + pad + 4.0;
-        let top = Pos2::new(x, y);
-        let _ = top;
         let class = d.class[v as usize];
         if class != Class::None {
             x += pill(&clip, Pos2::new(x, y), class.name(), Color32::WHITE, dim(theme::class_color(class, pal.dark)));
@@ -740,9 +727,8 @@ fn draw_card(painter: &Painter, r: egui::Rect, v: u32, m: &Model, pal: &Palette,
             x += pill(&clip, Pos2::new(x, y), "image", dim(ink), chip_bg);
         }
         if d.no_test_up[v as usize] {
-            x += pill(&clip, Pos2::new(x, y), "no test upstream", dim(pal.card), pal.changed);
+            pill(&clip, Pos2::new(x, y), "no test upstream", dim(pal.card), pal.changed);
         }
-        let _ = x;
     }
     if vis.change != Change::Same {
         let c = if vis.change == Change::Added { pal.added } else { pal.changed };
@@ -772,12 +758,14 @@ fn draw_repo_card(painter: &Painter, r: egui::Rect, text: &(String, String), pal
     }
 }
 
-fn bezier_pts(pts: &[Pos2]) -> Vec<[Pos2; 4]> {
+/// One cubic segment per hop between ports. The bend needs a minimum reach, 30 points at
+/// full zoom, so short hops still curve.
+fn bezier_pts(pts: &[Pos2], k: f32) -> Vec<[Pos2; 4]> {
     let mut out = vec![];
     for w in pts.windows(2) {
         let (a, b) = (w[0], w[1]);
         let dir = if b.x >= a.x { 1.0 } else { -1.0 };
-        let dx = ((b.x - a.x).abs() / 2.0).max(30.0 * 0.0 + 1.0) * dir;
+        let dx = ((b.x - a.x).abs() / 2.0).max(30.0 * k) * dir;
         out.push([a, Pos2::new(a.x + dx, a.y), Pos2::new(b.x - dx, b.y), b]);
     }
     out
@@ -793,14 +781,7 @@ fn draw_edge(
     k: f32,
 ) {
     let pts: Vec<Pos2> = e.pts.iter().map(|&p| to_screen(p)).collect();
-    // the bend between ports needs a minimum reach so short hops still curve
-    let mut segs = bezier_pts(&pts);
-    for s in segs.iter_mut() {
-        let dir = if s[3].x >= s[0].x { 1.0 } else { -1.0 };
-        let dx = ((s[3].x - s[0].x).abs() / 2.0).max(30.0 * k) * dir;
-        s[1] = Pos2::new(s[0].x + dx, s[0].y);
-        s[2] = Pos2::new(s[3].x - dx, s[3].y);
-    }
+    let segs = bezier_pts(&pts, k);
     match dash {
         Some((dl, gap)) => {
             let mut flat: Vec<Pos2> = vec![];
