@@ -28,7 +28,7 @@ CYAN   := \033[36m
 RESET  := \033[0m
 
 # -t only when attached to a terminal, so colors work interactively while git
-# hooks and CI still get plain output.
+# hooks still get plain output.
 DOCKER = mkdir -p "$(CACHE_DIR)" && \
 	docker run --rm $$([ -t 1 ] && echo -t) \
 	  --user "$$(id -u):$$(id -g)" -e HOME=/tmp \
@@ -65,7 +65,7 @@ build-all: ## Cross-compile linux/windows/darwin binaries into dist/
 # shortcut: /etc/passwd is mounted so ssh finds your uid; Linux hosts only,
 # Docker Desktop on macOS maps ownership itself - add a uname switch if it bites.
 # The viewer is served on localhost and opened via $$BROWSER (set by VS Code
-# devcontainers), else xdg-open / open; only on a terminal, never in CI.
+# devcontainers), else xdg-open / open; only on a terminal, never from a hook or script.
 # shortcut: serves out/, so it assumes out_dir is out/.
 PG_CACHE := $(HOME)/.cache/pipeline-graph
 PG_DOCKER = mkdir -p "$(PG_CACHE)" && \

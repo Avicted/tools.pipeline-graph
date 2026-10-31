@@ -26,9 +26,13 @@ Commands are in [docs/development.md](docs/development.md); the design is in
 
 ## Before a commit
 
+There is no CI/CD; pipeline-graph is an internal tool and nothing is published. The
+git hooks are the gate, so run `make hooks` once in every clone.
+
 | Change | Run |
 |---|---|
 | anything | `make pre-commit-run` (the gate also runs as a git hook) |
+| reviewing a branch before merging | `make pre-commit-pr-run FROM_REF=master TO_REF=<branch>` |
 | viewer code | `make viewer-test` |
 | viewer UI | `make viewer-shots`, then `make viewer-shots-check` |
 | the Acme demo or the summary line | `go test ./cmd/pipeline-graph -run Readme` |

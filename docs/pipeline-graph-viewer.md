@@ -10,7 +10,8 @@ job, down to the script it runs and the container it runs in.
 It is plain Rust and egui. There is no server, no browser and no network. It
 opens 48,000 nodes (3,000 jobs, 45,000 make targets, layered images) in about
 0.3 s, holds the graph in about 30 MB, and redraws in well under a
-millisecond of CPU per frame; [the budgets](#performance) are checked in CI.
+millisecond of CPU per frame; [the budgets](#performance) are checked by
+`make viewer-bench`.
 
 ![Snapshot](screenshots/pipeline-graph-viewer/snapshot.png)
 
