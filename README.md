@@ -16,7 +16,6 @@ $ make run
 pipeline-graph: fetching 7 repositories into ~/.cache/pipeline-graph
 out/pipelines.drawio
 out/pipelines.vsdx
-out/pipelines.html
 out/pipelines.mmd
 out/pipelines.dot
 out/graph.json
@@ -25,20 +24,19 @@ out/warnings.txt
 pipeline-graph: 7 repos, 30 jobs, 38 make targets, 5 images, 1 external, 133 links, 1 warnings (see out/warnings.txt)
 ```
 
-![Every pipeline across seven repos on one page](docs/screenshots/overview.png)
+![The map: every pipeline across seven repositories](docs/screenshots/pipeline-graph-viewer/map.png)
 
 ### What it answers
 
+The native viewer ([below](#the-native-viewer)) opens `graph.json`.
+
 | | |
 |---|---|
-| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Click the image or its build: what it needs is ringed violet, what depends on it magenta. `B` keeps only the blast radius, `D` only the dependencies, `I` both. The URL points at exactly this view. | ![Blast radius of a base image change](docs/screenshots/blast-radius.png) |
-| **DevSecOps:** *where are images pushed and pulled?* `/` searches names, TeamCity ids, step scripts and parameters across every view. | ![Supply chain search](docs/screenshots/search-supply-chain.png) |
-| **Platform:** *how does a base image reach prod?* Select a job, then `Shift+click` another: only the routes between them stay, listed in order. The URL carries both ends. | ![Path between two jobs](docs/screenshots/path-finder.png) |
-| **QA:** *what does this test job actually run, what triggers it, and what waits for it?* | ![Details of a test job](docs/screenshots/qa-test-job.png) |
-| **Everyone:** *walk the team through the path to prod.* `P` is a presentation mode for screen sharing. | ![Presentation mode](docs/screenshots/present.png) |
-
-More in the [screenshot gallery](docs/screenshots/README.md), including the
-make drill-down, edge tooltips and analysis warnings.
+| **DevSecOps:** *a CVE lands in a base image. What rebuilds, and what gets redeployed?* Select the image or its build: what it needs is violet, what depends on it pink. `B` keeps only the blast radius, `D` only the dependencies, `I` both. | ![Lineage of one job](docs/screenshots/pipeline-graph-viewer/focus.png) |
+| **DevSecOps:** *where are images pushed and pulled?* **Images & layers** shows the base → application tree, who builds and uses each image and which jobs run inside it. | ![Images and layers](docs/screenshots/pipeline-graph-viewer/images.png) |
+| **Platform:** *how does a base image reach prod?* Select a job, then `Shift+click` another: only the routes between them stay. | ![The route between two jobs](docs/screenshots/pipeline-graph-viewer/map.png) |
+| **QA:** *what does this test job actually run, what triggers it, and what waits for it?* The inspector lists steps, scripts, triggers, container and neighbours. | ![The inspector](docs/screenshots/pipeline-graph-viewer/inspector.png) |
+| **Everyone:** *what changed since the last run?* **Compare** lists the jobs added, removed and changed against an earlier `graph.json` from `out/history/`. | ![Compare](docs/screenshots/pipeline-graph-viewer/compare.png) |
 
 ## Quick start
 
@@ -48,7 +46,8 @@ toolchain (`cargo`).
 ```sh
 make run                      # first run: creates pipeline-graph.yaml with a demo and renders it
 $EDITOR pipeline-graph.yaml   # put your repo URLs under `repos:`
-make run                      # serves and opens http://localhost:8080/pipelines.html
+make run                      # writes the diagrams and graph.json to out/
+make view                     # opens out/graph.json in the native viewer
 ```
 
 ### Your repos
@@ -79,12 +78,18 @@ this project directory, since only it is visible to the container.
 | File | What it's for |
 |------|---------------|
 | `pipelines.drawio` | The main diagram. Pages: *Overview* (pipelines and images), *Pipelines + make*, and one per repo with its cross-repo neighbours. Repos are swimlanes, flow runs left to right, and each page has a legend and the commit SHAs it was built from. |
-| `pipelines.vsdx` | The same pages as Visio, for importing into Miro. |
-| `pipelines.html` | Self-contained interactive viewer (no CDN). See [The HTML viewer](docs/viewer.md). |
+| `pipelines.vsdx` | The same pages as Visio, for importing into Miro (see [below](#importing-into-miro)). |
 | `pipelines.mmd` | Mermaid flowchart of the overview; renders in GitHub/GitLab markdown and Miro's Mermaid app. |
 | `pipelines.dot` / `.svg` | Graphviz source of the overview. The `.svg` is written only if `dot` is installed (the Docker image has it). |
-| `graph.json` | The full graph model (`schemaVersion` 1), for scripting, diffing runs and the native viewer. A dated copy of every changed graph is kept in `history/`. |
+| `graph.json` | The full graph model (`schemaVersion` 1), for scripting, diffing runs and the native viewer, which is how you explore it. A dated copy of every changed graph is kept in `history/`. |
 | `warnings.txt` | Every reference or file the analysis could not resolve. |
+
+### Importing into Miro
+
+Use **Upload → Visio (.vsdx)** with `pipelines.vsdx` and pick the pages to
+import. Colours and formatted text are kept, and connectors stay glued to
+their shapes. `pipelines.drawio` is the editable version for diagrams.net and
+Confluence.
 
 ## The native viewer
 
@@ -117,12 +122,11 @@ make run && make view
 make view GRAPH=out/acme/graph.json COMPARE=viewer/testdata/acme-previous.json
 ```
 
-See [the pipeline-graph viewer](docs/pipeline-graph-viewer.md).
+See [the viewer guide](docs/viewer.md).
 
 ## Docs
 
-- [The pipeline-graph viewer](docs/pipeline-graph-viewer.md): screens, search, comparing runs, budgets
-- [The HTML viewer](docs/viewer.md): shortcuts, lineage, sharing, Miro import
+- [The viewer](docs/viewer.md): screens, search, comparing runs, budgets
 - [What is analysed](docs/analysis.md): recognised constructs, cross-repo references, limits
 - [Architecture](docs/architecture.md): the system on one page; detail pages in [docs/architecture/](docs/architecture/) cover the CLI, security, the `graph.json` contract, the viewer, the quality gate and release
 - [Development](docs/development.md): devcontainer, adding a CI/CD system, tests, quality gate, layout

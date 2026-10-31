@@ -144,10 +144,10 @@
     </element>
     <element identifier="id-diagram-files" xsi:type="DataObject">
       <name xml:lang="en">Diagrams</name>
-      <documentation xml:lang="en">drawio, vsdx, html, mmd, dot.</documentation>
+      <documentation xml:lang="en">drawio, vsdx, mmd, dot.</documentation>
     </element>
     <element identifier="id-drawings" xsi:type="DataObject">
-      <name xml:lang="en">drawio · vsdx · html</name>
+      <name xml:lang="en">drawio · vsdx</name>
     </element>
     <element identifier="id-text-diagrams" xsi:type="DataObject">
       <name xml:lang="en">mmd · dot</name>
@@ -380,7 +380,7 @@
     </relationship>
     <relationship identifier="id-cli-access-clone-cache" source="id-cli" target="id-clone-cache" xsi:type="Access" accessType="ReadWrite"/>
     <relationship identifier="id-cli-access-project-dir" source="id-cli" target="id-project-dir" xsi:type="Access" accessType="Write">
-      <name xml:lang="en">drawio · vsdx · html · mmd · dot · graph.json</name>
+      <name xml:lang="en">drawio · vsdx · mmd · dot · graph.json</name>
     </relationship>
     <relationship identifier="id-viewer-access-project-dir" source="id-viewer" target="id-project-dir" xsi:type="Access" accessType="Read">
       <name xml:lang="en">graph.json</name>
@@ -667,7 +667,7 @@
         <node identifier="n-one-run-text" elementRef="id-text-diagrams" xsi:type="Element" x="966" y="75" w="120" h="55"/>
         <node identifier="n-one-run-warn" elementRef="id-warnings" xsi:type="Element" x="966" y="150" w="120" h="55"/>
         <node identifier="n-one-run-json" elementRef="id-graph-json" xsi:type="Element" x="966" y="225" w="120" h="55"/>
-        <node identifier="n-one-run-files" elementRef="id-drawings" xsi:type="Element" x="1160" y="0" w="170" h="55"/>
+        <node identifier="n-one-run-files" elementRef="id-drawings" xsi:type="Element" x="1160" y="0" w="121" h="55"/>
         <connection identifier="c-one-run-p-config-flow-p-fetch" relationshipRef="id-p-config-flow-p-fetch" xsi:type="Relationship" source="n-one-run-cfg" target="n-one-run-fetch"/>
         <connection identifier="c-one-run-p-fetch-flow-p-select" relationshipRef="id-p-fetch-flow-p-select" xsi:type="Relationship" source="n-one-run-fetch" target="n-one-run-sel"/>
         <connection identifier="c-one-run-p-select-flow-p-load" relationshipRef="id-p-select-flow-p-load" xsi:type="Relationship" source="n-one-run-sel" target="n-one-run-load"/>

@@ -69,7 +69,7 @@ flowchart LR
     an -- "overview" --> text[("mmd · dot")]
     an -- "[]warning" --> warn[("warnings.txt")]
     an -- "*model.Graph" --> json[("graph.json<br/>history/ if changed")]
-    views --> files[("drawio · vsdx · html")]
+    views --> files[("drawio · vsdx")]
 
     classDef go fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
     classDef data fill:#fef3c7,stroke:#b45309,color:#3a2402

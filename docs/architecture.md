@@ -38,7 +38,7 @@ flowchart LR
     subgraph out["out/"]
         direction TB
         json[("graph.json<br/>the contract")]
-        diagrams[("drawio · vsdx · html<br/>mmd · dot")]
+        diagrams[("drawio · vsdx<br/>mmd · dot")]
     end
     subgraph viewer["viewer · Rust"]
         direction TB
@@ -118,8 +118,8 @@ open question on `schemaVersion` is in [contract.md](architecture/contract.md#op
 | The tool reads repositories it doesn't own | Static analysis only; nothing from them is executed | Safe on any repository and needs no CI server credentials. Anything decided at run time is invisible and shows up in `warnings.txt` |
 | Several CI systems, one picture | One neutral job model behind `ci.Provider` | A new system doesn't touch analysis or rendering; system-specific detail has to fit `ci.Job` |
 | Two languages, Go and Rust | `graph.json` with a golden file tested on both sides | Every shape change touches both sides and the golden file, on purpose |
-| Graphs with tens of thousands of nodes | A native egui viewer next to the HTML one | Interactive at that size, at the cost of a second UI and builds per platform |
-| The docs must show the real UI | The apps take their own screenshots | They can be rebuilt and checked; that needs a display (native) or a Chromium image (web) |
+| Graphs with tens of thousands of nodes | One viewer, a native egui app; the self-contained HTML page was removed | Interactive at that size and one UI to maintain. Viewing needs a local Rust build and a display: there is no zero-install browser path, and the HTML-only features (swimlane overview, make drill-down, presentation mode, shareable URLs) are not ported yet |
+| The docs must show the real UI | The apps take their own screenshots | They can be rebuilt and checked; that needs a display |
 | The same results on every machine | The quality gate runs in a pinned Docker image | Docker is required |
 | The architecture should be usable in modelling tools | One ArchiMate model generated from `model.yaml`, one view per Mermaid diagram, kept in step by tests | A diagram change is two edits plus `make archimate`; the tests catch missing nodes, not changed labels or arrows |
 | An internal tool; nothing is published | No CI/CD: git hooks on every machine plus a review run before merging | Nothing hosted to maintain or pay for, and no secrets in a CI system. The gate holds only if everyone runs `make hooks` and reviews really run `pre-commit-pr-run` |

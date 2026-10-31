@@ -68,30 +68,6 @@ make archimate  # after changing an architecture diagram: regenerate the ArchiMa
 Output is deterministic: the same commits give the same files. Set
 `SOURCE_DATE_EPOCH` to pin the "generated" timestamp.
 
-### Screenshots
-
-The images in `docs/screenshots` are generated, not hand-made. After a change
-to the viewer (or the Acme example), run:
-
-```sh
-make screenshots
-```
-
-This builds the example and drives headless Chromium through the scenes
-defined in `scripts/scenes.json`, one per PNG, and rewrites the
-gallery in `docs/screenshots/README.md`. It runs in Docker
-(`Dockerfile.screenshots`), so the browser, the fonts, and therefore the
-pixels, are the same on every machine, and the browser clock is frozen. A
-second run gives byte-identical files, so `git status` shows only what really
-changed. Each scene also checks the page reached the expected state and fails
-on any JavaScript error, so a broken viewer fails the run instead of producing
-a bad picture. To add a screenshot, add a scene to `scripts/scenes.json`.
-`make shot SCENE=focus,table` renders only some scenes into `out/shots` (not
-committed); `HTML=` and `SCENES=` (paths inside the repo) point it at your own
-page or scene file.
-Without Docker, `node scripts/screenshots.mjs` (Node 22 or later) uses a local
-`chromium`, or the browser named in `$CHROME`.
-
 ### Quality gate
 
 All checks run in Docker (`Dockerfile.pre-commit`) with pinned tool versions,
@@ -133,19 +109,18 @@ internal/shell       make/docker/script invocations in shell text
 internal/analyze     builds the graph from any provider's jobs; resolves cross-repo references
 internal/model       graph types (nodes, edges, steps, triggers)
 internal/layout      layered left-to-right layout with repo swimlanes
-internal/render      draw.io, Visio, HTML viewer, Mermaid, DOT
+internal/render      draw.io, Visio, Mermaid, DOT
 test/fixtures/repos  sample repos covering the recognised constructs
 examples/acme        larger fictional TeamCity example (`make example`)
 examples/github      fictional GitHub Actions example (`make example-github`)
 test/docs            checks the package and module diagrams against the code
 tools/archimate      docs/architecture/model.yaml → model.archimate.xml (`make archimate`)
-scripts              screenshots.mjs, scenes.json: regenerate docs/screenshots (`make screenshots`)
 ```
 
 ## The native viewer
 
 `viewer/` is a separate Rust crate (`pipeline-graph-viewer`, egui) that reads `graph.json`; see
-[the viewer docs](pipeline-graph-viewer.md) for what it does. `graph.json` is the whole contract between
+[the viewer docs](viewer.md) for what it does. `graph.json` is the whole contract between
 the two programs: when you add a node or edge kind in Go, bump
 `model.SchemaVersion` if the shape changes and teach `viewer/src/core/graph.rs`
 the new kind (`viewer/tests/contract.rs` fails on an edge kind it does not know).

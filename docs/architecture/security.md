@@ -26,7 +26,7 @@ flowchart LR
     repos -- "git clone --depth 1" --> cli
     creds -. "auth for git only" .-> cli
     cli <--> cache
-    cli -- "drawio · vsdx · html · mmd · dot · graph.json" --> out
+    cli -- "drawio · vsdx · mmd · dot · graph.json" --> out
     out -- "graph.json" --> viewer
     users --> viewer
     users -- "browser · draw.io · Miro" --> out
@@ -63,5 +63,4 @@ flowchart LR
   draw.io or Visio reject the file.
 - The container sees only what `make run` mounts: the project directory, the clone
   cache, and, read-only, what git needs to authenticate.
-- Its only network traffic is git. `-serve` is a local file server for `out/`, mounted
-  read-only (`make serve`).
+- Its only network traffic is git. There is no server: outputs are files, opened by the viewer.

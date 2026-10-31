@@ -51,8 +51,8 @@ elements:
   - {id: analysed-repos, type: DataObject, name: Analysed repositories, doc: "Untrusted input: TeamCity DSL, workflows, Makefiles, Dockerfiles."}
   - {id: graph-json, type: DataObject, name: graph.json, doc: The contract between the two programs.}
   - {id: golden, type: DataObject, name: graph.json.golden, doc: test/integration/testdata/graph.json.golden.}
-  - {id: diagram-files, type: DataObject, name: Diagrams, doc: "drawio, vsdx, html, mmd, dot."}
-  - {id: drawings, type: DataObject, name: "drawio · vsdx · html"}
+  - {id: diagram-files, type: DataObject, name: Diagrams, doc: "drawio, vsdx, mmd, dot."}
+  - {id: drawings, type: DataObject, name: "drawio · vsdx"}
   - {id: text-diagrams, type: DataObject, name: "mmd · dot"}
   - {id: warnings, type: DataObject, name: warnings.txt, doc: What the analysis could not resolve.}
   - {id: project-dir, type: DataObject, name: "Project directory (/work, rw)", doc: "Config in, out/ written."}
@@ -162,7 +162,7 @@ relationships:
   # Trust boundaries.
   - {type: Access, access: Read, source: cli, target: git-creds, name: auth for git only}
   - {type: Access, access: ReadWrite, source: cli, target: clone-cache}
-  - {type: Access, access: Write, source: cli, target: project-dir, name: "drawio · vsdx · html · mmd · dot · graph.json"}
+  - {type: Access, access: Write, source: cli, target: project-dir, name: "drawio · vsdx · mmd · dot · graph.json"}
   - {type: Access, access: Read, source: viewer, target: project-dir, name: graph.json}
   - {type: Serving, source: viewer, target: users}
   - {type: Association, source: users, target: project-dir, name: "browser · draw.io · Miro"}

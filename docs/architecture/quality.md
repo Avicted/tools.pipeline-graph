@@ -110,7 +110,5 @@ and `make viewer`.
   push, on machines that have the hooks.
 - **`make viewer-shots-check` and `make viewer-bench` are manual**, so neither is part
   of the gate.
-- **Chromium isn't version-pinned** in `Dockerfile.screenshots`, because Debian removes
-  superseded builds. The web screenshots can shift after a security update.
 - **`make new-version` and `make undo-version` have no automated test.** Only their
   guards have been checked.

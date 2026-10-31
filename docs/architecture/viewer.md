@@ -1,7 +1,7 @@
 # The viewer
 
 How `pipeline-graph-viewer` (`viewer/`) is built and how it behaves while it runs.
-For what it shows and how to use it, see [the viewer guide](../pipeline-graph-viewer.md).
+For what it shows and how to use it, see [the viewer guide](../viewer.md).
 
 Diagrams use the [legend](../architecture.md#legend); each answers the question
 stated under its heading.
@@ -106,5 +106,8 @@ flowchart TB
   `ui::headless` run without a window.
 - A reload builds a fresh `Workspace` around the new model, then carries over the
   selection, the screen, the table filter and the comparison.
+- **Not ported from the removed HTML viewer:** the swimlane overview, the make-target
+  drill-down, presentation mode and shareable URLs (`--goto` covers part of the last).
+  They are feature work, not part of the cleanup.
 - The budgets are checked on a synthetic graph with 48,000 nodes by `make viewer-bench`.
   It loads in about 0.3 s and stays at about 30 MB.
